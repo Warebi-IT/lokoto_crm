@@ -9,13 +9,18 @@ import {
 	CommandItem,
 	CommandList,
 } from "@crm/ui/components/command";
-import { Field, FieldGroup, FieldLabel } from "@crm/ui/components/field";
+import {
+	Field,
+	FieldDescription,
+	FieldGroup,
+	FieldLabel,
+} from "@crm/ui/components/field";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
 import {
 	Popover,
+	PopoverAnchor,
 	PopoverContent,
-	PopoverTrigger,
 } from "@crm/ui/components/popover";
 import {
 	Select,
@@ -148,11 +153,11 @@ function CreateVehicleForm() {
 			<SheetTrigger asChild>
 				<AddButton />
 			</SheetTrigger>
-			<SheetContent side="right">
+			<SheetContent side="right" size="2xl">
 				<SheetHeader>
-					<SheetTitle>Nouveau véhicule</SheetTitle>
+					<SheetTitle size="lg">Nouveau véhicule</SheetTitle>
 					<SheetDescription>
-						Ajoutez-le à la flotte avec son immatriculation.
+						Renseignez les informations du véhicule pour l’ajouter à la flotte.
 					</SheetDescription>
 				</SheetHeader>
 
@@ -180,6 +185,9 @@ function CreateVehicleForm() {
 					<FieldGroup>
 						<Field>
 							<FieldLabel htmlFor="create-vehicle-type">Type</FieldLabel>
+							<FieldDescription>
+								Détermine la catégorie du véhicule.
+							</FieldDescription>
 							<Select value={type} onValueChange={setType}>
 								<SelectTrigger id="create-vehicle-type">
 									<SelectValue />
@@ -196,6 +204,9 @@ function CreateVehicleForm() {
 
 						<Field>
 							<FieldLabel htmlFor="create-vehicle-fuel">Carburant</FieldLabel>
+							<FieldDescription>
+								Indiquez l’énergie utilisée par le véhicule.
+							</FieldDescription>
 							<Select value={fuelType} onValueChange={setFuelType}>
 								<SelectTrigger id="create-vehicle-fuel">
 									<SelectValue />
@@ -212,6 +223,9 @@ function CreateVehicleForm() {
 
 						<Field>
 							<FieldLabel htmlFor={seatsId}>Nombre de sièges</FieldLabel>
+							<FieldDescription>
+								Nombre de personnes pouvant être transportées.
+							</FieldDescription>
 							<Input
 								id={seatsId}
 								value={seats}
@@ -225,6 +239,7 @@ function CreateVehicleForm() {
 
 						<CatalogField
 							label="Marque"
+							description="Choisissez une marque du catalogue ou saisissez-la."
 							placeholder="Toyota"
 							value={make}
 							options={makeOptions.map((option) => ({
@@ -245,6 +260,7 @@ function CreateVehicleForm() {
 
 						<CatalogField
 							label="Modèle"
+							description="Le modèle est filtré selon la marque choisie."
 							placeholder="Corolla"
 							value={model}
 							disabled={make.trim() === ""}
@@ -266,6 +282,9 @@ function CreateVehicleForm() {
 
 						<Field>
 							<FieldLabel htmlFor={yearId}>Année</FieldLabel>
+							<FieldDescription>
+								Année de première mise en circulation.
+							</FieldDescription>
 							<Input
 								id={yearId}
 								value={year}
@@ -278,6 +297,9 @@ function CreateVehicleForm() {
 
 						<Field>
 							<FieldLabel htmlFor={plateId}>Immatriculation</FieldLabel>
+							<FieldDescription>
+								Identifiant unique utilisé dans les contrats.
+							</FieldDescription>
 							<Input
 								id={plateId}
 								value={plateNumber}
@@ -290,6 +312,9 @@ function CreateVehicleForm() {
 
 						<Field>
 							<FieldLabel htmlFor={rateId}>Tarif journalier</FieldLabel>
+							<FieldDescription>
+								Prix de location par jour, dans la devise de la société.
+							</FieldDescription>
 							<Input
 								id={rateId}
 								value={dailyRate}
@@ -322,6 +347,7 @@ function CreateVehicleForm() {
 
 function CatalogField({
 	label,
+	description,
 	placeholder,
 	value,
 	options,
@@ -330,6 +356,7 @@ function CatalogField({
 	onSelect,
 }: {
 	label: string;
+	description: string;
 	placeholder: string;
 	value: string;
 	options: { key: string; label: string }[];
@@ -339,13 +366,14 @@ function CatalogField({
 }) {
 	const id = useId();
 	const [open, setOpen] = useState(false);
-	const showSuggestions = open && !disabled && options.length > 0;
+	const showSuggestions = open && !disabled;
 
 	return (
 		<Field>
 			<FieldLabel htmlFor={id}>{label}</FieldLabel>
+			<FieldDescription>{description}</FieldDescription>
 			<Popover open={showSuggestions} onOpenChange={setOpen}>
-				<PopoverTrigger asChild>
+				<PopoverAnchor asChild>
 					<Input
 						id={id}
 						value={value}
@@ -359,7 +387,7 @@ function CatalogField({
 						disabled={disabled}
 						required
 					/>
-				</PopoverTrigger>
+				</PopoverAnchor>
 				<PopoverContent
 					size="fit"
 					align="start"

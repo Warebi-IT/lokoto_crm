@@ -1,16 +1,15 @@
 import { cn } from "@crm/ui/lib/utils";
-import type * as React from "react";
+import * as React from "react";
 
-function Input({
-	className,
-	type,
-	density = "default",
-	...props
-}: React.ComponentProps<"input"> & {
-	density?: "default" | "sm";
-}) {
+const Input = React.forwardRef<
+	HTMLInputElement,
+	React.ComponentProps<"input"> & {
+		density?: "default" | "sm";
+	}
+>(({ className, type, density = "default", ...props }, ref) => {
 	return (
 		<input
+			ref={ref}
 			type={type}
 			data-slot="input"
 			className={cn(
@@ -21,6 +20,7 @@ function Input({
 			{...props}
 		/>
 	);
-}
+});
+Input.displayName = "Input";
 
 export { Input };
