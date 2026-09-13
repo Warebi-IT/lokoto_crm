@@ -219,12 +219,6 @@ export function FleetDashboardOverview({ summary }: { summary: Summary }) {
 			>
 				<StatGroup>
 					<StatCard
-						icon={<Icon icon={Time} />}
-						label="Locations en cours"
-						value={formatCount(today.rentalsInProgress, "location")}
-						description="Contrats actuellement en cours"
-					/>
-					<StatCard
 						icon={<Icon icon={CarFront} />}
 						label="Véhicules mobilisés"
 						value={formatCount(today.vehiclesRented, "véhicule")}
