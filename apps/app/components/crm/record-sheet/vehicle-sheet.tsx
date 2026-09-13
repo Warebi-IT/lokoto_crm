@@ -1,6 +1,7 @@
 "use client";
 
 import Calendar from "@carbon/icons-react/es/Calendar";
+import CarFront from "@carbon/icons-react/es/CarFront";
 import Currency from "@carbon/icons-react/es/Currency";
 import Edit from "@carbon/icons-react/es/Edit";
 import Information from "@carbon/icons-react/es/Information";
@@ -47,6 +48,7 @@ import {
 } from "@crm/ui/components/tooltip";
 import { formatMoney, formatMoneyCompact } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import Image from "next/image";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { AgentPanel } from "@/components/crm/agent-panel";
@@ -200,6 +202,27 @@ const MILEAGE_TREND_CONFIG: ChartConfig = {
 	mileage: { label: "Kilométrage", color: "var(--chart-1)" },
 };
 
+function VehicleMedia({ vehicle }: { vehicle: Vehicle }) {
+	const [broken, setBroken] = useState(false);
+	const photo = vehicle.photoUrls[0];
+
+	return (
+		<div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
+			{photo && !broken ? (
+				<Image
+					src={photo}
+					alt={`${vehicle.make} ${vehicle.model}`}
+					fill
+					className="object-cover"
+					onError={() => setBroken(true)}
+				/>
+			) : (
+				<Icon icon={CarFront} className="text-muted-foreground" />
+			)}
+		</div>
+	);
+}
+
 export function VehicleSheet({ vehicleId }: { vehicleId: string }) {
 	const trpc = useTRPC();
 	const { tab, setTab } = useRecordSheetView("overview");
@@ -258,6 +281,7 @@ export function VehicleSheet({ vehicleId }: { vehicleId: string }) {
 		<RecordSheetFrame
 			loading={query.isPending}
 			error={query.error?.message ?? null}
+			media={vehicle ? <VehicleMedia vehicle={vehicle} /> : null}
 			title={vehicle ? `${vehicle.make} ${vehicle.model}` : "Véhicule"}
 			description={vehicle?.plateNumber}
 			actions={
