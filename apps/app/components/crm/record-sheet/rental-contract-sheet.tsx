@@ -651,7 +651,8 @@ function ContractOverview({ contract }: { contract: RentalContract }) {
 									value={contract.startDate}
 									saving={isSaving("startDate")}
 									onSave={(next) => next && save({ startDate: next })}
-									className="max-w-32"
+									className="max-w-40"
+									size="lg"
 									bare
 								/>
 								<InlineField
@@ -674,7 +675,8 @@ function ContractOverview({ contract }: { contract: RentalContract }) {
 									value={contract.endDate}
 									saving={isSaving("endDate")}
 									onSave={(next) => next && save({ endDate: next })}
-									className="max-w-32"
+									className="max-w-40"
+									size="lg"
 									bare
 								/>
 								<InlineField

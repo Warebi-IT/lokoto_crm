@@ -321,6 +321,7 @@ export function InlineDateField({
 	placeholder = "—",
 	className,
 	bare = false,
+	size = "default",
 }: {
 	label: string;
 	value: string | null;
@@ -328,6 +329,7 @@ export function InlineDateField({
 	saving?: boolean;
 	placeholder?: string;
 	className?: string;
+	size?: "sm" | "default" | "lg";
 	/** Skip the label column and outer row grid — for grouping under a shared label. */
 	bare?: boolean;
 }) {
@@ -338,6 +340,7 @@ export function InlineDateField({
 			<DatePicker
 				id={id}
 				variant="ghost"
+				size={size}
 				value={value?.slice(0, 10) ?? null}
 				placeholder={placeholder}
 				onChange={onSave}
