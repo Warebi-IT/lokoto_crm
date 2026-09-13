@@ -29,11 +29,19 @@ export const vehicleListInput = listInput.extend({
 	type: z.string().default("all"),
 });
 
+export const vehicleCatalogInput = z.object({
+	q: z.string().trim().default(""),
+	make: z.string().trim().optional(),
+});
+
 export type VehicleListInput = z.infer<typeof vehicleListInput>;
+export type VehicleCatalogInput = z.infer<typeof vehicleCatalogInput>;
 
 export const vehicleCreateInput = z.object({
 	type: vehicleTypeEnum,
-	fuelType: fuelTypeEnum.optional(),
+	fuelType: fuelTypeEnum,
+	seats: z.number().int().min(1, "A vehicle needs at least one seat.").max(100),
+	vehicleCatalogId: z.string().trim().optional(),
 	make: z.string().trim().min(1, "A vehicle needs a make."),
 	model: z.string().trim().min(1, "A vehicle needs a model."),
 	year: z.number().int().min(1950).max(2100).nullable().optional(),
@@ -55,6 +63,7 @@ export type VehicleCreateInput = z.infer<typeof vehicleCreateInput>;
 const vehicleUpdateInput = z.object({
 	type: vehicleTypeEnum.optional(),
 	fuelType: fuelTypeEnum.optional(),
+	seats: z.number().int().min(1).max(100).nullable().optional(),
 	make: z.string().trim().min(1).optional(),
 	model: z.string().trim().min(1).optional(),
 	year: z.number().int().min(1950).max(2100).nullable().optional(),

@@ -1,6 +1,5 @@
 import {
 	type Db,
-	FuelType,
 	type Prisma,
 	Prisma as PrismaNamespace,
 	RentalContractStatus,
@@ -33,6 +32,7 @@ import {
 import type {
 	VehicleAvailabilityInput,
 	VehicleBulkStatusInput,
+	VehicleCatalogInput,
 	VehicleCreateInput,
 	VehicleListInput,
 	VehicleSetFinancingInput,
@@ -52,6 +52,30 @@ const SORTABLE: Record<
 	createdAt: (dir) => [{ createdAt: dir }],
 	lastActivity: (dir) => [{ lastActivityAt: { sort: dir, nulls: "last" } }],
 };
+
+const PHOTO_YEAR = /\/(\d{4})\/[^/]+$/;
+
+function closestYearPhoto(
+	photoUrls: string[],
+	targetYear: number | null,
+): string | null {
+	const year = targetYear ?? new Date().getFullYear();
+
+	let best: string | null = null;
+	let bestDistance = Number.POSITIVE_INFINITY;
+
+	for (const url of photoUrls) {
+		const match = url.match(PHOTO_YEAR);
+		if (!match?.[1]) continue;
+		const distance = Math.abs(Number(match[1]) - year);
+		if (distance < bestDistance) {
+			best = url;
+			bestDistance = distance;
+		}
+	}
+
+	return best;
+}
 
 @Injectable()
 export class VehiclesService {
@@ -82,6 +106,8 @@ export class VehiclesService {
 					make: true,
 					model: true,
 					year: true,
+					seats: true,
+					photoUrls: true,
 					plateNumber: true,
 					status: true,
 					dailyRate: true,
@@ -121,6 +147,35 @@ export class VehiclesService {
 			reportingCurrency: string;
 			unconverted: { count: number; currencies: string[] };
 		};
+	}
+
+	async catalog(input: VehicleCatalogInput) {
+		const q = input.q.trim();
+		return this.db.vehicleCatalog.findMany({
+			where: {
+				...(input.make ? { make: input.make } : {}),
+				...(q
+					? {
+							OR: [
+								{ make: { contains: q, mode: "insensitive" } },
+								{ model: { contains: q, mode: "insensitive" } },
+							],
+						}
+					: {}),
+			},
+			orderBy: [{ make: "asc" }, { model: "asc" }],
+			take: 100,
+			select: {
+				id: true,
+				make: true,
+				model: true,
+				yearFrom: true,
+				yearTo: true,
+				seats: true,
+				fuelType: true,
+				photoUrls: true,
+			},
+		});
 	}
 
 	async byId(id: string) {
@@ -287,11 +342,23 @@ export class VehiclesService {
 			currency,
 		);
 
+		const catalog = input.vehicleCatalogId
+			? await this.db.vehicleCatalog.findUnique({
+					where: { id: input.vehicleCatalogId },
+					select: { photoUrls: true },
+				})
+			: null;
+		const photo = catalog
+			? closestYearPhoto(catalog.photoUrls, input.year ?? null)
+			: null;
+
 		try {
 			const vehicle = await this.db.vehicle.create({
 				data: {
 					type: input.type,
-					fuelType: input.fuelType ?? FuelType.GASOLINE,
+					fuelType: input.fuelType,
+					seats: input.seats,
+					photoUrls: photo ? [photo] : [],
 					make: input.make.trim(),
 					model: input.model.trim(),
 					year: input.year ?? null,
@@ -328,6 +395,7 @@ export class VehiclesService {
 
 		if (input.type !== undefined) data.type = input.type;
 		if (input.fuelType !== undefined) data.fuelType = input.fuelType;
+		if (input.seats !== undefined) data.seats = input.seats;
 		if (input.make !== undefined) data.make = input.make.trim();
 		if (input.model !== undefined) data.model = input.model.trim();
 		if (input.year !== undefined) data.year = input.year;

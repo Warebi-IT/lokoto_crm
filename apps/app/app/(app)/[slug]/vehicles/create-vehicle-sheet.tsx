@@ -2,9 +2,21 @@
 
 import Add from "@carbon/icons-react/es/Add";
 import { Button } from "@crm/ui/components/button";
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandItem,
+	CommandList,
+} from "@crm/ui/components/command";
 import { Field, FieldGroup, FieldLabel } from "@crm/ui/components/field";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@crm/ui/components/popover";
 import {
 	Select,
 	SelectContent,
@@ -23,7 +35,7 @@ import {
 	SheetTrigger,
 } from "@crm/ui/components/sheet";
 import { Spinner } from "@crm/ui/components/spinner";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { type ComponentProps, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
@@ -73,15 +85,34 @@ function CreateVehicleForm() {
 	);
 	const [type, setType] = useState("CAR");
 	const [fuelType, setFuelType] = useState("GASOLINE");
+	const [seats, setSeats] = useState("");
+	const [year, setYear] = useState("");
 	const [make, setMake] = useState("");
 	const [model, setModel] = useState("");
+	const [catalogId, setCatalogId] = useState<string | null>(null);
 	const [plateNumber, setPlateNumber] = useState("");
 	const [dailyRate, setDailyRate] = useState("");
 
-	const makeId = useId();
-	const modelId = useId();
+	const seatsId = useId();
+	const yearId = useId();
 	const plateId = useId();
 	const rateId = useId();
+
+	const makeCatalog = useQuery({
+		...trpc.vehicles.catalog.queryOptions({ q: make }),
+		enabled: make.trim().length > 0,
+	});
+	const modelCatalog = useQuery({
+		...trpc.vehicles.catalog.queryOptions({ q: model, make }),
+		enabled: make.trim().length > 0,
+	});
+
+	const makeOptions = [
+		...new Map(
+			(makeCatalog.data ?? []).map((row) => [row.make, row.make]),
+		).values(),
+	].slice(0, 8);
+	const modelOptions = (modelCatalog.data ?? []).slice(0, 8);
 
 	const create = useMutation(
 		trpc.vehicles.create.mutationOptions({
@@ -91,6 +122,9 @@ function CreateVehicleForm() {
 				await setOpen(null);
 				setMake("");
 				setModel("");
+				setCatalogId(null);
+				setYear("");
+				setSeats("");
 				setPlateNumber("");
 				setDailyRate("");
 				openRecord({ kind: "vehicle", id: vehicle.id });
@@ -99,8 +133,15 @@ function CreateVehicleForm() {
 		}),
 	);
 
+	const parsedSeats = Number.parseInt(seats, 10);
+	const parsedYear = Number.parseInt(year, 10);
+
 	const ready =
-		make.trim() !== "" && model.trim() !== "" && plateNumber.trim() !== "";
+		make.trim() !== "" &&
+		model.trim() !== "" &&
+		plateNumber.trim() !== "" &&
+		Number.isFinite(parsedSeats) &&
+		parsedSeats > 0;
 
 	return (
 		<Sheet open={open} onOpenChange={(next) => setOpen(next || null)}>
@@ -120,15 +161,18 @@ function CreateVehicleForm() {
 					className="flex-1 overflow-y-auto px-4"
 					onSubmit={(event) => {
 						event.preventDefault();
-						const parsed = Number.parseFloat(dailyRate);
+						const parsedRate = Number.parseFloat(dailyRate);
 						create.mutate({
 							type: type as never,
 							fuelType: fuelType as never,
+							seats: parsedSeats,
+							vehicleCatalogId: catalogId ?? undefined,
 							make,
 							model,
+							year: Number.isFinite(parsedYear) ? parsedYear : null,
 							plateNumber,
-							dailyRateCents: Number.isFinite(parsed)
-								? Math.round(parsed * 100)
+							dailyRateCents: Number.isFinite(parsedRate)
+								? Math.round(parsedRate * 100)
 								: null,
 						});
 					}}
@@ -167,26 +211,68 @@ function CreateVehicleForm() {
 						</Field>
 
 						<Field>
-							<FieldLabel htmlFor={makeId}>Marque</FieldLabel>
+							<FieldLabel htmlFor={seatsId}>Nombre de sièges</FieldLabel>
 							<Input
-								id={makeId}
-								value={make}
-								onChange={(event) => setMake(event.target.value)}
-								placeholder="Toyota"
+								id={seatsId}
+								value={seats}
+								onChange={(event) => setSeats(event.target.value)}
+								placeholder="5"
+								inputMode="numeric"
 								autoComplete="off"
 								required
 							/>
 						</Field>
 
+						<CatalogField
+							label="Marque"
+							placeholder="Toyota"
+							value={make}
+							options={makeOptions.map((option) => ({
+								key: option,
+								label: option,
+							}))}
+							onValueChange={(next) => {
+								setMake(next);
+								setModel("");
+								setCatalogId(null);
+							}}
+							onSelect={(next) => {
+								setMake(next);
+								setModel("");
+								setCatalogId(null);
+							}}
+						/>
+
+						<CatalogField
+							label="Modèle"
+							placeholder="Corolla"
+							value={model}
+							disabled={make.trim() === ""}
+							options={modelOptions.map((option) => ({
+								key: option.id,
+								label: option.model,
+							}))}
+							onValueChange={(next) => {
+								setModel(next);
+								setCatalogId(null);
+							}}
+							onSelect={(id) => {
+								const picked = modelOptions.find((option) => option.id === id);
+								if (!picked) return;
+								setModel(picked.model);
+								setCatalogId(picked.id);
+							}}
+						/>
+
 						<Field>
-							<FieldLabel htmlFor={modelId}>Modèle</FieldLabel>
+							<FieldLabel htmlFor={yearId}>Année</FieldLabel>
 							<Input
-								id={modelId}
-								value={model}
-								onChange={(event) => setModel(event.target.value)}
-								placeholder="Corolla"
+								id={yearId}
+								value={year}
+								onChange={(event) => setYear(event.target.value)}
+								placeholder="2020"
+								inputMode="numeric"
 								autoComplete="off"
-								required
 							/>
 						</Field>
 
@@ -231,5 +317,75 @@ function CreateVehicleForm() {
 				</SheetFooter>
 			</SheetContent>
 		</Sheet>
+	);
+}
+
+function CatalogField({
+	label,
+	placeholder,
+	value,
+	options,
+	disabled,
+	onValueChange,
+	onSelect,
+}: {
+	label: string;
+	placeholder: string;
+	value: string;
+	options: { key: string; label: string }[];
+	disabled?: boolean;
+	onValueChange: (value: string) => void;
+	onSelect: (key: string) => void;
+}) {
+	const id = useId();
+	const [open, setOpen] = useState(false);
+	const showSuggestions = open && !disabled && options.length > 0;
+
+	return (
+		<Field>
+			<FieldLabel htmlFor={id}>{label}</FieldLabel>
+			<Popover open={showSuggestions} onOpenChange={setOpen}>
+				<PopoverTrigger asChild>
+					<Input
+						id={id}
+						value={value}
+						onChange={(event) => {
+							onValueChange(event.target.value);
+							setOpen(true);
+						}}
+						onFocus={() => setOpen(true)}
+						placeholder={placeholder}
+						autoComplete="off"
+						disabled={disabled}
+						required
+					/>
+				</PopoverTrigger>
+				<PopoverContent
+					size="fit"
+					align="start"
+					className="w-(--radix-popover-trigger-width)"
+					onOpenAutoFocus={(event) => event.preventDefault()}
+				>
+					<Command shouldFilter={false}>
+						<CommandList>
+							<CommandEmpty>Aucun résultat.</CommandEmpty>
+							<CommandGroup>
+								{options.map((option) => (
+									<CommandItem
+										key={option.key}
+										onSelect={() => {
+											onSelect(option.key);
+											setOpen(false);
+										}}
+									>
+										{option.label}
+									</CommandItem>
+								))}
+							</CommandGroup>
+						</CommandList>
+					</Command>
+				</PopoverContent>
+			</Popover>
+		</Field>
 	);
 }
