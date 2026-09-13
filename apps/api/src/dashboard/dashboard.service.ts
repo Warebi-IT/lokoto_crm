@@ -76,6 +76,7 @@ export class DashboardService {
 			topActiveContracts,
 			overdueTasks,
 			recentActivity,
+			incidentsThisMonth,
 			unconverted,
 		] = await Promise.all([
 			this.db.rentalContract.groupBy({
@@ -257,6 +258,12 @@ export class DashboardService {
 					},
 				},
 			}),
+			this.db.incident.count({
+				where: {
+					reportedAt: { gte: startOfMonth, lt: startOfNextMonth },
+					...(mine ? { rentalContract: { ownerId: actingUserId } } : {}),
+				},
+			}),
 			this.conversion.unconverted("rentalContract", owned),
 		]);
 
@@ -387,6 +394,7 @@ export class DashboardService {
 				...task,
 				dueAt: dueAt?.toISOString() ?? null,
 			})),
+			incidentsThisMonth,
 			recentActivity: recentActivity.map(({ createdAt, meta, ...entry }) => ({
 				...entry,
 				createdAt: createdAt.toISOString(),

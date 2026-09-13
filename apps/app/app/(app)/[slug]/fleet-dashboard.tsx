@@ -6,6 +6,7 @@ import Currency from "@carbon/icons-react/es/Currency";
 import Renew from "@carbon/icons-react/es/Renew";
 import Time from "@carbon/icons-react/es/Time";
 import Wallet from "@carbon/icons-react/es/Wallet";
+import Warning from "@carbon/icons-react/es/Warning";
 import { Button } from "@crm/ui/components/button";
 import type { ChartConfig } from "@crm/ui/components/chart";
 import {
@@ -60,8 +61,14 @@ function changeDelta(
 export function FleetDashboardOverview({ summary }: { summary: Summary }) {
 	const workspaceUrl = useWorkspaceUrl();
 
-	const { fleet, today, dueBackThisMonth, reportingCurrency, unconverted } =
-		summary;
+	const {
+		fleet,
+		today,
+		dueBackThisMonth,
+		incidentsThisMonth,
+		reportingCurrency,
+		unconverted,
+	} = summary;
 
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 	const exact = (value: unknown) =>
@@ -86,6 +93,37 @@ export function FleetDashboardOverview({ summary }: { summary: Summary }) {
 
 	return (
 		<div className="flex flex-col gap-6">
+			<DashboardSection
+				title="Indicateurs clés"
+				description="La situation à surveiller dès l’ouverture"
+			>
+				<StatGroup>
+					<StatCard
+						icon={<Icon icon={CheckmarkOutline} />}
+						label="Véhicules disponibles"
+						value={formatCount(today.availableVehicles, "véhicule")}
+						description="Prêts à être attribués"
+					/>
+					<StatCard
+						icon={<Icon icon={Time} />}
+						label="Locations en cours"
+						value={formatCount(today.rentalsInProgress, "location")}
+						description="Contrats actuellement actifs"
+					/>
+					<StatCard
+						icon={<Icon icon={Renew} />}
+						label="Retours ce mois-ci"
+						value={formatCount(dueBackThisMonth.count, "retour")}
+						description="Retours planifiés sur le mois"
+					/>
+					<StatCard
+						icon={<Icon icon={Warning} />}
+						label="Incidents ce mois-ci"
+						value={formatCount(incidentsThisMonth, "incident")}
+						description="Incidents signalés depuis le début du mois"
+					/>
+				</StatGroup>
+			</DashboardSection>
 			<ChartCard
 				className="min-w-0"
 				title="Valeur des contrats ouverts"
