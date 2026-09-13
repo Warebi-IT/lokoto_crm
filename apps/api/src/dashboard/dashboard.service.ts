@@ -2,6 +2,7 @@ import {
 	ActivityType,
 	type Db,
 	PaymentStatus,
+	PaymentType,
 	RentalContractStatus,
 	VehicleStatus,
 } from "@crm/db";
@@ -10,7 +11,15 @@ import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
 import { InjectDatabase } from "../database/database.constants";
 import type { DashboardSummaryInput } from "./dashboard.contracts";
-import { MONTH_LABEL, monthKey, monthStart } from "./month-bucket";
+import {
+	dayIso,
+	dayKey,
+	dayStart,
+	MONTH_LABEL,
+	monthIso,
+	monthKey,
+	monthStart,
+} from "./month-bucket";
 
 const OWNER_SELECT = {
 	id: true,
@@ -26,6 +35,8 @@ const OPEN_STATUSES = [
 ] as const;
 
 const TREND_MONTHS = 6;
+
+const CASHFLOW_DAYS = 14;
 
 const RATE_WINDOW_DAYS = 90;
 
@@ -77,6 +88,7 @@ export class DashboardService {
 			overdueTasks,
 			recentActivity,
 			incidentsThisMonth,
+			cashflowPayments,
 			unconverted,
 		] = await Promise.all([
 			this.db.rentalContract.groupBy({
@@ -264,6 +276,19 @@ export class DashboardService {
 					...(mine ? { rentalContract: { ownerId: actingUserId } } : {}),
 				},
 			}),
+			this.db.payment.findMany({
+				where: {
+					status: PaymentStatus.COMPLETED,
+					paidAt: { gte: trendStart },
+					...(mine ? { rentalContract: { ownerId: actingUserId } } : {}),
+				},
+				select: {
+					type: true,
+					paidAt: true,
+					baseAmount: true,
+					baseCurrency: true,
+				},
+			}),
 			this.conversion.unconverted("rentalContract", owned),
 		]);
 
@@ -331,6 +356,49 @@ export class DashboardService {
 			}
 		}
 
+		const cashflowDailyStart = dayStart(now, -(CASHFLOW_DAYS - 1));
+		const cashflowDailyFirstKey = dayKey(cashflowDailyStart);
+
+		const cashflowDaily = Array.from({ length: CASHFLOW_DAYS }, (_, index) => ({
+			period: dayIso(dayStart(cashflowDailyStart, index)),
+			revenueCents: 0,
+			expenseCents: 0,
+		}));
+
+		const cashflowMonthly = Array.from(
+			{ length: TREND_MONTHS },
+			(_, index) => ({
+				period: monthIso(monthStart(trendStart, index)),
+				revenueCents: 0,
+				expenseCents: 0,
+			}),
+		);
+
+		for (const payment of cashflowPayments) {
+			if (!payment.paidAt) continue;
+			const valued =
+				payment.baseCurrency === base ? toCents(payment.baseAmount) : null;
+			if (valued === null) continue;
+
+			const outgoing = payment.type === PaymentType.DEPOSIT_REFUND;
+
+			const monthBucket =
+				cashflowMonthly[monthKey(payment.paidAt) - firstBucket];
+			if (monthBucket) {
+				if (outgoing) monthBucket.expenseCents += valued;
+				else monthBucket.revenueCents += valued;
+			}
+
+			if (payment.paidAt >= cashflowDailyStart) {
+				const dayBucket =
+					cashflowDaily[dayKey(payment.paidAt) - cashflowDailyFirstKey];
+				if (dayBucket) {
+					if (outgoing) dayBucket.expenseCents += valued;
+					else dayBucket.revenueCents += valued;
+				}
+			}
+		}
+
 		const decided = completedCount + cancelledCount;
 
 		return {
@@ -368,6 +436,8 @@ export class DashboardService {
 						: Math.round(durationDays / completedCount),
 			},
 			trend,
+			cashflowDaily,
+			cashflowMonthly,
 			dueBackThisMonth: {
 				count: dueBackThisMonth._count._all,
 				valueCents: toCents(dueBackThisMonth._sum.baseAmount) ?? 0,

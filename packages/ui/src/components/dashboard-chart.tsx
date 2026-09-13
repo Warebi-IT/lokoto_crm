@@ -327,7 +327,8 @@ function BarTrend({
 	formatX,
 	formatValue,
 	stacked = false,
-}: CartesianProps & { stacked?: boolean }) {
+	bloom = "low",
+}: CartesianProps & { stacked?: boolean; bloom?: Bloom }) {
 	const keys = seriesKeys(config, series);
 
 	return (
@@ -350,9 +351,14 @@ function BarTrend({
 						key={key}
 						dataKey={key}
 						fill={`var(--color-${key})`}
-						radius={0}
+						radius={[3, 3, 0, 0]}
 						stackId={stacked ? "stack" : undefined}
 						maxBarSize={40}
+						style={
+							bloom === "off"
+								? undefined
+								: { filter: bloomFilter(bloom, `var(--color-${key})`) }
+						}
 					/>
 				))}
 				{showLegend ? (
