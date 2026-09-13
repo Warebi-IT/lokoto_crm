@@ -31,6 +31,10 @@ const TREND_CONFIG: ChartConfig = {
 	expensesCents: { label: "Dépenses", color: "var(--chart-5)" },
 };
 
+const MARGIN_CONFIG: ChartConfig = {
+	marginPercent: { label: "Marge nette", color: "var(--success)" },
+};
+
 const TYPE_LABEL: Record<string, string> = {
 	CAR: "Voitures",
 	MOTORCYCLE: "Motos",
@@ -92,6 +96,13 @@ export function FinanceView() {
 	const hasTrend = data.trend.some(
 		(point) => point.revenueCents > 0 || point.expensesCents > 0,
 	);
+
+	const marginTrend = data.trend.map((point) => ({
+		month: point.month,
+		marginPercent:
+			point.revenueCents > 0 ? point.netCents / point.revenueCents : 0,
+	}));
+	const hasMarginTrend = data.trend.some((point) => point.revenueCents > 0);
 
 	const expenses = data.expenseBreakdown;
 	const expenseSlices = [
@@ -262,6 +273,29 @@ export function FinanceView() {
 					)}
 				</ChartCard>
 			</DashboardRow>
+
+			<DashboardSection
+				title="Évolution de la marge"
+				description="Marge nette (net / revenus), six derniers mois"
+			>
+				<ChartCard className="min-w-0">
+					{hasMarginTrend ? (
+						<div className="flex flex-1 flex-col justify-center py-4">
+							<AreaTrend
+								data={marginTrend}
+								config={MARGIN_CONFIG}
+								xKey="month"
+								height={180}
+								variant="gradient"
+								bloom="high"
+								formatValue={(value) => formatPercent(Number(value))}
+							/>
+						</div>
+					) : (
+						<EmptyChart label="Aucun revenu enregistré pour le moment" />
+					)}
+				</ChartCard>
+			</DashboardSection>
 
 			<DashboardSection
 				title="Poids du financement"
