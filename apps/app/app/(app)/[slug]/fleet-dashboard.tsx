@@ -68,24 +68,6 @@ const STATUS_COLOR: Record<string, string> = {
 	ACTIVE: "var(--chart-2)",
 };
 
-const VEHICLE_STATUS_LABEL: Record<string, string> = {
-	AVAILABLE: "Disponible",
-	RESERVED: "Réservé",
-	RENTED: "Loué",
-	MAINTENANCE: "Entretien",
-	OUT_OF_SERVICE: "Hors service",
-	STOLEN: "Volé",
-};
-
-const VEHICLE_STATUS_COLOR: Record<string, string> = {
-	AVAILABLE: "var(--success)",
-	RESERVED: "var(--chart-1)",
-	RENTED: "var(--chart-2)",
-	MAINTENANCE: "var(--warning)",
-	OUT_OF_SERVICE: "var(--chart-5)",
-	STOLEN: "var(--destructive)",
-};
-
 function changeDelta(
 	current: number,
 	previous: number,
@@ -133,20 +115,6 @@ export function FleetDashboardOverview({ summary }: { summary: Summary }) {
 			: [],
 	);
 
-	const fleetSlices = fleet.byStatus.flatMap((status) =>
-		status.count > 0
-			? [
-					{
-						key: status.status,
-						label: VEHICLE_STATUS_LABEL[status.status] ?? status.status,
-						value: status.count,
-						color: VEHICLE_STATUS_COLOR[status.status] ?? "var(--chart-5)",
-					},
-				]
-			: [],
-	);
-	const totalVehicles = fleetSlices.reduce((total, s) => total + s.value, 0);
-
 	return (
 		<div className="flex flex-col gap-6">
 			<DashboardSection
@@ -179,49 +147,6 @@ export function FleetDashboardOverview({ summary }: { summary: Summary }) {
 						description="Incidents signalés depuis le début du mois"
 					/>
 				</StatGroup>
-			</DashboardSection>
-
-			<DashboardSection
-				title="Répartition de la flotte"
-				description="Véhicules par statut, à l’instant"
-			>
-				<ChartCard className="min-w-0">
-					{fleetSlices.length > 0 ? (
-						<div className="flex flex-1 flex-col gap-4 pt-4 lg:flex-row lg:items-center lg:gap-10 lg:px-5 lg:pt-0 md:lg:px-6">
-							<DonutStat
-								data={fleetSlices}
-								height={168}
-								centerValue={formatCount(totalVehicles, "véhicule")}
-								centerLabel="flotte"
-								className="lg:shrink-0"
-							/>
-							<ul className="flex min-w-0 flex-1 flex-col px-5 pb-1 md:px-6 lg:px-0 lg:pb-0">
-								{fleetSlices.map((slice) => (
-									<li key={slice.key} className="border-t first:border-t-0">
-										<Link
-											href={`${workspaceUrl("/vehicles")}?status=${slice.key}`}
-											className="flex items-center gap-2.5 py-2.5 text-sm hover:underline"
-										>
-											<span
-												aria-hidden
-												className="size-1.5 shrink-0"
-												style={{ backgroundColor: slice.color }}
-											/>
-											<span className="min-w-0 flex-1 truncate">
-												{slice.label}
-											</span>
-											<span className="shrink-0 font-medium tabular-nums">
-												{formatCount(slice.value, "véhicule")}
-											</span>
-										</Link>
-									</li>
-								))}
-							</ul>
-						</div>
-					) : (
-						<EmptyChart label="Aucun véhicule dans la flotte" />
-					)}
-				</ChartCard>
 			</DashboardSection>
 
 			<DashboardRow split="hero-reverse">
