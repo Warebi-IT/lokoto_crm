@@ -34,6 +34,15 @@ const OPEN_STATUSES = [
 	RentalContractStatus.ACTIVE,
 ] as const;
 
+const VEHICLE_STATUSES = [
+	VehicleStatus.AVAILABLE,
+	VehicleStatus.RESERVED,
+	VehicleStatus.RENTED,
+	VehicleStatus.MAINTENANCE,
+	VehicleStatus.OUT_OF_SERVICE,
+	VehicleStatus.STOLEN,
+] as const;
+
 const TREND_MONTHS = 6;
 
 const CASHFLOW_DAYS = 14;
@@ -82,7 +91,7 @@ export class DashboardService {
 			returnsDueToday,
 			valueInProgressToday,
 			paymentsToday,
-			availableVehicles,
+			vehiclesByStatus,
 			dueBackThisMonth,
 			topActiveContracts,
 			overdueTasks,
@@ -179,8 +188,9 @@ export class DashboardService {
 				},
 				_sum: { baseAmount: true },
 			}),
-			this.db.vehicle.count({
-				where: { status: VehicleStatus.AVAILABLE },
+			this.db.vehicle.groupBy({
+				by: ["status"],
+				_count: { _all: true },
 			}),
 			this.db.rentalContract.aggregate({
 				where: {
@@ -302,6 +312,15 @@ export class DashboardService {
 			};
 		});
 
+		const fleetByStatus = VEHICLE_STATUSES.map((status) => ({
+			status,
+			count:
+				vehiclesByStatus.find((row) => row.status === status)?._count._all ?? 0,
+		}));
+		const availableVehicles =
+			fleetByStatus.find((row) => row.status === VehicleStatus.AVAILABLE)
+				?.count ?? 0;
+
 		const firstBucket = monthKey(trendStart);
 		const trend = Array.from({ length: TREND_MONTHS }, (_, index) => ({
 			month: MONTH_LABEL.format(monthStart(trendStart, index)),
@@ -409,6 +428,7 @@ export class DashboardService {
 				statuses,
 				totalCents: statuses.reduce((total, s) => total + s.valueCents, 0),
 				totalContracts: statuses.reduce((total, s) => total + s.count, 0),
+				byStatus: fleetByStatus,
 			},
 			today: {
 				vehiclesRented: vehiclesRentedToday.length,
