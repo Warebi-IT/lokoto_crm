@@ -283,7 +283,7 @@ export function VehiclesTable() {
 		<DataTable
 			query={query}
 			search={
-				<ListSearch placeholder="Search vehicles by plate, make or model…" />
+				<ListSearch placeholder="Chercher le véhicule par plaque ..." />
 			}
 			columns={columns}
 			renderCard={(row) => <VehicleCard vehicle={row} />}
