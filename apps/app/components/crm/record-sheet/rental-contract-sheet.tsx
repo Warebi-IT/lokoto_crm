@@ -255,6 +255,7 @@ export function RentalContractSheet({ contractId }: { contractId: string }) {
 				{
 					value: "incidents",
 					label: "Incidents",
+					destructive: true,
 					content: (
 						<ContractIncidents
 							contractId={contract.id}

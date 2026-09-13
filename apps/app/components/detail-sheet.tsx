@@ -182,6 +182,8 @@ export type DetailSheetTab = {
 	count?: number | null;
 	content: ReactNode;
 	keepMounted?: boolean;
+	/** Marks a tab whose content is inherently negative (incidents, issues) — its active state reads as a warning, not the usual brand green. */
+	destructive?: boolean;
 };
 
 export function DetailSheetTabs({
@@ -207,10 +209,25 @@ export function DetailSheetTabs({
 				className={cn("w-full shrink-0 justify-start gap-6 border-b", GUTTER)}
 			>
 				{tabs.map((tab) => (
-					<TabsTrigger key={tab.value} value={tab.value}>
+					<TabsTrigger
+						key={tab.value}
+						value={tab.value}
+						className={
+							tab.destructive
+								? "group-data-[variant=line]/tabs-list:data-active:text-destructive after:bg-destructive"
+								: undefined
+						}
+					>
 						{tab.label}
 						{tab.count ? (
-							<span className="text-muted-foreground tabular-nums">
+							<span
+								className={cn(
+									"tabular-nums",
+									tab.destructive
+										? "text-destructive"
+										: "text-muted-foreground",
+								)}
+							>
 								{tab.count}
 							</span>
 						) : null}

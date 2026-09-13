@@ -232,6 +232,7 @@ export function VehicleSheet({ vehicleId }: { vehicleId: string }) {
 				{
 					value: "incidents",
 					label: "Incidents",
+					destructive: true,
 					content: (
 						<VehicleIncidents
 							vehicleId={vehicle.id}
