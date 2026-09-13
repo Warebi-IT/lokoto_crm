@@ -205,7 +205,7 @@ function VehicleCard({ vehicle }: { vehicle: VehicleRow }) {
 					className="absolute inset-x-0 bottom-16 mx-auto h-3 w-2/3 rounded-full bg-black/50 blur-md"
 				/>
 				<Image
-					src={PLACEHOLDER_PHOTO}
+					src={vehicle.photoUrls[0] ?? PLACEHOLDER_PHOTO}
 					alt={`${vehicle.make} ${vehicle.model}`}
 					fill
 					className="scale-90 object-contain p-3"
@@ -282,9 +282,7 @@ export function VehiclesTable() {
 	return (
 		<DataTable
 			query={query}
-			search={
-				<ListSearch placeholder="Chercher le véhicule par plaque ..." />
-			}
+			search={<ListSearch placeholder="Chercher le véhicule par plaque ..." />}
 			columns={columns}
 			renderCard={(row) => <VehicleCard vehicle={row} />}
 			rows={rows}
