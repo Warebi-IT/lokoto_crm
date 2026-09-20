@@ -118,6 +118,34 @@ export class EnvironmentVariables {
 	@IsOptional()
 	@IsString()
 	CRM_TELEMETRY_DISABLED?: string;
+
+	@IsOptional()
+	@IsString()
+	CAR_IMAGE_API_KEY?: string;
+
+	@IsOptional()
+	@IsString()
+	OVH_S3_ENDPOINT?: string;
+
+	@IsOptional()
+	@IsString()
+	OVH_S3_REGION?: string;
+
+	@IsOptional()
+	@IsString()
+	OVH_S3_BUCKET?: string;
+
+	@IsOptional()
+	@IsString()
+	OVH_S3_ACCESS_KEY?: string;
+
+	@IsOptional()
+	@IsString()
+	OVH_S3_SECRET_KEY?: string;
+
+	@IsOptional()
+	@IsString()
+	OVH_S3_PUBLIC_URL?: string;
 }
 
 export function validateEnv(

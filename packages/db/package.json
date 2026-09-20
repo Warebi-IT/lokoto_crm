@@ -30,6 +30,7 @@
 		"db:reset": "bun scripts/require-local-db.ts db:reset && prisma migrate reset",
 		"db:seed": "bun scripts/require-local-db.ts db:seed && prisma db seed",
 		"db:studio": "prisma studio",
+		"db:vehicle-catalog:import": "bun scripts/require-local-db.ts db:vehicle-catalog:import && bun scripts/import-vehicle-catalog.ts",
 		"test": "bun test",
 		"dev:prepare": "bun scripts/prepare-dev.ts",
 		"lint": "biome check .",

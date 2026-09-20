@@ -963,6 +963,25 @@ model Vehicle {
   @@map("vehicle")
 }
 
+model VehicleCatalog {
+  id        String   @id @default(cuid())
+  make      String
+  model     String
+  yearFrom  Int?
+  yearTo    Int?
+  seats     Int?
+  fuelType  FuelType?
+  photoUrls String[] @default([])
+  source    String   @default("vpic")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([make, model])
+  @@index([make])
+  @@index([model])
+  @@map("vehicleCatalog")
+}
+
 enum FinancingType {
   LOAN
   LEASING

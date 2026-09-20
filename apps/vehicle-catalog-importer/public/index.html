@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Importeur catalogue véhicules</title>
+<link rel="stylesheet" href="/public/styles.css">
+</head>
+<body>
+<main class="shell">
+<header class="hero"><div><p class="eyebrow">Catalogue véhicules</p><h1>Valider les modèles à importer</h1><p class="subtle">Sélectionnez les modèles utiles. Les images validées seront téléchargées depuis Car Image, stockées sur OVH S3 et enregistrées dans la base.</p></div><div class="status"><span id="connection" class="dot"></span><span id="statusText">Connexion...</span></div></header>
+<section class="toolbar"><div class="years-note"><span class="brand-kicker">Années détectées automatiquement</span><strong id="years"></strong></div><label>Vue<select id="view"><option value="side-right">Profil droit</option><option value="front-3-4">Avant 3/4</option><option value="rear-3-4">Arrière 3/4</option></select></label><label class="search">Rechercher<input id="search" placeholder="Modèle ou marque"></label><div class="toolbar-actions"><button type="button" id="selectAll" class="button secondary">Valider tout</button><button type="button" id="clearAll" class="button ghost">Tout refuser</button></div></section>
+<section class="summary"><div><strong id="modelCount">0</strong><span>modèles affichés</span></div><div><strong id="approvedCount">0</strong><span>validés</span></div><button type="button" id="upload" class="button primary">Télécharger et uploader</button></section>
+<section class="progress-panel"><div class="progress-label"><span id="progressText">Aucun import lancé</span><strong id="progressCount">0 photo / 0</strong></div><progress id="progress" max="1" value="0"></progress></section>
+<section id="brands" class="brands"></section>
+<p id="message" class="message" role="status"></p>
+</main>
+<script src="/public/app.js"></script>
+</body>
+</html>

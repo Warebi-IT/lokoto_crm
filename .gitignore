@@ -43,3 +43,4 @@ yarn-error.log*
 # eve build output
 .eve
 .output
+apps/vehicle-catalog-importer/data/import-state.json

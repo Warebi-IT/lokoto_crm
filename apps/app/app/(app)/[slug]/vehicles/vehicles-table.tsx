@@ -209,7 +209,7 @@ function VehicleCard({ vehicle }: { vehicle: VehicleRow }) {
 						src={photo}
 						alt={`${vehicle.make} ${vehicle.model}`}
 						fill
-						className="scale-90 object-contain p-3"
+						className="scale-170 object-contain p-3"
 						onError={() => setBroken(true)}
 					/>
 				) : null}

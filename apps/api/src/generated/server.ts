@@ -31,7 +31,7 @@ import { rentalContractListInput, rentalContractIdInput, rentalContractPlanningI
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { vehicleChargesByVehicleInput, vehicleChargeCreateInput, vehicleChargeIdInput } from "../vehicle-charges/vehicle-charges.contracts";
-import { vehicleListInput, vehicleIdInput, vehicleAvailabilityInput, vehicleCreateInput, vehicleUpdateArgs, vehicleBulkStatusInput, vehicleBulkInput, vehicleSetFinancingInput, vehicleClearFinancingInput } from "../vehicles/vehicles.contracts";
+import { vehicleListInput, vehicleIdInput, vehicleAvailabilityInput, vehicleCatalogInput, vehicleCreateInput, vehicleUpdateArgs, vehicleBulkStatusInput, vehicleBulkInput, vehicleSetFinancingInput, vehicleClearFinancingInput } from "../vehicles/vehicles.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
 import type { ActivitiesRouter } from "../activities/activities.router";
 import type { AgentsRouter } from "../agent/agents.router";
@@ -472,6 +472,9 @@ const appRouter = t.router({
     availability: publicProcedure
       .input(vehicleAvailabilityInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["availability"]>>),
+    catalog: publicProcedure
+      .input(vehicleCatalogInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["catalog"]>>),
     create: publicProcedure
       .input(vehicleCreateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["create"]>>),

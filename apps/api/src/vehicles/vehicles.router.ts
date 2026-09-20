@@ -6,6 +6,7 @@ import {
 	vehicleAvailabilityInput,
 	vehicleBulkInput,
 	vehicleBulkStatusInput,
+	vehicleCatalogInput,
 	vehicleClearFinancingInput,
 	vehicleCreateInput,
 	vehicleIdInput,
@@ -35,6 +36,11 @@ export class VehiclesRouter {
 	@Query({ input: vehicleAvailabilityInput })
 	async availability(@Input() input: z.infer<typeof vehicleAvailabilityInput>) {
 		return this.vehicles.availability(input);
+	}
+
+	@Query({ input: vehicleCatalogInput })
+	async catalog(@Input() input: z.infer<typeof vehicleCatalogInput>) {
+		return this.vehicles.catalog(input);
 	}
 
 	@Mutation({ input: vehicleCreateInput })
