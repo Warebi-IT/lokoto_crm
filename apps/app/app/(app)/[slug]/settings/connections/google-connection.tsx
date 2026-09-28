@@ -49,11 +49,11 @@ import { useTRPC } from "@/lib/trpc/client";
 const SOURCES = {
 	calendar: {
 		label: "Meetings",
-		autoCreate: "Add the company and contact when you meet someone new",
+		autoCreate: "Add a contact when you meet someone new",
 	},
 	gmail: {
 		label: "Email",
-		autoCreate: "Add the company and contact when you reply to someone new",
+		autoCreate: "Add a contact when you reply to someone new",
 	},
 } as const;
 
@@ -123,20 +123,12 @@ function GoogleUnavailable() {
 	);
 }
 
-const CONNECT_ERRORS = new Map([
-	[
-		"email_doesn't_match",
+const CONNECT_ERRORS: Record<string, string> = {
+	"email_doesn't_match":
 		"That Google account has a different email address to the one you sign in with, so it cannot be attached to your account. Connect the Google account that matches your sign-in address.",
-	],
-]);
+};
 
-function ConnectGoogle({
-	slug,
-	connectError,
-}: {
-	slug: string;
-	connectError?: string;
-}) {
+function ConnectGoogle({ connectError }: { connectError?: string }) {
 	const [pending, setPending] = useState(false);
 
 	function fail(message?: string) {
@@ -152,8 +144,8 @@ function ConnectGoogle({
 		const { error } = await authClient.linkSocial({
 			provider: "google",
 			scopes: [...SYNC_SCOPES],
-			callbackURL: `${origin}/${slug}/settings/connections/google`,
-			errorCallbackURL: `${origin}/${slug}/settings/connections/google?provider=google`,
+			callbackURL: `${origin}/settings/connections`,
+			errorCallbackURL: `${origin}/settings/connections?provider=google`,
 		});
 
 		if (error) fail(error.message);
@@ -169,7 +161,7 @@ function ConnectGoogle({
 					</div>
 				</CardTitle>
 				<CardDescription>
-					Read-only Gmail and Calendar. Only conversations with companies in the
+					Read-only Gmail and Calendar. Only conversations with contacts in the
 					CRM are stored.
 				</CardDescription>
 
@@ -198,7 +190,7 @@ function ConnectGoogle({
 						<Icon icon={Warning} />
 						<AlertTitle>Google did not finish connecting</AlertTitle>
 						<AlertDescription>
-							{CONNECT_ERRORS.get(connectError) ??
+							{CONNECT_ERRORS[connectError] ??
 								"Google returned an error before the connection was made. Try again."}
 						</AlertDescription>
 					</Alert>
@@ -208,13 +200,7 @@ function ConnectGoogle({
 	);
 }
 
-export function GoogleConnection({
-	slug,
-	connectError,
-}: {
-	slug: string;
-	connectError?: string;
-}) {
+export function GoogleConnection({ connectError }: { connectError?: string }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const queryClient = useQueryClient();
@@ -241,7 +227,7 @@ export function GoogleConnection({
 		trpc.google.revokeAccess.mutationOptions({
 			onSuccess: () =>
 				window.location.assign(
-					status.data?.required ? "/" : `/${slug}/settings/connections`,
+					status.data?.required ? "/" : "/settings/connections",
 				),
 			onError: (error) => toast.error(error.message),
 		}),
@@ -279,7 +265,7 @@ export function GoogleConnection({
 		status.data;
 
 	if (!configured) return <GoogleUnavailable />;
-	if (!linked) return <ConnectGoogle slug={slug} connectError={connectError} />;
+	if (!linked) return <ConnectGoogle connectError={connectError} />;
 
 	const failing = sources.filter(
 		(source) => source.status === "NEEDS_RECONNECT" || source.lastError,
@@ -306,7 +292,7 @@ export function GoogleConnection({
 					</div>
 				</CardTitle>
 				<CardDescription>
-					Meetings and email threads land on the matching company as they
+					Meetings and email threads land on the matching contact as they
 					happen.
 				</CardDescription>
 
@@ -413,7 +399,9 @@ export function GoogleConnection({
 
 							<AlertDialogContent>
 								<AlertDialogHeader>
-									<AlertDialogTitle>Delete synced data?</AlertDialogTitle>
+									<AlertDialogTitle>
+										Supprimer les données synchronisées ?
+									</AlertDialogTitle>
 									<AlertDialogDescription>
 										Every email and meeting brought in from Google is removed
 										from the CRM. The next check starts from now, so nothing
@@ -422,7 +410,7 @@ export function GoogleConnection({
 								</AlertDialogHeader>
 
 								<AlertDialogFooter>
-									<AlertDialogCancel>Cancel</AlertDialogCancel>
+									<AlertDialogCancel>Annuler</AlertDialogCancel>
 									<AlertDialogAction
 										variant="destructive"
 										onClick={() => purge.mutate()}
@@ -451,7 +439,7 @@ export function GoogleConnection({
 								</AlertDialogHeader>
 
 								<AlertDialogFooter>
-									<AlertDialogCancel>Cancel</AlertDialogCancel>
+									<AlertDialogCancel>Annuler</AlertDialogCancel>
 									<AlertDialogAction
 										variant="destructive"
 										onClick={() => revoke.mutate()}

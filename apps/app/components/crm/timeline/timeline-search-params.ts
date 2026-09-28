@@ -11,6 +11,8 @@ export const TIMELINE_TABS = [
 
 export type TimelineTab = (typeof TIMELINE_TABS)[number];
 
+export const TIMELINE_PARAM = "timeline";
+
 export const timelineTabParser =
 	parseAsStringLiteral(TIMELINE_TABS).withDefault("all");
 

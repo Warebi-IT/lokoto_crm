@@ -1,69 +1,43 @@
 import type { SortDirection } from "@crm/ui/lib/table-query";
 import {
 	createLoader,
-	type GenericParserBuilder,
 	type LoaderFunction,
 	type ParserBuilder,
-	parseAsBoolean,
 	parseAsInteger,
-	parseAsJson,
-	parseAsNativeArrayOf,
 	parseAsString,
 	parseAsStringLiteral,
 } from "nuqs/server";
-import { z } from "zod";
-import {
-	assertUnreservedSearchParamKeys,
-	SEARCH_PARAM,
-} from "@/lib/search-param-keys";
 
 const SORT_DIRECTIONS = ["asc", "desc"] as const;
 
 type StringParser = ParserBuilder<string> & { defaultValue: string };
-type ArrayParser = GenericParserBuilder<string[]> & { defaultValue: string[] };
-
-const fieldFiltersSchema = z.record(z.string(), z.array(z.string()));
-
-export type FieldFilters = z.infer<typeof fieldFiltersSchema>;
 
 export const searchParsers = {
-	[SEARCH_PARAM.list.q]: parseAsString.withDefault(""),
-	[SEARCH_PARAM.list.page]: parseAsInteger
-		.withDefault(1)
-		.withOptions({ history: "push" }),
-	[SEARCH_PARAM.list.fields]: parseAsJson<FieldFilters>(
-		fieldFiltersSchema.parse,
-	).withDefault({}),
-	[SEARCH_PARAM.list.archived]: parseAsBoolean.withDefault(false),
+	q: parseAsString.withDefault(""),
+	page: parseAsInteger.withDefault(1).withOptions({ history: "push" }),
 };
 
-type ListParsers<TTab extends string, TFacet extends string> = {
+type ListParsers<TKey extends string> = {
 	q: StringParser;
 	sort: StringParser;
 	dir: ParserBuilder<SortDirection> & { defaultValue: SortDirection };
 	page: ParserBuilder<number> & { defaultValue: number };
-	fields: ParserBuilder<FieldFilters> & { defaultValue: FieldFilters };
-	archived: ParserBuilder<boolean> & { defaultValue: boolean };
-} & { [K in TTab]: StringParser } & { [K in TFacet]: ArrayParser };
+} & { [K in TKey]: StringParser };
 
-export type ListSearchValues<TTab extends string, TFacet extends string> = {
+export type ListSearchValues<TKey extends string> = {
 	q: string;
 	sort: string;
 	dir: SortDirection;
 	page: number;
-	fields: FieldFilters;
-	archived: boolean;
-} & { [K in TTab]: string } & { [K in TFacet]: string[] };
+} & { [K in TKey]: string };
 
-export type ListInput<TTab extends string, TFacet extends string> = {
+export type ListInput<TKey extends string> = {
 	q: string;
 	sort: string;
 	dir: SortDirection;
 	page: number;
 	pageSize: number;
-	fields: FieldFilters;
-	archived: boolean;
-} & { [K in TTab]: string } & { [K in TFacet]: string[] };
+} & { [K in TKey]: string };
 
 export type ListTableConfig<TTab extends string, TFacet extends string> = {
 	defaultSort?: string;
@@ -71,7 +45,7 @@ export type ListTableConfig<TTab extends string, TFacet extends string> = {
 	pageSize?: number;
 	tabId?: TTab;
 	facetIds?: readonly TFacet[];
-	facetDefaults?: Partial<Record<TFacet, string[]>>;
+	facetDefaults?: Partial<Record<TFacet, string>>;
 };
 
 export type ListSearchParams<TTab extends string, TFacet extends string> = {
@@ -80,10 +54,12 @@ export type ListSearchParams<TTab extends string, TFacet extends string> = {
 		defaultDir: SortDirection;
 		pageSize: number;
 	};
-	parsers: ListParsers<TTab, TFacet>;
-	load: LoaderFunction<ListParsers<TTab, TFacet>>;
-	toInput: (values: ListSearchValues<TTab, TFacet>) => ListInput<TTab, TFacet>;
-	defaultInput: () => ListInput<TTab, TFacet>;
+	parsers: ListParsers<TTab | TFacet>;
+	load: LoaderFunction<ListParsers<TTab | TFacet>>;
+	toInput: (
+		values: ListSearchValues<TTab | TFacet>,
+	) => ListInput<TTab | TFacet>;
+	defaultInput: () => ListInput<TTab | TFacet>;
 };
 
 export function createListSearchParams<
@@ -99,41 +75,30 @@ export function createListSearchParams<
 		facetDefaults,
 	} = config;
 
-	assertUnreservedSearchParamKeys(
-		[...(tabId ? [tabId] : []), ...facetIds],
-		"createListSearchParams",
-	);
+	const extras: Record<string, StringParser> = {};
 
-	const tabExtras: Record<string, StringParser> = {};
-	if (tabId) tabExtras[tabId] = parseAsString.withDefault("all");
-
-	const facetExtras: Record<string, ArrayParser> = {};
+	if (tabId) extras[tabId] = parseAsString.withDefault("all");
 	for (const id of facetIds) {
-		facetExtras[id] = parseAsNativeArrayOf(parseAsString).withDefault(
-			facetDefaults?.[id] ?? [],
-		);
+		extras[id] = parseAsString.withDefault(facetDefaults?.[id] ?? "all");
 	}
 
 	const parsers = {
 		...searchParsers,
-		[SEARCH_PARAM.list.sort]: parseAsString.withDefault(defaultSort),
-		[SEARCH_PARAM.list.dir]:
-			parseAsStringLiteral(SORT_DIRECTIONS).withDefault(defaultDir),
-		...tabExtras,
-		...facetExtras,
-	} as ListParsers<TTab, TFacet>;
+		sort: parseAsString.withDefault(defaultSort),
+		dir: parseAsStringLiteral(SORT_DIRECTIONS).withDefault(defaultDir),
+		...extras,
+	} as ListParsers<TTab | TFacet>;
+
+	const keys = [...(tabId ? [tabId] : []), ...facetIds] as (TTab | TFacet)[];
 
 	const defaults = Object.fromEntries(
 		Object.entries(parsers).map(([key, parser]) => [key, parser.defaultValue]),
-	) as ListSearchValues<TTab, TFacet>;
+	) as ListSearchValues<TTab | TFacet>;
 
-	const toInput = (values: ListSearchValues<TTab, TFacet>) => {
-		const selectedTab: Record<string, string> = {};
-		if (tabId) selectedTab[tabId] = values[tabId] ?? "all";
-
-		const selectedFacets: Record<string, string[]> = {};
-		for (const id of facetIds) {
-			selectedFacets[id] = values[id] ?? facetDefaults?.[id] ?? [];
+	const toInput = (values: ListSearchValues<TTab | TFacet>) => {
+		const selected: Record<string, string> = {};
+		for (const key of keys) {
+			selected[key] = values[key] ?? "all";
 		}
 
 		return {
@@ -142,11 +107,8 @@ export function createListSearchParams<
 			dir: values.dir,
 			page: values.page > 0 ? values.page : 1,
 			pageSize,
-			fields: values.fields,
-			archived: values.archived,
-			...selectedTab,
-			...selectedFacets,
-		} as ListInput<TTab, TFacet>;
+			...selected,
+		} as ListInput<TTab | TFacet>;
 	};
 
 	return {

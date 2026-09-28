@@ -1,26 +1,30 @@
-import { QueryClient } from "@tanstack/react-query";
-import { z } from "zod";
-
-const queryFailure = z
-	.object({
-		data: z
-			.object({ httpStatus: z.number().nullable().catch(null) })
-			.catch({ httpStatus: null }),
-	})
-	.catch({ data: { httpStatus: null } });
+import {
+	defaultShouldDehydrateQuery,
+	QueryClient,
+} from "@tanstack/react-query";
 
 export function makeQueryClient(): QueryClient {
 	return new QueryClient({
 		defaultOptions: {
 			queries: { staleTime: 30_000, retry: retryQuery },
+			dehydrate: {
+				shouldDehydrateQuery: (query) =>
+					defaultShouldDehydrateQuery(query) ||
+					query.state.status === "pending",
+			},
 		},
 	});
 }
 
-function retryQuery(failureCount: number, error: Error): boolean {
-	const { httpStatus } = queryFailure.parse(error).data;
+function retryQuery(failureCount: number, error: unknown): boolean {
+	const data =
+		error && typeof error === "object" && "data" in error ? error.data : null;
+	const status =
+		data && typeof data === "object" && "httpStatus" in data
+			? data.httpStatus
+			: null;
 
-	if (httpStatus !== null && httpStatus >= 400 && httpStatus < 500) {
+	if (typeof status === "number" && status >= 400 && status < 500) {
 		return false;
 	}
 
@@ -30,7 +34,7 @@ function retryQuery(failureCount: number, error: Error): boolean {
 let browserQueryClient: QueryClient | undefined;
 
 export function getQueryClient(): QueryClient {
-	if (globalThis.window === undefined) {
+	if (typeof window === "undefined") {
 		return makeQueryClient();
 	}
 	browserQueryClient ??= makeQueryClient();

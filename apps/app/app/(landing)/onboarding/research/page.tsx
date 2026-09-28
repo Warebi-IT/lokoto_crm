@@ -16,7 +16,7 @@ export default async function ResearchKeyPage() {
 		<AuthShell>
 			<AuthHeading
 				title="Level up your CRM data"
-				description="Power your research agent with Context to research every company added to your CRM."
+				description="Power your research agent with Context to research every contact added to your CRM."
 			/>
 
 			<ResearchForm />

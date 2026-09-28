@@ -1,34 +1,26 @@
 import type { FieldEntity } from "./fields-entity";
 
-export const STANDARD_FIELDS = {
-	COMPANY: [
-		"Name",
-		"Domain",
-		"Website",
-		"Phone",
-		"Email",
-		"City",
-		"Country",
+export const STANDARD_FIELDS: Record<FieldEntity, readonly string[]> = {
+	CONTACT: ["First name", "Last name", "Email", "Phone", "Owner"],
+	VEHICLE: [
+		"Type",
+		"Make",
+		"Model",
+		"Year",
+		"Plate number",
+		"Status",
+		"Daily rate",
+		"Mileage",
 		"Owner",
 	],
-	CONTACT: [
-		"First name",
-		"Last name",
-		"Title",
-		"Email",
-		"Phone",
-		"LinkedIn",
-		"GitHub",
-		"Company",
+	RENTAL_CONTRACT: [
+		"Vehicle",
+		"Renter",
+		"Status",
+		"Start date",
+		"End date",
+		"Price per day",
+		"Deposit",
 		"Owner",
 	],
-	DEAL: [
-		"Name",
-		"Amount",
-		"Currency",
-		"Close date",
-		"Company",
-		"Owner",
-		"Stage",
-	],
-} satisfies Record<FieldEntity, readonly string[]>;
+};

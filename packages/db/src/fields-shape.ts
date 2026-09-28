@@ -1,4 +1,8 @@
-export const FIELD_ENTITIES = ["COMPANY", "CONTACT", "DEAL"] as const;
+export const FIELD_ENTITIES = [
+	"CONTACT",
+	"VEHICLE",
+	"RENTAL_CONTRACT",
+] as const;
 
 export type FieldEntityName = (typeof FIELD_ENTITIES)[number];
 
@@ -25,9 +29,7 @@ export type FieldValueColumn =
 	| "optionId"
 	| "userId";
 
-export type FieldValueWrite = Partial<Record<FieldValueColumn, unknown>>;
-
-const COLUMNS = {
+const COLUMNS: Record<FieldTypeName, FieldValueColumn> = {
 	TEXT: "text",
 	LONG_TEXT: "text",
 	URL: "text",
@@ -38,9 +40,9 @@ const COLUMNS = {
 	CHECKBOX: "bool",
 	SELECT: "optionId",
 	USER: "userId",
-} as const satisfies Record<FieldTypeName, FieldValueColumn>;
+};
 
-const TYPE_LABELS = {
+const TYPE_LABELS: Record<FieldTypeName, string> = {
 	TEXT: "Text",
 	LONG_TEXT: "Long text",
 	NUMBER: "Number",
@@ -51,7 +53,7 @@ const TYPE_LABELS = {
 	EMAIL: "Email",
 	PHONE: "Phone",
 	USER: "User",
-} as const satisfies Record<FieldTypeName, string>;
+};
 
 export function columnFor(type: FieldTypeName): FieldValueColumn {
 	return COLUMNS[type];
@@ -66,9 +68,9 @@ export function usesOptions(type: FieldTypeName): boolean {
 }
 
 export const RECORD_ID_COLUMNS = {
-	COMPANY: "companyId",
 	CONTACT: "contactId",
-	DEAL: "dealId",
+	VEHICLE: "vehicleId",
+	RENTAL_CONTRACT: "rentalContractId",
 } as const satisfies Record<FieldEntityName, string>;
 
 export type RecordIdColumn =

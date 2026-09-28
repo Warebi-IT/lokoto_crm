@@ -4,12 +4,9 @@ import { ConfigModule } from "@nestjs/config";
 import { AuthModule as BetterAuthModule } from "@thallesp/nestjs-better-auth";
 import { ActivitiesModule } from "./activities/activities.module";
 import { AgentModule } from "./agent/agent.module";
-import { ApiKeysModule } from "./api-keys/api-keys.module";
-import { ArchiveModule } from "./archive/archive.module";
 import { AuthModule } from "./auth/auth.module";
 import { BackfillModule } from "./backfill/backfill.module";
 import { AppCacheModule } from "./cache/cache.module";
-import { CompaniesModule } from "./companies/companies.module";
 import { validateEnv } from "./config/env.validation";
 import { ContactsModule } from "./contacts/contacts.module";
 import { ConversationsModule } from "./conversations/conversations.module";
@@ -17,25 +14,28 @@ import { CrmModule } from "./crm/crm.module";
 import { CurrencyModule } from "./currency/currency.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DatabaseModule } from "./database/database.module";
-import { DealsModule } from "./deals/deals.module";
-import { EnrichmentModule } from "./enrichment/enrichment.module";
 import { FieldsModule } from "./fields/fields.module";
 import { GoogleModule } from "./google/google.module";
 import { HealthModule } from "./health/health.module";
+import { IncidentsModule } from "./incidents/incidents.module";
+import { InspectionsModule } from "./inspections/inspections.module";
 import { LoggingModule } from "./logging/logging.module";
 import { logAuthRoute } from "./logging/request-logger.middleware";
 import { MailboxModule } from "./mailbox/mailbox.module";
+import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { MicrosoftModule } from "./microsoft/microsoft.module";
-import { SavedViewsModule } from "./saved-views/saved-views.module";
+import { PaymentsModule } from "./payments/payments.module";
+import { ProfitabilityModule } from "./profitability/profitability.module";
+import { RentalContractsModule } from "./rental-contracts/rental-contracts.module";
 import { SearchModule } from "./search/search.module";
 import { SettingsModule } from "./settings/settings.module";
-import { SlackModule } from "./slack/slack.module";
 import { SsoModule } from "./sso/sso.module";
 import { SyncModule } from "./sync/sync.module";
 import { TelemetryModule } from "./telemetry/telemetry.module";
-import { TrackingModule } from "./tracking/tracking.module";
 import { TrpcModule } from "./trpc/trpc.module";
 import { UsersModule } from "./users/users.module";
+import { VehicleChargesModule } from "./vehicle-charges/vehicle-charges.module";
+import { VehiclesModule } from "./vehicles/vehicles.module";
 import { WorkspaceModule } from "./workspace/workspace.module";
 
 @Module({
@@ -54,16 +54,20 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		HealthModule,
 		TrpcModule,
 		UsersModule,
-		ApiKeysModule,
-		CompaniesModule,
 		ContactsModule,
 		ConversationsModule,
 		CurrencyModule,
-		DealsModule,
+		VehiclesModule,
+		VehicleChargesModule,
+		RentalContractsModule,
+		PaymentsModule,
+		IncidentsModule,
+		MaintenanceModule,
+		InspectionsModule,
+		ProfitabilityModule,
 		FieldsModule,
 		ActivitiesModule,
 		AgentModule,
-		EnrichmentModule,
 		DashboardModule,
 		SearchModule,
 		MailboxModule,
@@ -73,12 +77,8 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		SettingsModule,
 		WorkspaceModule,
 		SsoModule,
-		SlackModule,
 		BackfillModule,
 		TelemetryModule,
-		TrackingModule,
-		ArchiveModule,
-		SavedViewsModule,
 	],
 })
 export class AppModule {}

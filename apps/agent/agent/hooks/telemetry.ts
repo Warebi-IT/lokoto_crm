@@ -2,13 +2,6 @@ import { db } from "@crm/db";
 import { readAgentModel } from "@crm/db/settings";
 import { agentError, modelError } from "@crm/telemetry";
 import { defineHook } from "eve/hooks";
-import { z } from "zod";
-
-type SessionPrincipal = {
-	readonly attributes?: Readonly<Record<string, string | readonly string[]>>;
-} | null;
-
-const attributeText = z.string().trim().min(1).nullable().catch(null);
 
 let modelId: string | null = null;
 
@@ -34,8 +27,11 @@ const MODEL_CODES = [
 	"unauthorized",
 ];
 
-function taskKind(auth: SessionPrincipal): string | null {
-	return attributeText.parse(auth?.attributes?.taskKind);
+function taskKind(
+	auth: { attributes?: Record<string, unknown> } | null,
+): string | null {
+	const kind = auth?.attributes?.taskKind;
+	return typeof kind === "string" && kind.trim() ? kind.trim() : null;
 }
 
 function looksLikeModel(code: string): boolean {

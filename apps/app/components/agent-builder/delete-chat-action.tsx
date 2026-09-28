@@ -93,7 +93,7 @@ export function DeleteChatAction({
 							disabled={removeAction.pending}
 						>
 							<Icon icon={OverflowMenuVertical} />
-							<span className="sr-only">More chat actions</span>
+							<span className="sr-only">Plus d’actions de conversation</span>
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">

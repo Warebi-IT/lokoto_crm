@@ -9,6 +9,7 @@ export const ALLOWED_PROPERTIES = [
 	"postgres_version",
 	"seed_only",
 
+	"cap_rapidapi",
 	"cap_perplexity",
 	"cap_context_dev",
 	"cap_blob",
@@ -19,7 +20,6 @@ export const ALLOWED_PROPERTIES = [
 	"cap_ai_gateway",
 	"cap_google_oauth",
 	"cap_sso_provider",
-	"cap_tracking",
 	"is_marketing",
 	"agent_model_id",
 	"agent_model_context_window",
@@ -52,12 +52,8 @@ export const ALLOWED_PROPERTIES = [
 	"facts_superseded_within_7_days",
 
 	"contacts_bucket",
-	"companies_bucket",
-	"deals_bucket",
 	"activities_bucket",
 	"contacts_by_source",
-	"companies_by_source",
-	"deals_by_stage",
 	"activities_by_type",
 	"mailbox_sync_configured",
 	"mailbox_sync_status",
@@ -66,12 +62,6 @@ export const ALLOWED_PROPERTIES = [
 	"enrichment_by_status",
 	"suppressed_domains",
 	"suppressed_contacts",
-	"tracking_domains",
-	"tracking_page_views",
-	"tracking_forms",
-	"tracking_contacts_created",
-	"tracking_capped",
-	"tracking_paused",
 	"workspace_profile_written",
 
 	"error_class",
@@ -97,12 +87,10 @@ export type PropertyValue =
 
 export type Properties = Partial<Record<AllowedProperty, PropertyValue>>;
 
-export type PermittedProperties = Record<string, PropertyValue>;
-
 export function permitted(
 	properties: Record<string, unknown>,
-): PermittedProperties {
-	const kept: PermittedProperties = {};
+): Record<string, PropertyValue> {
+	const kept: Record<string, PropertyValue> = {};
 
 	for (const [name, value] of Object.entries(properties)) {
 		if (!ALLOWED.has(name)) continue;
@@ -116,22 +104,18 @@ export function permitted(
 export const AGENT_TOOLS = [
 	"agent",
 	"archive_field",
-	"enrich_company",
 	"fetch_contact_photo",
 	"find_contact_socials",
 	"get_contact_work_history",
 	"get_linkedin_profile",
 	"identify_contact",
-	"list_deals",
 	"list_fields",
 	"list_outstanding_work",
+	"list_rental_contracts",
 	"manage_fields",
-	"read_company_history",
 	"read_crm_history",
-	"read_deal_history",
+	"read_rental_contract_history",
 	"record_fact",
-	"record_job_change",
-	"research_company",
 	"research_person",
 	"resolve_linkedin_profile",
 	"schedule_recheck",
@@ -167,7 +151,7 @@ export function permittedTool(name: string | null | undefined): string {
 
 export const EVIDENCE_KINDS = [
 	"profile.email-match",
-	"linkedin.employer-and-name",
+	"linkedin.name-match",
 	"crm.thread-reply",
 	"crm.signature-block",
 	"github.account-identity",
@@ -175,7 +159,6 @@ export const EVIDENCE_KINDS = [
 	"web.cited-claim",
 	"handle.name-form",
 	"search.cites-profile",
-	"employer-only",
 	"contradiction",
 ] as const;
 
@@ -240,11 +223,11 @@ export function permittedSyncSource(source: string | null | undefined): string {
 
 const MAILBOX_SYNC = "mailbox_sync";
 
-const SYNC_ERROR_SOURCES = {
+const SYNC_ERROR_SOURCES: Record<TelemetrySyncSource, string> = {
 	gmail: "google_sync",
 	calendar: "google_sync",
 	outlook: "microsoft_sync",
-} as const satisfies Record<TelemetrySyncSource, string>;
+};
 
 export function permittedSyncErrorSource(
 	source: string | null | undefined,

@@ -3,7 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 
 export type SearchHit = {
-	kind: "company" | "contact" | "deal";
+	kind: "contact" | "vehicle" | "rentalContract";
 	id: string;
 	label: string;
 	detail: string | null;
@@ -23,25 +23,7 @@ export class SearchService {
 		const term = q.trim();
 		if (term.length < 2) return { hits: [] };
 
-		const [companies, contacts, deals] = await Promise.all([
-			this.db.company.findMany({
-				where: {
-					OR: [
-						{ name: { contains: term, mode: "insensitive" } },
-						{ domain: { contains: term, mode: "insensitive" } },
-					],
-				},
-				take: PER_KIND,
-				orderBy: { name: "asc" },
-				select: {
-					id: true,
-					name: true,
-					domain: true,
-					iconUrl: true,
-					iconDarkUrl: true,
-					iconTone: true,
-				},
-			}),
+		const [contacts, vehicles, rentalContracts] = await Promise.all([
 			this.db.contact.findMany({
 				where: {
 					OR: [
@@ -58,42 +40,43 @@ export class SearchService {
 					lastName: true,
 					email: true,
 					imageUrl: true,
-					company: { select: { name: true } },
 				},
 			}),
-			this.db.deal.findMany({
-				where: { name: { contains: term, mode: "insensitive" } },
+			this.db.vehicle.findMany({
+				where: {
+					OR: [
+						{ plateNumber: { contains: term, mode: "insensitive" } },
+						{ make: { contains: term, mode: "insensitive" } },
+						{ model: { contains: term, mode: "insensitive" } },
+					],
+				},
 				take: PER_KIND,
-				orderBy: [{ stage: "asc" }, { name: "asc" }],
+				orderBy: [{ plateNumber: "asc" }],
+				select: { id: true, plateNumber: true, make: true, model: true },
+			}),
+			this.db.rentalContract.findMany({
+				where: {
+					OR: [
+						{
+							vehicle: { plateNumber: { contains: term, mode: "insensitive" } },
+						},
+						{ contact: { firstName: { contains: term, mode: "insensitive" } } },
+						{ contact: { lastName: { contains: term, mode: "insensitive" } } },
+					],
+				},
+				take: PER_KIND,
+				orderBy: [{ startDate: "desc" }],
 				select: {
 					id: true,
-					name: true,
-					company: {
-						select: {
-							name: true,
-							iconUrl: true,
-							iconDarkUrl: true,
-							iconTone: true,
-						},
-					},
+					status: true,
+					vehicle: { select: { plateNumber: true } },
+					contact: { select: { firstName: true, lastName: true } },
 				},
 			}),
 		]);
 
 		return {
 			hits: [
-				...companies.map(
-					(company): SearchHit => ({
-						kind: "company",
-						id: company.id,
-						label: company.name,
-						detail: company.domain,
-						iconUrl: company.iconUrl,
-						iconDarkUrl: company.iconDarkUrl,
-						iconTone: company.iconTone,
-						imageUrl: null,
-					}),
-				),
 				...contacts.map(
 					(contact): SearchHit => ({
 						kind: "contact",
@@ -101,22 +84,37 @@ export class SearchService {
 						label:
 							[contact.firstName, contact.lastName].filter(Boolean).join(" ") ||
 							(contact.email ?? "Unnamed"),
-						detail: contact.company?.name ?? contact.email,
+						detail: contact.email,
 						iconUrl: null,
 						iconDarkUrl: null,
 						iconTone: null,
 						imageUrl: contact.imageUrl,
 					}),
 				),
-				...deals.map(
-					(deal): SearchHit => ({
-						kind: "deal",
-						id: deal.id,
-						label: deal.name,
-						detail: deal.company.name,
-						iconUrl: deal.company.iconUrl,
-						iconDarkUrl: deal.company.iconDarkUrl,
-						iconTone: deal.company.iconTone,
+				...vehicles.map(
+					(vehicle): SearchHit => ({
+						kind: "vehicle",
+						id: vehicle.id,
+						label: `${vehicle.make} ${vehicle.model}`,
+						detail: vehicle.plateNumber,
+						iconUrl: null,
+						iconDarkUrl: null,
+						iconTone: null,
+						imageUrl: null,
+					}),
+				),
+				...rentalContracts.map(
+					(contract): SearchHit => ({
+						kind: "rentalContract",
+						id: contract.id,
+						label:
+							[contract.contact.firstName, contract.contact.lastName]
+								.filter(Boolean)
+								.join(" ") || contract.vehicle.plateNumber,
+						detail: contract.vehicle.plateNumber,
+						iconUrl: null,
+						iconDarkUrl: null,
+						iconTone: null,
 						imageUrl: null,
 					}),
 				),

@@ -1,15 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { z } from "zod";
 import { bridge } from "./bridge";
 
 const VERIFY_TIMEOUT_MS = 20_000;
-
-const verifyAnswer = z
-	.object({
-		outcome: z.string().nullable().catch(null),
-		reason: z.string().nullable().catch(null),
-	})
-	.catch({ outcome: null, reason: null });
 
 export type KeyCheck =
 	| { outcome: "valid" }
@@ -52,18 +44,26 @@ export class ResearchKeyService {
 				return this.cannotTell(`The agent answered ${response.status}.`);
 			}
 
-			const body = verifyAnswer.parse(await response.json());
+			const body = (await response.json()) as {
+				outcome?: string;
+				reason?: string;
+			};
 
 			if (body.outcome === "valid") return { outcome: "valid" };
 
 			if (body.outcome === "invalid") {
 				return {
 					outcome: "invalid",
-					reason: body.reason || "Context did not recognise that API key.",
+					reason:
+						typeof body.reason === "string" && body.reason
+							? body.reason
+							: "Context did not recognise that API key.",
 				};
 			}
 
-			return this.cannotTell(body.reason ?? "No answer.");
+			return this.cannotTell(
+				typeof body.reason === "string" ? body.reason : "No answer.",
+			);
 		} catch (error) {
 			return this.cannotTell(
 				error instanceof Error ? error.message : String(error),

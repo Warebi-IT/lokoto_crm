@@ -1,11 +1,5 @@
 import type { Db } from "./client";
-import {
-	type JsonObject,
-	type JsonValue,
-	jsonObject,
-	jsonText,
-	type WorkspaceProfileSections,
-} from "./json";
+import type { WorkspaceProfileSections } from "./json";
 
 export const WORKSPACE_ID = "workspace";
 
@@ -19,9 +13,9 @@ export const RESERVED_SLUGS: readonly string[] = [
 	"agent",
 	"agents",
 	"chat",
-	"companies",
 	"contacts",
-	"deals",
+	"vehicles",
+	"rental-contracts",
 	"eve",
 	"grant-access",
 	"onboarding",
@@ -48,26 +42,30 @@ export const MAX_NARRATIVE = 320;
 export const MAX_LINE = 140;
 
 export function isOnboarded(metadata: string | null): boolean {
-	return jsonText(readMetadata(metadata).onboardedAt) !== undefined;
+	return typeof readMetadata(metadata).onboardedAt === "string";
 }
 
 export function markOnboarded(metadata: string | null, at: Date): string {
 	const current = readMetadata(metadata);
 
 	return JSON.stringify(
-		jsonText(current.onboardedAt) === undefined
-			? { ...current, onboardedAt: at.toISOString() }
-			: current,
+		typeof current.onboardedAt === "string"
+			? current
+			: { ...current, onboardedAt: at.toISOString() },
 	);
 }
 
-function readMetadata(metadata: string | null): JsonObject {
+function readMetadata(metadata: string | null): Record<string, unknown> {
 	if (!metadata) return {};
 
 	try {
-		const parsed: JsonValue = JSON.parse(metadata);
+		const parsed: unknown = JSON.parse(metadata);
 
-		return jsonObject(parsed);
+		return typeof parsed === "object" &&
+			parsed !== null &&
+			!Array.isArray(parsed)
+			? (parsed as Record<string, unknown>)
+			: {};
 	} catch {
 		return {};
 	}
@@ -215,9 +213,14 @@ function clamp(value: string | undefined, max: number): string | undefined {
 	return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max - 1)}…`;
 }
 
-function readSections(value: JsonValue): WorkspaceProfileSections {
-	const record = jsonObject(value);
-	const text = (key: string) => jsonText(record[key])?.trim() || undefined;
+function readSections(value: unknown): WorkspaceProfileSections {
+	if (typeof value !== "object" || value === null) return {};
+
+	const record = value as Record<string, unknown>;
+	const text = (key: string) =>
+		typeof record[key] === "string" && record[key].trim()
+			? record[key].trim()
+			: undefined;
 
 	return trimSections({
 		sells: text("sells"),

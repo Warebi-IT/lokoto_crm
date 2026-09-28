@@ -1,7 +1,6 @@
 import {
 	ActivityType,
 	type Db,
-	DealStage,
 	EnrichmentStatus,
 	FactBand,
 	FactStatus,
@@ -9,7 +8,6 @@ import {
 } from "@crm/db";
 import { RETIRED_OUTCOME } from "@crm/db/agent-tasks";
 import { readAgentModel } from "@crm/db/settings";
-import { CONTACT_CAP_REASON } from "@crm/db/tracking";
 import { WORKSPACE_ID } from "@crm/db/workspace";
 import {
 	bucket,
@@ -29,7 +27,6 @@ import {
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { FunnelService } from "./funnel.service";
-import { SEED_OWNER_PREFIX } from "./seed";
 
 const WINDOW_HOURS = 24;
 
@@ -148,6 +145,7 @@ export class RollupService {
 			postgres_version: postgres,
 			members_bucket: bucket(members),
 
+			cap_rapidapi: isSet("RAPIDAPI_KEY"),
 			cap_perplexity: isSet("PERPLEXITY_API_KEY"),
 			cap_context_dev: Boolean(contextKey?.contextDevApiKey?.trim()),
 			cap_blob: isSet("BLOB_READ_WRITE_TOKEN"),
@@ -451,12 +449,8 @@ export class RollupService {
 	private async crm(since: Date): Promise<Properties> {
 		const [
 			contacts,
-			companies,
-			deals,
 			activities,
 			contactSources,
-			companySources,
-			stages,
 			types,
 			syncs,
 			threads,
@@ -468,55 +462,20 @@ export class RollupService {
 			nonSeedContacts,
 		] = await Promise.all([
 			this.db.contact.count(),
-			this.db.company.count(),
-			this.db.deal.count(),
 			this.db.activity.count(),
 			this.db.contact.groupBy({ by: ["source"], _count: { _all: true } }),
-			this.db.company.groupBy({ by: ["source"], _count: { _all: true } }),
-			this.db.deal.groupBy({ by: ["stage"], _count: { _all: true } }),
 			this.db.activity.groupBy({ by: ["type"], _count: { _all: true } }),
 			this.db.mailboxSync.groupBy({ by: ["status"], _count: { _all: true } }),
 			this.db.emailThread.count({ where: { createdAt: { gte: since } } }),
 			this.db.emailMessage.count({ where: { createdAt: { gte: since } } }),
-			this.db.company.groupBy({
+			this.db.contact.groupBy({
 				by: ["enrichmentStatus"],
 				_count: { _all: true },
 			}),
 			this.db.suppressedDomain.count(),
 			this.db.suppressedContact.count(),
 			this.db.workspaceProfile.count(),
-			this.db.contact.count({
-				where: {
-					OR: [
-						{ ownerId: null },
-						{ ownerId: { not: { startsWith: SEED_OWNER_PREFIX } } },
-					],
-				},
-			}),
-		]);
-
-		const [
-			trackingSite,
-			trackingDomains,
-			trackingViews,
-			trackingForms,
-			trackingContacts,
-			trackingCapped,
-			trackingPaused,
-		] = await Promise.all([
-			this.db.appSetting.count({ where: { trackingSiteId: { not: null } } }),
-			this.db.trackedDomain.count(),
-			this.db.trackedEvent.count({
-				where: { type: "page_view", occurredAt: { gte: since } },
-			}),
-			this.db.formSubmission.count({ where: { createdAt: { gte: since } } }),
-			this.db.contact.count({
-				where: { createdAt: { gte: since }, source: RecordSource.TRACKING },
-			}),
-			this.db.formSubmission.count({
-				where: { createdAt: { gte: since }, skipReason: CONTACT_CAP_REASON },
-			}),
-			this.db.appSetting.count({ where: { trackingPaused: true } }),
+			this.db.contact.count(),
 		]);
 
 		const configured = syncs.reduce((sum, row) => sum + row._count._all, 0);
@@ -525,8 +484,6 @@ export class RollupService {
 			seed_only: contacts > 0 && nonSeedContacts === 0,
 
 			contacts_bucket: bucket(contacts),
-			companies_bucket: bucket(companies),
-			deals_bucket: bucket(deals),
 			activities_bucket: bucket(activities),
 
 			contacts_by_source: countsOf(
@@ -536,29 +493,10 @@ export class RollupService {
 				})),
 				Object.values(RecordSource),
 			),
-			companies_by_source: countsOf(
-				companySources.map((row) => ({
-					key: row.source,
-					count: row._count._all,
-				})),
-				Object.values(RecordSource),
-			),
-			deals_by_stage: countsOf(
-				stages.map((row) => ({ key: row.stage, count: row._count._all })),
-				Object.values(DealStage),
-			),
 			activities_by_type: countsOf(
 				types.map((row) => ({ key: row.type, count: row._count._all })),
 				Object.values(ActivityType),
 			),
-
-			cap_tracking: trackingSite > 0,
-			tracking_domains: bucket(trackingDomains),
-			tracking_page_views: trackingViews,
-			tracking_forms: trackingForms,
-			tracking_contacts_created: trackingContacts,
-			tracking_capped: trackingCapped,
-			tracking_paused: trackingPaused > 0,
 
 			mailbox_sync_configured: configured > 0,
 			mailbox_sync_status: merge(
@@ -586,16 +524,14 @@ function isSet(name: string): boolean {
 	return Boolean(process.env[name]?.trim());
 }
 
-type CountsByKey = Record<string, number>;
-
-function byKind(rows: Counted[]): CountsByKey {
+function byKind(rows: Counted[]): Record<string, number> {
 	return merge(
 		rows.map((row) => ({ ...row, key: permittedTaskKind(row.key) })),
 	);
 }
 
-function merge(rows: Counted[]): CountsByKey {
-	const counts: CountsByKey = {};
+function merge(rows: Counted[]): Record<string, number> {
+	const counts: Record<string, number> = {};
 
 	for (const row of rows) {
 		counts[row.key] = (counts[row.key] ?? 0) + row.count;
@@ -604,9 +540,12 @@ function merge(rows: Counted[]): CountsByKey {
 	return counts;
 }
 
-function countsOf(rows: Counted[], keys: readonly string[]): CountsByKey {
+function countsOf(
+	rows: Counted[],
+	keys: readonly string[],
+): Record<string, number> {
 	const merged = merge(rows);
-	const complete: CountsByKey = {};
+	const complete: Record<string, number> = {};
 
 	for (const key of keys) complete[key] = merged[key] ?? 0;
 

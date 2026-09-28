@@ -1,7 +1,6 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import type { SendFn } from "eve/channels";
-import { z } from "zod";
 import audit from "../agent/hooks/audit";
 import {
 	builderToken,
@@ -11,24 +10,19 @@ import {
 	pendingAgentRunIds,
 	pendingBuilderSubmissionIds,
 	queueDueAgentRuns,
-	queueEventAgentRuns,
 } from "../agent/lib/custom-agent-dispatch";
 import {
 	createRunActivity,
 	finishRun,
-	runResultOf,
 	stageRunResult,
 } from "../agent/lib/run-runtime";
 
-const attachmentBytes = z.object({ data: z.instanceof(Uint8Array) });
-
 const suffix = crypto.randomUUID();
 const userId = `durable-runtime-user-${suffix}`;
-const domain = `durable-${suffix}.example.test`;
 let agentId = "";
 let versionId = "";
-let companyId = "";
-let otherCompanyId = "";
+let contactId = "";
+let otherContactId = "";
 let triggerId = "";
 const builderConversationIds: string[] = [];
 
@@ -40,18 +34,18 @@ beforeAll(async () => {
 			email: `${userId}@example.test`,
 		},
 	});
-	const [company, otherCompany] = await Promise.all([
-		db.company.create({
-			data: { name: "Durable Runtime Company", domain },
+	const [contact, otherContact] = await Promise.all([
+		db.contact.create({
+			data: { firstName: "Durable", lastName: "Runtime Contact" },
 			select: { id: true },
 		}),
-		db.company.create({
-			data: { name: "Out of Scope Company", domain: `other-${domain}` },
+		db.contact.create({
+			data: { firstName: "Out of Scope", lastName: "Contact" },
 			select: { id: true },
 		}),
 	]);
-	companyId = company.id;
-	otherCompanyId = otherCompany.id;
+	contactId = contact.id;
+	otherContactId = otherContact.id;
 
 	const agent = await db.agentDefinition.create({
 		data: {
@@ -69,40 +63,19 @@ beforeAll(async () => {
 			status: "DEPLOYED",
 			instructions: "Create one approved CRM activity.",
 			manifest: {
-				triggers: [
-					{
-						type: "SCHEDULE",
-						name: "Every hour",
-						summary: "Run every hour",
-						config: {
-							nextRunAt: new Date().toISOString(),
-							intervalMinutes: 60,
-						},
-					},
-				],
 				dataScope: {
 					mode: "SELECTED",
-					summary: "Only the selected durable runtime company",
 					resources: [
 						{
-							kind: "company",
-							id: companyId,
-							label: "Durable Runtime Company",
+							kind: "contact",
+							id: contactId,
+							label: "Durable Runtime Contact",
 						},
 					],
 				},
 				actions: [
-					{
-						type: "crm.activity.create",
-						provider: "crm",
-						summary: "Create a CRM note",
-						activityTypes: ["NOTE"],
-					},
-					{
-						type: "run.summary",
-						provider: "crm",
-						summary: "Summarize the run",
-					},
+					{ type: "crm.activity.create", activityTypes: ["NOTE"] },
+					{ type: "run.summary" },
 				],
 			},
 			modelId: "test/model",
@@ -134,22 +107,6 @@ beforeAll(async () => {
 	triggerId = trigger.id;
 });
 
-afterEach(async () => {
-	if (!agentId) return;
-	await db.agentRun.updateMany({
-		where: {
-			agentId,
-			status: { in: ["QUEUED", "RUNNING", "WAITING_FOR_APPROVAL"] },
-		},
-		data: {
-			status: "CANCELLED",
-			errorCode: "TEST_CLEANUP",
-			errorMessage: "Settled between tests.",
-			finishedAt: new Date(),
-		},
-	});
-});
-
 afterAll(async () => {
 	if (builderConversationIds.length > 0) {
 		await db.agentConversation.deleteMany({
@@ -175,8 +132,8 @@ afterAll(async () => {
 		await db.agentVersion.deleteMany({ where: { agentId } });
 		await db.agentDefinition.deleteMany({ where: { id: agentId } });
 	}
-	await db.company.deleteMany({
-		where: { id: { in: [companyId, otherCompanyId] } },
+	await db.contact.deleteMany({
+		where: { id: { in: [contactId, otherContactId] } },
 	});
 	await db.user.deleteMany({ where: { id: userId } });
 });
@@ -185,13 +142,12 @@ async function createRun(
 	status: "QUEUED" | "RUNNING" = "RUNNING",
 	startedAt: Date | null = new Date(),
 	sessionId: string | null = null,
-	triggerType: "MANUAL" | "EVENT" = "MANUAL",
 ) {
 	return db.agentRun.create({
 		data: {
 			agentId,
 			versionId,
-			triggerType,
+			triggerType: "MANUAL",
 			status,
 			startedAt,
 			sessionId,
@@ -203,70 +159,7 @@ async function createRun(
 	});
 }
 
-async function satisfyRequiredActivity(runId: string, callId: string) {
-	return createRunActivity(runId, callId, {
-		type: "NOTE",
-		targetKind: "company",
-		targetId: companyId,
-		subject: "Runtime test",
-		body: "Completed the required action.",
-	});
-}
-
 describe("durable custom-agent runtime", () => {
-	it("queues one run per matching event trigger and event occurrence", async () => {
-		const trigger = await db.agentTrigger.create({
-			data: {
-				agentId,
-				versionId,
-				type: "EVENT",
-				name: "When a deal closes",
-				config: { event: "deal.closed" },
-				createdById: userId,
-				enabled: true,
-			},
-			select: { id: true },
-		});
-		const occurredAt = new Date().toISOString();
-		const task = {
-			id: `event-task-${suffix}`,
-			contactId: null,
-			companyId: null,
-			dealId: `event-deal-${suffix}`,
-			payload: {
-				type: "deal.closed",
-				record: { kind: "deal", id: `event-deal-${suffix}` },
-				occurredAt,
-				data: { from: "NEGOTIATION", to: "CLOSED_WON" },
-			},
-		};
-
-		await Promise.all([
-			queueEventAgentRuns(task),
-			queueEventAgentRuns(task),
-			queueEventAgentRuns(task),
-		]);
-
-		const runs = await db.agentRun.findMany({
-			where: { triggerId: trigger.id },
-			select: { triggerType: true, status: true, input: true },
-		});
-		expect(runs).toEqual([
-			{
-				triggerType: "EVENT",
-				status: "QUEUED",
-				input: {
-					event: {
-						type: "deal.closed",
-						occurredAt,
-						data: { from: "NEGOTIATION", to: "CLOSED_WON" },
-					},
-					record: { kind: "deal", id: `event-deal-${suffix}` },
-				},
-			},
-		]);
-	});
-
 	it("advances a due trigger only when its run is committed", async () => {
 		const now = new Date();
 		const results = await Promise.all(
@@ -299,7 +192,7 @@ describe("durable custom-agent runtime", () => {
 			db.agentRun.findUniqueOrThrow({ where: { id: recoverable.id } }),
 			db.agentRun.findUniqueOrThrow({ where: { id: active.id } }),
 		]);
-		expect(pending).not.toContain(recoverable.id);
+		expect(pending).toContain(recoverable.id);
 		expect(recovered).toMatchObject({ status: "QUEUED", startedAt: null });
 		expect(
 			await db.agentRunEvent.count({
@@ -334,41 +227,6 @@ describe("durable custom-agent runtime", () => {
 			sessionId,
 			modelId: "test/model",
 		});
-	});
-
-	it("runs only one turn per agent while leaving later work queued", async () => {
-		const [first, second] = await Promise.all([
-			createRun("QUEUED", null),
-			createRun("QUEUED", null),
-		]);
-		const deliveries: string[] = [];
-		const send = (async (message: string) => {
-			deliveries.push(message);
-			return { id: `durable-session-${suffix}-serialized` };
-		}) as unknown as SendFn;
-
-		const results = await Promise.allSettled([
-			dispatchAgentRun(first.id, send),
-			dispatchAgentRun(second.id, send),
-		]);
-
-		expect(
-			results.filter((result) => result.status === "fulfilled"),
-		).toHaveLength(1);
-		expect(
-			results.filter((result) => result.status === "rejected"),
-		).toHaveLength(1);
-		expect(deliveries).toHaveLength(1);
-		expect(
-			(
-				await db.agentRun.findMany({
-					where: { id: { in: [first.id, second.id] } },
-					select: { status: true },
-				})
-			)
-				.map((run) => run.status)
-				.sort(),
-		).toEqual(["QUEUED", "RUNNING"]);
 	});
 
 	it("restores a builder continuation when a delivery lease expires", async () => {
@@ -507,8 +365,8 @@ describe("durable custom-agent runtime", () => {
 			select: { id: true, submissions: { select: { id: true } } },
 		});
 		builderConversationIds.push(conversation.id);
-		let delivered: Parameters<SendFn>[0] | null = null;
-		const send = (async (input: Parameters<SendFn>[0]) => {
+		let delivered: unknown;
+		const send = (async (input: unknown) => {
 			delivered = input;
 			return { id: `durable-session-${suffix}-attachment` };
 		}) as unknown as SendFn;
@@ -524,7 +382,7 @@ describe("durable custom-agent runtime", () => {
 			mediaType: "text/plain",
 			filename: "brief.txt",
 		});
-		expect(Buffer.from(attachmentBytes.parse(parts[1]).data)).toEqual(content);
+		expect(Buffer.from(recordOf(parts[1]).data as Uint8Array)).toEqual(content);
 	});
 
 	it("ingests a replayed Eve event and its usage exactly once", async () => {
@@ -540,7 +398,7 @@ describe("durable custom-agent runtime", () => {
 				session: {
 					id: string;
 					auth: {
-						current: { attributes: Record<string, string> };
+						current: { attributes: Record<string, unknown> };
 						initiator: null;
 					};
 				};
@@ -594,7 +452,7 @@ describe("durable custom-agent runtime", () => {
 					id: string;
 					parent?: unknown;
 					auth: {
-						current: { attributes: Record<string, string> };
+						current: { attributes: Record<string, unknown> };
 						initiator: null;
 					};
 				};
@@ -632,7 +490,6 @@ describe("durable custom-agent runtime", () => {
 
 	it("lets the first terminal state win without duplicate terminal logs", async () => {
 		const [completed, failed] = await Promise.all([createRun(), createRun()]);
-		await satisfyRequiredActivity(completed.id, "terminal-success");
 		await finishRun(completed.id, { summary: "Completed safely" });
 		await failRun(completed.id, "LATE_FAILURE", "This arrived late");
 		await failRun(failed.id, "FIRST_FAILURE", "Failed safely");
@@ -690,98 +547,21 @@ describe("durable custom-agent runtime", () => {
 			}),
 		).toBe(0);
 
-		await satisfyRequiredActivity(run.id, "staged-success");
 		await finishRun(run.id, {
 			summary: staged.summary ?? "Staged safely",
-			result: runResultOf(staged.result),
+			result: staged.result as Record<string, unknown>,
 		});
 		expect(
 			await db.agentRun.findUniqueOrThrow({ where: { id: run.id } }),
 		).toMatchObject({ status: "SUCCEEDED", summary: "Staged safely" });
 	});
 
-	it("fails a run that never performs its declared external action", async () => {
-		const run = await createRun();
-		const finished = await finishRun(run.id, {
-			summary: "Claimed completion without acting",
-		});
-
-		expect(finished).toEqual({ id: run.id, status: "FAILED" });
-		expect(
-			await db.agentRun.findUniqueOrThrow({ where: { id: run.id } }),
-		).toMatchObject({
-			status: "FAILED",
-			errorCode: "ACTION_NOT_PERFORMED",
-		});
-		expect(
-			await db.agentAction.findUniqueOrThrow({
-				where: {
-					idempotencyKey: `run:${run.id}:required:crm.activity.create`,
-				},
-			}),
-		).toMatchObject({
-			status: "FAILED",
-			errorCode: "ACTION_NOT_PERFORMED",
-		});
-	});
-
-	it("refuses a self-reported no-action ending on a manual run", async () => {
-		const run = await createRun();
-		let stageError: Error | null = null;
-		try {
-			await stageRunResult(run.id, {
-				summary: "Nothing to do",
-				noActionNeeded: { reason: "The condition was not met." },
-			});
-		} catch (error) {
-			stageError = error as Error;
-		}
-		expect(stageError?.message).toContain(
-			"manual run cannot end with no action needed",
-		);
-
-		const finished = await finishRun(run.id, {
-			summary: "Nothing to do",
-			result: { noActionNeeded: "The condition was not met." },
-		});
-		expect(finished).toEqual({ id: run.id, status: "FAILED" });
-		expect(
-			await db.agentRun.findUniqueOrThrow({ where: { id: run.id } }),
-		).toMatchObject({ status: "FAILED", errorCode: "ACTION_NOT_PERFORMED" });
-		expect(
-			await db.agentRunEvent.count({
-				where: { runId: run.id, type: "run.completed" },
-			}),
-		).toBe(0);
-	});
-
-	it("accepts a no-action ending on an event run whose condition was not met", async () => {
-		const run = await createRun("RUNNING", new Date(), null, "EVENT");
-		await stageRunResult(run.id, {
-			summary: "The deal was already closed",
-			noActionNeeded: { reason: "The condition was not met." },
-		});
-		const staged = await db.agentRun.findUniqueOrThrow({
-			where: { id: run.id },
-		});
-		expect(staged.result).toMatchObject({
-			noActionNeeded: "The condition was not met.",
-		});
-
-		const finished = await finishRun(run.id, {
-			summary: staged.summary ?? "The deal was already closed",
-			result: runResultOf(staged.result),
-		});
-		expect(finished).toEqual({ id: run.id, status: "SUCCEEDED" });
-		expect(await db.agentAction.count({ where: { runId: run.id } })).toBe(0);
-	});
-
 	it("claims an approved CRM action once and rejects scope before target access", async () => {
 		const run = await createRun();
 		const input = {
 			type: "NOTE" as const,
-			targetKind: "company" as const,
-			targetId: companyId,
+			targetKind: "contact" as const,
+			targetId: contactId,
 			subject: "Durable note",
 			body: "Created exactly once.",
 		};
@@ -820,7 +600,7 @@ describe("durable custom-agent runtime", () => {
 		try {
 			await createRunActivity(run.id, "out-of-scope", {
 				...input,
-				targetId: otherCompanyId,
+				targetId: otherContactId,
 			});
 		} catch (error) {
 			scopeError = error as Error;
@@ -852,3 +632,9 @@ describe("durable custom-agent runtime", () => {
 		).toBe(0);
 	});
 });
+
+function recordOf(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
+}

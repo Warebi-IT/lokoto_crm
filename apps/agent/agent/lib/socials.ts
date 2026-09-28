@@ -1,32 +1,6 @@
-import { z } from "zod";
 import type { Evidence } from "./evidence";
-import {
-	looksLikeSameCompany,
-	nameMatchesLocalPart,
-	namesMatch,
-} from "./names";
+import { nameMatchesLocalPart, namesMatch } from "./names";
 import { ask } from "./perplexity";
-
-const text = z.string().trim().min(1).nullable().catch(null);
-const rawText = z.string().nullable().catch(null);
-
-const githubAccount = z
-	.object({
-		login: rawText,
-		name: text,
-		company: text,
-		blog: text,
-		bio: text,
-		type: rawText,
-	})
-	.catch({
-		login: null,
-		name: null,
-		company: null,
-		blog: null,
-		bio: null,
-		type: null,
-	});
 
 export type Network = "x" | "github";
 
@@ -41,8 +15,6 @@ export type Person = {
 	lastName: string | null;
 	fullName: string;
 	title: string | null;
-	companyName: string | null;
-	companyDomain: string | null;
 };
 
 export type Verdict =
@@ -171,7 +143,6 @@ export function extractSocialUrls(haystack: string[]): SocialProfile[] {
 type GithubUser = {
 	login: string;
 	name: string | null;
-	company: string | null;
 	blog: string | null;
 	bio: string | null;
 	type: string;
@@ -181,16 +152,18 @@ async function fetchGithubUser(
 	handle: string,
 ): Promise<{ ok: true; user: GithubUser } | { ok: false; reason: string }> {
 	const token = process.env.GITHUB_TOKEN;
-	const headers = new Headers({
-		accept: "application/vnd.github+json",
-		"user-agent": "comp-ai-crm-research-agent",
-	});
-	if (token) headers.set("authorization", `Bearer ${token}`);
 
 	try {
 		const response = await fetch(
 			`https://api.github.com/users/${encodeURIComponent(handle)}`,
-			{ headers, signal: AbortSignal.timeout(15_000) },
+			{
+				headers: {
+					accept: "application/vnd.github+json",
+					"user-agent": "comp-ai-crm-research-agent",
+					...(token ? { authorization: `Bearer ${token}` } : {}),
+				},
+				signal: AbortSignal.timeout(15_000),
+			},
 		);
 
 		if (response.status === 404) {
@@ -206,23 +179,22 @@ async function fetchGithubUser(
 			return { ok: false, reason: `GitHub returned HTTP ${response.status}.` };
 		}
 
-		const account = githubAccount.parse(await response.json());
+		const body = (await response.json()) as Record<string, unknown>;
 
 		return {
 			ok: true,
 			user: {
-				login: account.login ?? handle,
-				name: account.name,
-				company: account.company,
-				blog: account.blog,
-				bio: account.bio,
-				type: account.type ?? "User",
+				login: String(body.login ?? handle),
+				name: str(body.name),
+				blog: str(body.blog),
+				bio: str(body.bio),
+				type: String(body.type ?? "User"),
 			},
 		};
-	} catch (cause) {
+	} catch (error) {
 		return {
 			ok: false,
-			reason: cause instanceof Error ? cause.message : String(cause),
+			reason: error instanceof Error ? error.message : String(error),
 		};
 	}
 }
@@ -246,45 +218,12 @@ export async function verifyGithub(
 	const evidence: Evidence[] = [];
 	const named = namesMatch(user.name, person.fullName);
 
-	const employed =
-		person.companyName !== null &&
-		user.company !== null &&
-		looksLikeSameCompany(
-			user.company,
-			person.companyName,
-			person.companyDomain ?? "",
-		);
-
 	if (named) {
-		const detail = employed
-			? `the account is named "${user.name}" and its company reads "${user.company}"`
-			: `the account is named "${user.name}"`;
 		evidence.push({
 			kind: "github.account-identity",
-			detail,
+			detail: `the account is named "${user.name}"`,
 			sourceUrl: profile.url,
 		});
-	} else if (employed) {
-		evidence.push({
-			kind: "employer-only",
-			detail: `its company reads "${user.company}" but the account is named "${user.name ?? "—"}"`,
-			sourceUrl: profile.url,
-		});
-	}
-
-	if (person.companyDomain) {
-		const mentions = [user.blog, user.bio]
-			.filter((field): field is string => Boolean(field))
-			.some((field) =>
-				field.toLowerCase().includes(person.companyDomain as string),
-			);
-		if (mentions) {
-			evidence.push({
-				kind: "web.cited-claim",
-				detail: `the profile links ${person.companyDomain}`,
-				sourceUrl: profile.url,
-			});
-		}
 	}
 
 	if (
@@ -305,7 +244,7 @@ export async function verifyGithub(
 			accepted: false,
 			reason:
 				`github.com/${user.login} says nothing connecting it to ${person.fullName}: ` +
-				`name "${user.name ?? "—"}", company "${user.company ?? "—"}".`,
+				`name "${user.name ?? "—"}".`,
 		};
 	}
 
@@ -316,20 +255,6 @@ export async function verifyX(
 	profile: SocialProfile,
 	person: Person,
 ): Promise<Verdict> {
-	if (
-		person.companyName &&
-		looksLikeSameCompany(
-			profile.handle,
-			person.companyName,
-			person.companyDomain ?? "",
-		)
-	) {
-		return {
-			accepted: false,
-			reason: `x.com/${profile.handle} looks like ${person.companyName}'s own account, not ${person.fullName}'s.`,
-		};
-	}
-
 	if (
 		!nameMatchesLocalPart(
 			{ firstName: person.firstName, lastName: person.lastName },
@@ -346,8 +271,7 @@ export async function verifyX(
 
 	const answer = await ask(
 		`Is https://x.com/${profile.handle} the X (Twitter) account of ${person.fullName}` +
-			`${person.title ? `, ${person.title}` : ""}` +
-			`${person.companyName ? ` at ${person.companyName}` : ""}? ` +
+			`${person.title ? `, ${person.title}` : ""}? ` +
 			"Answer yes or no and give the profile URL.",
 		{ domains: ["x.com", "twitter.com"] },
 	);
@@ -400,9 +324,7 @@ export async function findSocialCandidates(
 
 	const answer = await ask(
 		`What is the ${where} profile of ${person.fullName}` +
-			`${person.title ? `, ${person.title}` : ""}` +
-			`${person.companyName ? ` at ${person.companyName}` : ""}` +
-			`${person.companyDomain ? ` (${person.companyDomain})` : ""}? ` +
+			`${person.title ? `, ${person.title}` : ""}? ` +
 			"Reply with the profile URL only, or say you do not know.",
 		{ domains },
 	);
@@ -415,4 +337,8 @@ export async function findSocialCandidates(
 	]).filter((candidate) => candidate.network === network);
 
 	return { candidates, citations: answer.data.citations };
+}
+
+function str(value: unknown): string | null {
+	return typeof value === "string" && value.trim() ? value.trim() : null;
 }

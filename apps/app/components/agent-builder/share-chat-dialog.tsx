@@ -128,7 +128,7 @@ export function ShareChatDialog({
 							className="absolute top-4 right-4"
 						>
 							<Icon icon={Close} />
-							<span className="sr-only">Close</span>
+							<span className="sr-only">Fermer</span>
 						</Button>
 					</DialogClose>
 				</DialogHeader>
@@ -244,10 +244,10 @@ export function ShareChatDialog({
 					</Button>
 					<div className="flex gap-3">
 						<DialogClose asChild>
-							<Button variant="outline">Cancel</Button>
+							<Button variant="outline">Annuler</Button>
 						</DialogClose>
 						<DialogClose asChild>
-							<Button>Done</Button>
+							<Button>Terminer</Button>
 						</DialogClose>
 					</div>
 				</DialogFooter>

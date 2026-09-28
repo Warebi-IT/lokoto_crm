@@ -1,48 +1,73 @@
 import { describe, expect, it } from "bun:test";
 import { anchorResults } from "../lib/agent-results";
-import {
-	type DealListResult,
-	dealListResultOf,
-	groupDealListPages,
-	type TranscriptItem,
-} from "../lib/agent-transcript";
+import type { TranscriptItem } from "../lib/agent-transcript";
+
+type ContractListResult = {
+	asOf: string;
+	criteria: { status: string; inactiveForDays: number | null };
+	contracts: { id: string }[];
+	hasMore: boolean;
+};
+
+function validate(value: unknown): ContractListResult | null {
+	if (!value || typeof value !== "object") return null;
+	const record = value as Record<string, unknown>;
+	if (typeof record.asOf !== "string" || !Array.isArray(record.contracts)) {
+		return null;
+	}
+	return record as unknown as ContractListResult;
+}
+
+function group(
+	results: readonly { itemId: string; value: ContractListResult }[],
+): readonly { itemId: string; value: ContractListResult }[] {
+	const groups = new Map<
+		string,
+		{ itemId: string; value: ContractListResult; order: number }
+	>();
+
+	for (const [index, page] of results.entries()) {
+		const key = JSON.stringify(page.value.criteria);
+		const previous = groups.get(key);
+		const contracts = new Map(
+			previous?.value.contracts.map((row) => [row.id, row] as const),
+		);
+		for (const row of page.value.contracts) contracts.set(row.id, row);
+
+		groups.set(key, {
+			itemId: page.itemId,
+			value: { ...page.value, contracts: [...contracts.values()] },
+			order: previous?.order ?? index,
+		});
+	}
+
+	return [...groups.values()]
+		.sort((left, right) => left.order - right.order)
+		.map(({ itemId, value }) => ({ itemId, value }));
+}
 
 const page = (status: string, ids: string[]) => ({
 	asOf: "2026-08-07T00:00:00.000Z",
-	criteria: {
-		status,
-		inactiveForDays: null,
-		companyId: null,
-		ownerId: null,
-	},
-	deals: ids.map((id) => ({
-		id,
-		name: id,
-		stage: "Discovery",
-		amount: null,
-		currency: "USD",
-		company: { id: "c1", name: "Acme" },
-		owner: null,
-		daysSinceLastActivity: 3,
-		expectedCloseDate: null,
-	})),
+	criteria: { status, inactiveForDays: null },
+	contracts: ids.map((id) => ({ id })),
+	hasMore: false,
 });
 
 const did = (
 	id: string,
-	output: Extract<TranscriptItem, { kind: "did" }>["output"],
+	output: unknown,
 	extra: Partial<Extract<TranscriptItem, { kind: "did" }>> = {},
 ): TranscriptItem => ({
 	kind: "did",
 	id,
-	label: "Listed deals",
+	label: "Reviewed the rental contracts",
 	input: null,
 	output,
 	errorText: null,
 	tone: "neutral",
 	pending: false,
 	sources: [],
-	tool: "list_deals",
+	tool: "list_rental_contracts",
 	...extra,
 });
 
@@ -53,18 +78,18 @@ const said = (id: string, text: string): TranscriptItem => ({
 	text,
 });
 
-const anchorDeals = (items: readonly TranscriptItem[]) =>
-	anchorResults<DealListResult>({
+const anchorContracts = (items: readonly TranscriptItem[]) =>
+	anchorResults<ContractListResult>({
 		items,
-		tool: "list_deals",
-		validate: dealListResultOf,
-		group: groupDealListPages,
+		tool: "list_rental_contracts",
+		validate,
+		group,
 	});
 
 describe("anchorResults", () => {
 	it("leaves a finished result under its own call when a pending one follows", () => {
-		const anchored = anchorDeals([
-			did("a", page("OPEN", ["d1"])),
+		const anchored = anchorContracts([
+			did("a", page("OPEN", ["c1"])),
 			did("b", null, { pending: true, output: null }),
 		]);
 
@@ -72,8 +97,8 @@ describe("anchorResults", () => {
 	});
 
 	it("never anchors to a failed call", () => {
-		const anchored = anchorDeals([
-			did("a", page("OPEN", ["d1"])),
+		const anchored = anchorContracts([
+			did("a", page("OPEN", ["c1"])),
 			did("b", { broken: true }, { tone: "warning", errorText: "Nope." }),
 		]);
 
@@ -81,34 +106,34 @@ describe("anchorResults", () => {
 	});
 
 	it("keeps two different criteria under their own calls", () => {
-		const anchored = anchorDeals([
-			did("a", page("OPEN", ["d1"])),
-			said("t", "And the won ones:"),
-			did("b", page("WON", ["d2"])),
+		const anchored = anchorContracts([
+			did("a", page("OPEN", ["c1"])),
+			said("t", "And the completed ones:"),
+			did("b", page("COMPLETED", ["c2"])),
 		]);
 
 		expect([...anchored.keys()]).toEqual(["a", "b"]);
 		expect(anchored.get("a")?.[0]?.criteria.status).toBe("OPEN");
-		expect(anchored.get("b")?.[0]?.criteria.status).toBe("WON");
+		expect(anchored.get("b")?.[0]?.criteria.status).toBe("COMPLETED");
 	});
 
 	it("anchors paginated pages of one criteria to the final page", () => {
-		const anchored = anchorDeals([
-			did("a", page("OPEN", ["d1"])),
-			did("b", page("OPEN", ["d2"])),
+		const anchored = anchorContracts([
+			did("a", page("OPEN", ["c1"])),
+			did("b", page("OPEN", ["c2"])),
 		]);
 
 		expect([...anchored.keys()]).toEqual(["b"]);
-		expect(anchored.get("b")?.[0]?.deals.map((deal) => deal.id)).toEqual([
-			"d1",
-			"d2",
+		expect(anchored.get("b")?.[0]?.contracts.map((row) => row.id)).toEqual([
+			"c1",
+			"c2",
 		]);
 	});
 
 	it("anchors pagination to the last valid page, not a later failure", () => {
-		const anchored = anchorDeals([
-			did("a", page("OPEN", ["d1"])),
-			did("b", page("OPEN", ["d2"])),
+		const anchored = anchorContracts([
+			did("a", page("OPEN", ["c1"])),
+			did("b", page("OPEN", ["c2"])),
 			did("c", { broken: true }),
 		]);
 
@@ -116,8 +141,8 @@ describe("anchorResults", () => {
 	});
 
 	it("ignores calls belonging to another tool", () => {
-		const anchored = anchorDeals([
-			did("a", page("OPEN", ["d1"]), { tool: "list_companies" }),
+		const anchored = anchorContracts([
+			did("a", page("OPEN", ["c1"]), { tool: "search_crm" }),
 		]);
 
 		expect(anchored.size).toBe(0);

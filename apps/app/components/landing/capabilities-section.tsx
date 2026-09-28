@@ -1,7 +1,5 @@
 import ArrowRight from "@carbon/icons-react/es/ArrowRight";
-import GitHubLogo from "@crm/ui/components/brand-logos/github";
-import StripeLogo from "@crm/ui/components/brand-logos/stripe";
-import VercelLogo from "@crm/ui/components/brand-logos/vercel";
+import { Avatar, AvatarFallback } from "@crm/ui/components/avatar";
 import { cn } from "@crm/ui/lib/utils";
 import type * as React from "react";
 import { AskCard } from "./ask-card";
@@ -16,21 +14,18 @@ import { SectionHeading } from "./section-heading";
 
 const ENRICHMENT_ROWS = [
 	{
-		name: "Stripe",
-		domain: "stripe.com",
-		logo: <StripeLogo className="size-5 shrink-0" />,
+		name: "Paula Marchetti",
+		role: "Renter · Toyota Hiace",
 		researching: false,
 	},
 	{
-		name: "Vercel",
-		domain: "vercel.com",
-		logo: <VercelLogo className="size-5 shrink-0 text-white" />,
+		name: "Tomi Okonkwo",
+		role: "Renter · Kia Rio",
 		researching: false,
 	},
 	{
-		name: "GitHub",
-		domain: "github.com",
-		logo: <GitHubLogo className="size-5 shrink-0 text-muted-foreground" />,
+		name: "Fatou Diallo",
+		role: "Renter · Hyundai Accent",
 		researching: true,
 	},
 ];
@@ -76,7 +71,7 @@ function EnrichmentCard() {
 		<BentoCard className="gap-6">
 			<CardHeading
 				title="Records fill themselves in"
-				body="A new person on a thread becomes a contact, and their company arrives with its logo, industry and last activity already on it."
+				body="A new person on a thread becomes a contact, with their title, photo and LinkedIn already on it."
 			/>
 
 			<div className="flex select-none flex-col">
@@ -85,14 +80,21 @@ function EnrichmentCard() {
 						key={row.name}
 						className="-mx-2 flex h-11 shrink-0 items-center gap-3 rounded-sm border-border border-t px-2 transition-colors hover:bg-muted/50"
 					>
-						<span className={cn(row.researching && "animate-pulse")}>
-							{row.logo}
-						</span>
+						<Avatar
+							className={cn(
+								"size-5 shrink-0",
+								row.researching && "animate-pulse",
+							)}
+						>
+							<AvatarFallback className="text-[9px]">
+								{initials(row.name)}
+							</AvatarFallback>
+						</Avatar>
 						<span className="min-w-0 grow font-medium text-[13px]/4">
 							{row.name}
 						</span>
 						<span className="hidden w-[180px] shrink-0 font-mono text-muted-foreground text-xs sm:block">
-							{row.domain}
+							{row.role}
 						</span>
 						{row.researching ? (
 							<StatusBadge className="gap-1 bg-border text-muted-foreground">
@@ -221,5 +223,17 @@ function ResearchingSpinner() {
 				strokeLinecap="round"
 			/>
 		</svg>
+	);
+}
+
+function initials(name: string): string {
+	return (
+		name
+			.split(" ")
+			.map((part) => part[0])
+			.filter(Boolean)
+			.slice(0, 2)
+			.join("")
+			.toUpperCase() || "?"
 	);
 }

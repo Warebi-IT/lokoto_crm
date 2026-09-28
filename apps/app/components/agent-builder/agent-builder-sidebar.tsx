@@ -78,7 +78,7 @@ export function AgentBuilderSidebar({
 	return (
 		<aside className={cn("min-h-0 min-w-0 flex-col p-4 font-sans", className)}>
 			<div className="flex h-7 shrink-0 items-center justify-between pl-2">
-				<span className="font-medium text-xs">Chats</span>
+				<span className="font-medium text-xs">Conversations</span>
 				<Button asChild variant="ghost" size="icon-xs">
 					<Link
 						href={workspaceUrl("/chat")}
@@ -174,7 +174,7 @@ function TeamAgents({
 				onClick={onNavigate}
 				className="flex h-8 items-end gap-2 rounded-sm px-2 pb-1 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em] outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
 			>
-				<span className="min-w-0 flex-1">Team agents</span>
+				<span className="min-w-0 flex-1">Agents de l’équipe</span>
 				<span className="shrink-0 font-mono">{agents.length}</span>
 			</Link>
 			{agents.map((agent) => {
@@ -234,16 +234,18 @@ function groupConversations(conversations: Conversation[], now: number) {
 	if (!now) return [];
 
 	const labels: ChatDateGroup[] = ["Today", "Yesterday", "Last 7 days"];
-	const items = new Map<ChatDateGroup, Conversation[]>(
-		labels.map((label) => [label, []]),
-	);
+	const items: Record<ChatDateGroup, Conversation[]> = {
+		Today: [],
+		Yesterday: [],
+		"Last 7 days": [],
+	};
 
 	for (const conversation of conversations) {
 		const label = chatDateGroup(conversation.lastMessageAt, now);
-		if (label) items.get(label)?.push(conversation);
+		if (label) items[label].push(conversation);
 	}
 
 	return labels
-		.map((label) => ({ label, items: items.get(label) ?? [] }))
+		.map((label) => ({ label, items: items[label] }))
 		.filter((group) => group.items.length > 0);
 }

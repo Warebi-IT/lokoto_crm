@@ -23,15 +23,15 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  ownedCompanies Company[]           @relation("CompanyOwner")
-  ownedContacts  Contact[]           @relation("ContactOwner")
-  ownedDeals     Deal[]              @relation("DealOwner")
-  activities     Activity[]          @relation("ActivityAuthor")
-  mailboxSyncs   MailboxSync[]
-  factDecisions  ContactFact[]       @relation("FactDecider")
-  conversations  AgentConversation[] @relation("ConversationOwner")
-  fieldValues    FieldValue[]        @relation("FieldValueUser")
-  savedViews     SavedView[]         @relation("SavedViewOwner")
+  ownedRentalContracts RentalContract[]    @relation("RentalContractOwner")
+  recordedPayments     Payment[]           @relation("PaymentRecorder")
+  reportedIncidents    Incident[]          @relation("IncidentReporter")
+  performedInspections VehicleInspection[] @relation("InspectionInspector")
+  activities           Activity[]          @relation("ActivityAuthor")
+  mailboxSyncs         MailboxSync[]
+  factDecisions        ContactFact[]       @relation("FactDecider")
+  conversations        AgentConversation[] @relation("ConversationOwner")
+  fieldValues          FieldValue[]        @relation("FieldValueUser")
 
   createdAgentDefinitions AgentDefinition[]             @relation("AgentDefinitionCreator")
   createdAgentVersions    AgentVersion[]                @relation("AgentVersionCreator")
@@ -41,71 +41,14 @@ model User {
   conversationShares      AgentConversationShare[]      @relation("ConversationShareCreator")
   conversationSubmissions AgentConversationSubmission[] @relation("ConversationSubmissionAuthor")
   conversationFeedback    AgentConversationFeedback[]   @relation("ConversationFeedbackAuthor")
-  slackMemberMatch        SlackMemberMatch?
 
   members     Member[]
   invitations Invitation[]
 
   ssoproviders SsoProvider[]
 
-  apiKeys Apikey[]
-
   @@unique([email])
   @@map("user")
-}
-
-model SlackMemberMatch {
-  id          String   @id @default(cuid())
-  crmUserId   String   @unique
-  crmUser     User     @relation(fields: [crmUserId], references: [id], onDelete: Cascade)
-  slackUserId String?
-  slackHandle String?
-  slackEmail  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([slackUserId])
-  @@map("slackMemberMatch")
-}
-
-model SlackChannel {
-  id                String    @id
-  name              String
-  memberCount       Int?
-  available         Boolean   @default(true)
-  isPrivate         Boolean   @default(false)
-  isMember          Boolean   @default(false)
-  inviteRequestedAt DateTime?
-  classifiedAt      DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  @@index([available, name])
-  @@index([updatedAt])
-  @@map("slackChannel")
-}
-
-model SlackInstallation {
-  installerId String   @id
-  teamId      String
-  teamName    String?
-  userToken   String?
-  userScopes  String
-  createdAt   DateTime @default(now())
-
-  @@map("slackInstallation")
-}
-
-model SlackWorkspaceGrant {
-  id         String   @id @default(cuid())
-  teamId     String   @unique
-  teamName   String?
-  userToken  String
-  userScopes String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@map("slackWorkspaceGrant")
 }
 
 model Session {
@@ -168,14 +111,137 @@ model RateLimit {
   @@map("rateLimit")
 }
 
-enum DealStage {
-  DEMO_BOOKED
-  QUALIFIED_TO_BUY
-  UNQUALIFIED_TO_BUY
-  DECISION_MAKER_BOUGHT_IN
-  CONTRACT_SENT
-  CLOSED_WON
-  CLOSED_LOST
+enum VehicleType {
+  CAR
+  MOTORCYCLE
+  SCOOTER
+  TRUCK
+  MINIBUS
+}
+
+enum FuelType {
+  DIESEL
+  GASOLINE
+  ELECTRIC
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  RESERVED
+  RENTED
+  MAINTENANCE
+  OUT_OF_SERVICE
+  STOLEN
+}
+
+enum RentalContractStatus {
+  DRAFT
+  RESERVED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum RentalChannel {
+  AGENT
+  ONLINE
+}
+
+enum FuelLevel {
+  FULL
+  THREE_QUARTER
+  HALF
+  QUARTER
+  EMPTY
+}
+
+enum DepositMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  NONE
+}
+
+enum DepositStatus {
+  HELD
+  PARTIALLY_RETURNED
+  RETURNED
+  FORFEITED
+}
+
+enum DriverRole {
+  PRIMARY
+  ADDITIONAL
+}
+
+enum PaymentType {
+  RENTAL_FEE
+  DEPOSIT
+  DEPOSIT_REFUND
+  EXTRA_FEE
+  PENALTY
+  MAINTENANCE_CHARGE
+}
+
+enum PaymentMethod {
+  CASH
+  WAVE
+  ORANGE_MONEY
+  CARD
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum IncidentType {
+	ACCIDENT
+	THEFT
+	BREAKDOWN
+	DAMAGE
+	TRAFFIC_VIOLATION
+}
+
+enum IncidentDepositOutcome {
+	NONE
+	PARTIAL
+	FULL
+}
+
+enum IncidentDocumentType {
+	PHOTO
+	POLICE_REPORT
+	INVOICE
+	OTHER
+}
+
+enum ResponsibleParty {
+  CLIENT
+  AGENCY
+  THIRD_PARTY
+  UNKNOWN
+}
+
+enum InsuranceClaimStatus {
+  NOT_FILED
+  FILED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum MaintenanceType {
+  SCHEDULED
+  REPAIR
+}
+
+enum InspectionType {
+  CHECK_OUT
+  CHECK_IN
 }
 
 enum ActivityType {
@@ -201,7 +267,6 @@ enum RecordSource {
   IMPORT
   EMAIL
   CALENDAR
-  TRACKING
 }
 
 enum AgentConversationKind {
@@ -277,87 +342,19 @@ enum AgentResponseRating {
   DOWN
 }
 
-model Company {
-  id          String  @id @default(cuid())
-  name        String
-  domain      String?
-  website     String?
-  description String?
-
-  logoUrl     String?
-  logoDarkUrl String?
-  iconUrl     String?
-  iconDarkUrl String?
-  iconTone    String?
-  brandColor  String?
-
-  industry    String?
-  subIndustry String?
-  city        String?
-  stateCode   String?
-  country     String?
-  countryCode String?
-
-  phone       String?
-  email       String?
-  linkedinUrl String?
-  twitterUrl  String?
-  githubUrl   String?
-  pricingUrl  String?
-  careersUrl  String?
-
-  ownerId          String?
-  owner            User?    @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  primaryContactId String?  @unique
-  primaryContact   Contact? @relation("PrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
-
-  enrichmentStatus EnrichmentStatus   @default(PENDING)
-  enrichedAt       DateTime?
-  enrichmentError  String?
-  enrichment       CompanyEnrichment?
-
-  source RecordSource @default(MANUAL)
-
-  lastActivityAt DateTime?
-  archivedAt     DateTime?
-
-  contacts       Contact[]           @relation("CompanyContacts")
-  conversations  AgentConversation[]
-  deals          Deal[]
-  activities     Activity[]
-  emailThreads   EmailThread[]
-  calendarEvents CalendarEvent[]
-  fieldValues    FieldValue[]
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  @@unique([domain], map: "company_domain_active_key", where: { archivedAt: null })
-  @@index([ownerId])
-  @@index([name])
-  @@index([lastActivityAt])
-  @@index([archivedAt])
-  @@map("company")
-}
-
-model CompanyEnrichment {
-  companyId String   @id
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  source    String   @default("context.dev")
-  raw       Json
-  fetchedAt DateTime @default(now())
-
-  @@map("companyEnrichment")
+enum ContactGender {
+  H
+  F
 }
 
 model Contact {
   id          String  @id @default(cuid())
   firstName   String
   lastName    String?
-  email       String?
+  gender      ContactGender @default(H)
+  email       String? @unique
   phone       String?
   title       String?
-  seniority   String?
-  function    String?
   linkedinUrl String?
   twitterUrl  String?
   githubUrl   String?
@@ -373,34 +370,46 @@ model Contact {
   facts         ContactFact[]
   conversations AgentConversation[]
 
-  companyId String?
-  company   Company? @relation("CompanyContacts", fields: [companyId], references: [id], onDelete: SetNull)
-  ownerId   String?
-  owner     User?    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  primaryOf Company? @relation("PrimaryContact")
-
   source RecordSource @default(MANUAL)
 
   lastActivityAt DateTime?
-  archivedAt     DateTime?
 
-  deals           DealContact[]
+  rentalContracts RentalContract[]
+  driverOn        RentalContractDriver[]
   activities      Activity[]
   emailThreads    EmailThread[]
   calendarEvents  CalendarEvent[]
   eventAttendance CalendarAttendee[]
   fieldValues     FieldValue[]
-  visitors        TrackedVisitor[]   @relation("VisitorContact")
-  submissions     FormSubmission[]   @relation("SubmissionContact")
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  documents       ContactDocument[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
-  @@unique([email], map: "contact_email_active_key", where: { archivedAt: null })
-  @@index([companyId])
-  @@index([ownerId])
   @@index([lastActivityAt])
-  @@index([archivedAt])
   @@map("contact")
+}
+
+enum ContactDocumentType {
+  DRIVERS_LICENSE
+  ID_CARD
+  PROOF_OF_ADDRESS
+  OTHER
+}
+
+model ContactDocument {
+  id        String  @id @default(cuid())
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  type        ContactDocumentType
+  url         String
+  fileName    String?
+  contentType String?
+
+  createdAt DateTime @default(now())
+
+  @@index([contactId])
+  @@map("contactDocument")
 }
 
 enum FactBand {
@@ -466,12 +475,9 @@ model ContactBrief {
 model AgentTask {
   id        String  @id @default(cuid())
   contactId String?
-  companyId String?
-  dealId    String?
 
-  kind    String
-  reason  String
-  payload Json?
+  kind   String
+  reason String
 
   priority Int @default(0)
   budget   Int @default(4)
@@ -485,31 +491,24 @@ model AgentTask {
   finishedAt DateTime?
   outcome    String?
 
-  subject String?
-
   createdAt DateTime @default(now())
 
   @@index([dueAt, leasedUntil])
   @@index([contactId])
-  @@index([dealId])
-  @@index([kind, subject], where: { finishedAt: null })
   @@map("agentTask")
 }
 
 model AgentEvent {
-  id             String             @id
-  sessionId      String
-  contactId      String?
-  conversationId String?
-  conversation   AgentConversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  type           String
-  data           Json
+  id        String  @id
+  sessionId String
+  contactId String?
+  type      String
+  data      Json
 
   emittedAt DateTime
 
   @@index([sessionId, emittedAt])
   @@index([contactId, emittedAt])
-  @@index([conversationId, emittedAt])
   @@map("agentEvent")
 }
 
@@ -518,12 +517,12 @@ model AgentConversation {
 
   kind AgentConversationKind @default(RECORD)
 
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  dealId    String?
-  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId        String?
+  contact          Contact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  vehicleId        String?
+  vehicle          Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  rentalContractId String?
+  rentalContract   RentalContract? @relation(fields: [rentalContractId], references: [id], onDelete: Cascade)
 
   userId String
   user   User   @relation("ConversationOwner", fields: [userId], references: [id], onDelete: Cascade)
@@ -531,10 +530,9 @@ model AgentConversation {
   agentId String?
   agent   AgentDefinition? @relation(fields: [agentId], references: [id], onDelete: SetNull)
 
-  sessionId           String? @unique
-  continuationToken   String?
-  streamIndex         Int     @default(0)
-  pendingInputRequest Json?
+  sessionId         String? @unique
+  continuationToken String?
+  streamIndex       Int     @default(0)
 
   title        String?
   messageCount Int     @default(0)
@@ -548,13 +546,12 @@ model AgentConversation {
   shares           AgentConversationShare[]
   submissions      AgentConversationSubmission[]
   feedback         AgentConversationFeedback[]
-  events           AgentEvent[]
   createdVersions  AgentVersion[]                @relation("AgentVersionSourceConversation")
   builderArtifacts AgentBuilderArtifact[]
 
   @@index([contactId, lastMessageAt])
-  @@index([companyId, lastMessageAt])
-  @@index([dealId, lastMessageAt])
+  @@index([vehicleId, lastMessageAt])
+  @@index([rentalContractId, lastMessageAt])
   @@index([userId, kind, lastMessageAt])
   @@index([agentId, lastMessageAt])
   @@map("agentConversation")
@@ -816,9 +813,6 @@ model AgentRun {
   startedAt  DateTime?
   finishedAt DateTime?
 
-  cancelRequestedAt DateTime?
-  cancelDeliveredAt DateTime?
-
   events  AgentRunEvent[]
   actions AgentAction[]
 
@@ -913,47 +907,426 @@ model AgentAuditEvent {
   @@map("agentAuditEvent")
 }
 
-model Deal {
-  id            String              @id @default(cuid())
-  conversations AgentConversation[]
-  name          String
-  description   String?
-  companyId     String
-  company       Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  ownerId       String
-  owner         User                @relation("DealOwner", fields: [ownerId], references: [id])
+model Vehicle {
+  id          String        @id @default(cuid())
+  type        VehicleType
+  fuelType    FuelType      @default(GASOLINE)
+  make        String
+  model       String
+  year        Int?
+  plateNumber String        @unique
+  vin         String?
+  color       String?
+  status      VehicleStatus @default(AVAILABLE)
 
-  stage             DealStage @default(DEMO_BOOKED)
-  stageChangedAt    DateTime  @default(now())
-  amount            Decimal?  @db.Decimal(14, 2)
-  currency          String    @default("USD")
-  expectedCloseDate DateTime?
-  closedAt          DateTime?
-  closedReason      String?
+  dailyRate Decimal? @db.Decimal(14, 2)
+  currency  String   @default("USD")
 
   baseAmount   Decimal?  @db.Decimal(24, 4)
   baseCurrency String?
   fxRate       Decimal?  @db.Decimal(20, 10)
   fxRateAt     DateTime?
 
+  mileage Int @default(0)
+
+  insurancePolicyNumber String?
+  insuranceExpiresAt    DateTime?
+  registrationExpiresAt DateTime?
+
+  nextMaintenanceAtKm   Int?
+  nextMaintenanceAtDate DateTime?
+
+  photoUrls String[] @default([])
+
   lastActivityAt DateTime?
-  archivedAt     DateTime?
 
-  contacts    DealContact[]
-  activities  Activity[]
-  fieldValues FieldValue[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  conversations      AgentConversation[]
+  rentalContracts    RentalContract[]
+  mileageHistory     VehicleMileageEntry[]
+  incidents          Incident[]
+  maintenanceRecords MaintenanceRecord[]
+  financing          VehicleFinancing?
+  charges            VehicleCharge[]
+  activities         Activity[]
+  fieldValues        FieldValue[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
-  @@index([companyId])
-  @@index([ownerId])
-  @@index([stage])
-  @@index([expectedCloseDate])
+  @@index([status])
+  @@index([type])
   @@index([lastActivityAt])
   @@index([baseAmount])
   @@index([currency])
-  @@index([archivedAt])
-  @@map("deal")
+  @@index([nextMaintenanceAtDate])
+  @@index([insuranceExpiresAt])
+  @@map("vehicle")
+}
+
+enum FinancingType {
+  LOAN
+  LEASING
+}
+
+enum ChargeFrequency {
+  ONE_TIME
+  MONTHLY
+}
+
+model VehicleFinancing {
+  vehicleId String  @id
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  type FinancingType
+
+  principalAmount Decimal? @db.Decimal(14, 2)
+  monthlyPayment  Decimal  @db.Decimal(14, 2)
+  currency        String   @default("USD")
+
+  baseAmount   Decimal?  @db.Decimal(24, 4)
+  baseCurrency String?
+  fxRate       Decimal?  @db.Decimal(20, 10)
+  fxRateAt     DateTime?
+
+  interestRate Decimal? @db.Decimal(6, 3)
+  termMonths   Int?
+  startDate    DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vehicleFinancing")
+}
+
+model VehicleCharge {
+  id        String  @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  label  String
+  amount Decimal @db.Decimal(14, 2)
+
+  currency String @default("USD")
+
+  baseAmount   Decimal?  @db.Decimal(24, 4)
+  baseCurrency String?
+  fxRate       Decimal?  @db.Decimal(20, 10)
+  fxRateAt     DateTime?
+
+  frequency ChargeFrequency
+  startDate DateTime
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vehicleId])
+  @@map("vehicleCharge")
+}
+
+model RentalContract {
+  id        String  @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  ownerId   String
+  owner     User    @relation("RentalContractOwner", fields: [ownerId], references: [id])
+
+  status  RentalContractStatus @default(DRAFT)
+  channel RentalChannel        @default(AGENT)
+
+  startDate      DateTime
+  endDate        DateTime
+  pickupTime     String?
+  returnTime     String?
+  actualPickupAt DateTime?
+  actualReturnAt DateTime?
+
+  pricePerDay Decimal @db.Decimal(14, 2)
+  currency    String  @default("USD")
+  totalAmount Decimal @db.Decimal(14, 2)
+
+  baseAmount   Decimal?  @db.Decimal(24, 4)
+  baseCurrency String?
+  fxRate       Decimal?  @db.Decimal(20, 10)
+  fxRateAt     DateTime?
+
+  mileageIncludedPerDay Int?
+  extraMileageFeePerKm  Decimal?   @db.Decimal(10, 2)
+  extraMileageAmount    Decimal?   @db.Decimal(14, 2)
+  mileageAtPickup       Int?
+  mileageAtReturn       Int?
+  fuelLevelAtPickup     FuelLevel?
+  fuelLevelAtReturn     FuelLevel?
+
+  depositAmount         Decimal       @db.Decimal(14, 2)
+  depositCurrency       String        @default("USD")
+  depositMethod         DepositMethod @default(NONE)
+  depositStatus         DepositStatus @default(HELD)
+  depositReturnedAmount Decimal?      @db.Decimal(14, 2)
+  depositReturnedAt     DateTime?
+
+  cancelledAt         DateTime?
+  cancelledReason     String?
+  contractDocumentUrl String?
+  signedAt            DateTime?
+  notes               String?
+
+  lastActivityAt DateTime?
+
+  conversations AgentConversation[]
+  drivers       RentalContractDriver[]
+  payments      Payment[]
+  incidents     Incident[]
+  inspections   VehicleInspection[]
+  activities    Activity[]
+  fieldValues   FieldValue[]
+  mileageRules  RentalContractMileageRule[]
+  mileageEntry  VehicleMileageEntry?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([vehicleId])
+  @@index([contactId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([lastActivityAt])
+  @@index([baseAmount])
+  @@index([currency])
+  @@index([channel])
+  @@map("rentalContract")
+}
+
+model VehicleMileageEntry {
+  id         String         @id @default(cuid())
+  vehicleId  String
+  vehicle    Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  contractId String?        @unique
+  contract   RentalContract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  mileage    Int
+  recordedAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+
+  @@index([vehicleId, recordedAt])
+  @@map("vehicleMileageEntry")
+}
+
+model RentalContractMileageRule {
+  id         String        @id @default(cuid())
+  contractId String
+  contract   RentalContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  kilometers Int?
+  pricePerKm Decimal       @db.Decimal(10, 2)
+  position   Int
+  createdAt  DateTime      @default(now())
+
+  @@index([contractId, position])
+  @@map("rentalContractMileageRule")
+}
+
+model RentalContractDriver {
+  contractId String
+  contract   RentalContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  contactId  String
+  contact    Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  role       DriverRole     @default(ADDITIONAL)
+
+  @@id([contractId, contactId])
+  @@index([contactId])
+  @@map("rentalContractDriver")
+}
+
+model Payment {
+  id               String         @id @default(cuid())
+  rentalContractId String
+  rentalContract   RentalContract @relation(fields: [rentalContractId], references: [id], onDelete: Cascade)
+
+  type     PaymentType
+  amount   Decimal     @db.Decimal(14, 2)
+  currency String      @default("USD")
+
+  baseAmount   Decimal?  @db.Decimal(24, 4)
+  baseCurrency String?
+  fxRate       Decimal?  @db.Decimal(20, 10)
+  fxRateAt     DateTime?
+
+  method PaymentMethod
+  status PaymentStatus @default(PENDING)
+
+  reference String?
+  paidAt    DateTime?
+  notes     String?
+
+  recordedById String
+  recordedBy   User   @relation("PaymentRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([rentalContractId])
+  @@index([type])
+  @@index([status])
+  @@index([paidAt])
+  @@map("payment")
+}
+
+model Incident {
+  id               String          @id @default(cuid())
+  vehicleId        String
+  vehicle          Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  rentalContractId String?
+  rentalContract   RentalContract? @relation(fields: [rentalContractId], references: [id], onDelete: SetNull)
+
+  type         IncidentType
+  reportedAt   DateTime     @default(now())
+  reportedById String
+  reportedBy   User         @relation("IncidentReporter", fields: [reportedById], references: [id], onDelete: Restrict)
+  description  String
+  damageAreas  String[]     @default([])
+  damageAnnotations IncidentDamageAnnotation[]
+
+  responsibleParty ResponsibleParty @default(UNKNOWN)
+
+	insuranceClaimNumber String?
+	insuranceStatus      InsuranceClaimStatus @default(NOT_FILED)
+	depositOutcome       IncidentDepositOutcome @default(NONE)
+	depositDeductedAmount Decimal?             @db.Decimal(14, 2)
+	depositCurrency       String?
+
+	estimatedCost Decimal? @db.Decimal(14, 2)
+  actualCost    Decimal? @db.Decimal(14, 2)
+  currency      String?
+
+  policeReportReference String?
+	photoUrls             String[]  @default([])
+	documents             IncidentDocument[]
+	resolvedAt            DateTime?
+  notes                 String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vehicleId])
+  @@index([rentalContractId])
+  @@index([type])
+  @@index([insuranceStatus])
+  @@index([reportedAt])
+	@@map("incident")
+}
+
+enum IncidentDamageView {
+	THREE_QUARTER
+	FRONT
+	REAR
+	LEFT_SIDE
+	RIGHT_SIDE
+	ROOF
+	INTERIOR
+}
+
+enum IncidentDamageType {
+	SCRATCH
+	DENT
+	CRACK
+	BROKEN
+	MISSING
+	STAIN
+	OTHER
+}
+
+enum IncidentDamageSeverity {
+	MINOR
+	MODERATE
+	SEVERE
+}
+
+model IncidentDamageAnnotation {
+	id         String       @id @default(cuid())
+	incidentId String
+	incident   Incident     @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+	view       IncidentDamageView
+	type       IncidentDamageType
+	severity   IncidentDamageSeverity
+	x          Float
+	y          Float
+	points     Json?
+	description String?
+	createdAt  DateTime     @default(now())
+	updatedAt  DateTime     @updatedAt
+
+	@@index([incidentId])
+	@@map("incidentDamageAnnotation")
+}
+
+model IncidentDocument {
+	id         String       @id @default(cuid())
+	incidentId String
+	incident   Incident     @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+	type       IncidentDocumentType
+	url        String
+	fileName   String?
+	contentType String?
+	amount     Decimal?     @db.Decimal(14, 2)
+	currency   String?
+	insuranceReimbursedAmount Decimal? @db.Decimal(14, 2)
+	createdAt  DateTime     @default(now())
+
+	@@index([incidentId])
+	@@map("incidentDocument")
+}
+
+model MaintenanceRecord {
+  id        String  @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  type        MaintenanceType
+  description String
+
+  scheduledAtKm     Int?
+  scheduledAtDate   DateTime?
+  completedAt       DateTime?
+  odometerAtService Int?
+  mechanic          String?
+
+  cost             Decimal? @db.Decimal(14, 2)
+  currency         String?
+  invoiceReference String?
+
+  blocksAvailability Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vehicleId])
+  @@index([scheduledAtDate])
+  @@index([completedAt])
+  @@map("maintenanceRecord")
+}
+
+model VehicleInspection {
+  id               String         @id @default(cuid())
+  rentalContractId String
+  rentalContract   RentalContract @relation(fields: [rentalContractId], references: [id], onDelete: Cascade)
+
+  type        InspectionType
+  odometer    Int
+  fuelLevel   FuelLevel
+  damageNotes String?
+  photoUrls   String[]       @default([])
+
+  inspectedById String
+  inspectedBy   User     @relation("InspectionInspector", fields: [inspectedById], references: [id], onDelete: Restrict)
+  inspectedAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([rentalContractId])
+  @@index([type])
+  @@map("vehicleInspection")
 }
 
 enum RateSource {
@@ -977,22 +1350,10 @@ model ExchangeRate {
   @@map("exchangeRate")
 }
 
-model DealContact {
-  dealId    String
-  deal      Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  contactId String
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  role      String?
-
-  @@id([dealId, contactId])
-  @@index([contactId])
-  @@map("dealContact")
-}
-
 enum FieldEntity {
-  COMPANY
   CONTACT
-  DEAL
+  VEHICLE
+  RENTAL_CONTRACT
 }
 
 enum FieldType {
@@ -1018,11 +1379,10 @@ model FieldDefinition {
   agentFilled Boolean @default(true)
   agentBrief  String?
 
-  required     Boolean @default(false)
-  showOnSheet  Boolean @default(true)
-  showOnTable  Boolean @default(false)
-  showOnFilter Boolean @default(false)
-  position     Int
+  required    Boolean @default(false)
+  showOnSheet Boolean @default(true)
+  showOnTable Boolean @default(false)
+  position    Int
 
   archivedAt DateTime?
 
@@ -1056,12 +1416,12 @@ model FieldValue {
   fieldId String
   field   FieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  dealId    String?
-  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId        String?
+  contact          Contact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  vehicleId        String?
+  vehicle          Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  rentalContractId String?
+  rentalContract   RentalContract? @relation(fields: [rentalContractId], references: [id], onDelete: Cascade)
 
   text     String?
   number   Decimal?     @db.Decimal(24, 4)
@@ -1074,36 +1434,18 @@ model FieldValue {
 
   updatedAt DateTime @updatedAt
 
-  @@unique([fieldId, companyId])
   @@unique([fieldId, contactId])
-  @@unique([fieldId, dealId])
+  @@unique([fieldId, vehicleId])
+  @@unique([fieldId, rentalContractId])
   @@index([fieldId, text])
   @@index([fieldId, number])
   @@index([fieldId, date])
-  @@index([companyId])
   @@index([contactId])
-  @@index([dealId])
+  @@index([vehicleId])
+  @@index([rentalContractId])
   @@index([optionId])
   @@index([userId])
   @@map("fieldValue")
-}
-
-model SavedView {
-  id      String      @id @default(cuid())
-  entity  FieldEntity
-  name    String
-  shared  Boolean     @default(false)
-  filters Json
-
-  ownerId String
-  owner   User   @relation("SavedViewOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([entity, ownerId, name])
-  @@index([entity, shared])
-  @@map("savedView")
 }
 
 model Activity {
@@ -1116,12 +1458,12 @@ model Activity {
   dueAt       DateTime?
   completedAt DateTime?
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  dealId    String?
-  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId        String?
+  contact          Contact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  vehicleId        String?
+  vehicle          Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  rentalContractId String?
+  rentalContract   RentalContract? @relation(fields: [rentalContractId], references: [id], onDelete: Cascade)
 
   createdById String
   createdBy   User   @relation("ActivityAuthor", fields: [createdById], references: [id])
@@ -1135,8 +1477,8 @@ model Activity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([companyId, createdAt])
-  @@index([dealId, createdAt])
+  @@index([vehicleId, createdAt])
+  @@index([rentalContractId, createdAt])
   @@index([contactId, createdAt])
   @@index([dueAt])
   @@index([createdById])
@@ -1181,8 +1523,6 @@ model EmailThread {
   rootMessageId String  @unique
   subject       String?
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
@@ -1196,7 +1536,6 @@ model EmailThread {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([companyId, lastMessageAt])
   @@index([contactId, lastMessageAt])
   @@map("emailThread")
 }
@@ -1243,8 +1582,6 @@ model CalendarEvent {
   status         String
   organizerEmail String?
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
@@ -1258,7 +1595,6 @@ model CalendarEvent {
   updatedAt DateTime @updatedAt
 
   @@unique([iCalUid, originalStartTime])
-  @@index([companyId, startsAt])
   @@index([contactId, startsAt])
   @@map("calendarEvent")
 }
@@ -1309,142 +1645,9 @@ model AppSetting {
 
   ratesRefreshedAt DateTime?
 
-  archiveRetentionDays Int @default(180)
-
-  trackingSiteId           String? @unique
-  trackingCrossDomain      Boolean @default(true)
-  trackingLimitToDomains   Boolean @default(true)
-  trackingCookieSubdomains Boolean @default(false)
-  trackingSecureCookies    Boolean @default(true)
-  trackingHonourDnt        Boolean @default(true)
-  trackingCookieDays       Int     @default(395)
-  trackingConfigHash       String?
-  trackingPaused           Boolean @default(false)
-
   updatedAt DateTime @updatedAt
 
   @@map("appSetting")
-}
-
-enum DomainScope {
-  SITE_AND_SUBDOMAINS
-  EXACT_HOST
-}
-
-model TrackedDomain {
-  id    String      @id @default(cuid())
-  host  String      @unique
-  scope DomainScope @default(EXACT_HOST)
-
-  pageViews  Int       @default(0)
-  lastSeenAt DateTime?
-
-  createdAt DateTime @default(now())
-
-  @@map("trackedDomain")
-}
-
-model TrackedVisitor {
-  id String @id
-
-  contactId String?
-  contact   Contact? @relation("VisitorContact", fields: [contactId], references: [id], onDelete: SetNull)
-
-  firstSource   String?
-  firstMedium   String?
-  firstCampaign String?
-  firstTerm     String?
-  firstContent  String?
-  firstReferrer String?
-  firstLanding  String?
-  firstTouchAt  DateTime?
-
-  lastSource   String?
-  lastMedium   String?
-  lastCampaign String?
-  lastTerm     String?
-  lastContent  String?
-  lastReferrer String?
-  lastLanding  String?
-  lastTouchAt  DateTime?
-
-  firstSeen DateTime @default(now())
-  lastSeen  DateTime @updatedAt
-
-  @@index([contactId])
-  @@index([firstSource])
-  @@map("trackedVisitor")
-}
-
-model TrackedEvent {
-  id String @id @default(cuid())
-
-  visitorId String
-  type      String
-  host      String
-  path      String
-  referrer  String?
-  label     String?
-
-  source   String?
-  medium   String?
-  campaign String?
-
-  occurredAt DateTime
-
-  @@index([visitorId, occurredAt])
-  @@index([occurredAt])
-  @@index([host, occurredAt])
-  @@index([source, occurredAt])
-  @@map("trackedEvent")
-}
-
-model TrackingCounter {
-  key       String   @id
-  value     Int      @default(0)
-  expiresAt DateTime
-
-  @@index([expiresAt])
-  @@map("trackingCounter")
-}
-
-model TrackedPageDaily {
-  day      DateTime
-  host     String
-  path     String
-  views    Int      @default(0)
-  visitors Int      @default(0)
-
-  @@id([day, host, path])
-  @@index([host, day])
-  @@map("trackedPageDaily")
-}
-
-model FormSubmission {
-  id String @id @default(cuid())
-
-  visitorId String?
-  contactId String?
-  contact   Contact? @relation("SubmissionContact", fields: [contactId], references: [id], onDelete: SetNull)
-
-  host  String
-  path  String
-  email String?
-
-  fields Json
-
-  firstTouch Json?
-  lastTouch  Json?
-
-  dedupeKey  String    @unique
-  filedAt    DateTime?
-  skipReason String?
-
-  createdAt DateTime @default(now())
-
-  @@index([contactId])
-  @@index([createdAt])
-  @@map("formSubmission")
 }
 
 model Install {
@@ -1551,35 +1754,4 @@ model SsoProvider {
 
   @@unique([providerId])
   @@map("ssoProvider")
-}
-
-model Apikey {
-  id                  String    @id
-  configId            String    @default("default")
-  name                String?
-  start               String?
-  referenceId         String
-  user                User      @relation(fields: [referenceId], references: [id], onDelete: Cascade)
-  prefix              String?
-  key                 String
-  refillInterval      Int?
-  refillAmount        Int?
-  lastRefillAt        DateTime?
-  enabled             Boolean?  @default(true)
-  rateLimitEnabled    Boolean?  @default(true)
-  rateLimitTimeWindow Int?
-  rateLimitMax        Int?
-  requestCount        Int?      @default(0)
-  remaining           Int?
-  lastRequest         DateTime?
-  expiresAt           DateTime?
-  createdAt           DateTime
-  updatedAt           DateTime
-  permissions         String?
-  metadata            String?
-
-  @@index([referenceId])
-  @@index([configId])
-  @@index([key])
-  @@map("apikey")
 }

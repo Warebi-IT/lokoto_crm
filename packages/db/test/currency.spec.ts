@@ -19,9 +19,7 @@ type Row = {
 	provider: string | null;
 };
 
-type FakeDb = { db: Db; calls: number };
-
-function fakeDb(rows: Row[]): FakeDb {
+function fakeDb(rows: Row[]): { db: Db; calls: number } {
 	const state = { calls: 0 };
 
 	const db = {
@@ -62,7 +60,7 @@ describe("normalizeCurrency and isCurrencyCode", () => {
 		}
 	});
 
-	it("offers only the eleven currencies most of the world trades in", () => {
+	it("offers only the thirteen currencies most of the world trades in", () => {
 		expect(CURRENCIES.map((entry) => entry.code)).toEqual([
 			"USD",
 			"EUR",
@@ -75,6 +73,8 @@ describe("normalizeCurrency and isCurrencyCode", () => {
 			"HKD",
 			"SGD",
 			"ZAR",
+			"XOF",
+			"XAF",
 		]);
 	});
 

@@ -69,14 +69,6 @@ export class EnvironmentVariables {
 	MICROSOFT_TENANT_ID?: string;
 
 	@IsOptional()
-	@IsString()
-	SLACK_CLIENT_ID?: string;
-
-	@IsOptional()
-	@IsString()
-	SLACK_CLIENT_SECRET?: string;
-
-	@IsOptional()
 	@IsUrl({ require_tld: false })
 	API_URL?: string;
 
@@ -128,9 +120,9 @@ export class EnvironmentVariables {
 	CRM_TELEMETRY_DISABLED?: string;
 }
 
-export type RawEnvironment = Record<string, string | undefined>;
-
-export function validateEnv(config: RawEnvironment): EnvironmentVariables {
+export function validateEnv(
+	config: Record<string, unknown>,
+): EnvironmentVariables {
 	const validated = plainToInstance(EnvironmentVariables, config, {
 		enableImplicitConversion: true,
 		exposeDefaultValues: true,

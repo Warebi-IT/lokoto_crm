@@ -44,7 +44,7 @@ export async function ask(
 						: []),
 					{ role: "user", content: question },
 				],
-				search_domain_filter: options.domains,
+				...(options.domains ? { search_domain_filter: options.domains } : {}),
 			}),
 		});
 
@@ -81,15 +81,12 @@ export async function ask(
 	}
 }
 
-export async function findProfileUrls(
-	terms: string[],
-	companyName: string,
-): Promise<string[]> {
+export async function findProfileUrls(terms: string[]): Promise<string[]> {
 	const slugs: string[] = [];
 
 	for (const term of terms) {
 		const answer = await ask(
-			`Find the LinkedIn profile of the person called "${term}" who works at ${companyName}. Reply with their profile URL only.`,
+			`Find the LinkedIn profile of the person called "${term}". Reply with their profile URL only.`,
 			{ domains: ["linkedin.com"] },
 		);
 

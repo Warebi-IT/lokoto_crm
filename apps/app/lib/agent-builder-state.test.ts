@@ -1,8 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
-	agentBuilderCallIsActive,
 	builderConversationIsWorking,
-	builderSessionStreamKey,
 	completedBuilderSteps,
 	displayedArtifactVersionId,
 	latestBuilderArtifacts,
@@ -22,49 +20,6 @@ const completedConversation = {
 };
 
 describe("agent builder state", () => {
-	it("shows build progress only while an agent_builder call is active", () => {
-		const requested = {
-			type: "actions.requested",
-			data: {
-				actions: [
-					{
-						kind: "subagent-call",
-						name: "agent_builder",
-						callId: "builder-call-1",
-					},
-				],
-			},
-		};
-
-		expect(agentBuilderCallIsActive([requested])).toBe(true);
-		expect(
-			agentBuilderCallIsActive([
-				requested,
-				{
-					type: "action.result",
-					data: { result: { callId: "builder-call-1" } },
-				},
-				{ type: "turn.started", data: { turnId: "follow-up" } },
-			]),
-		).toBe(false);
-		expect(
-			agentBuilderCallIsActive([
-				{
-					type: "actions.requested",
-					data: {
-						actions: [
-							{
-								kind: "tool-call",
-								toolName: "search_crm",
-								callId: "search-1",
-							},
-						],
-					},
-				},
-			]),
-		).toBe(false);
-	});
-
 	it("keeps polling a new turn after an agent has already been deployed", () => {
 		expect(
 			builderConversationIsWorking({
@@ -99,13 +54,6 @@ describe("agent builder state", () => {
 			}),
 		).toBe(true);
 		expect(builderConversationIsWorking(completedConversation)).toBe(false);
-	});
-
-	it("reloads the Eve snapshot for parked and completed conversations", () => {
-		expect(builderSessionStreamKey("session-1", "submission-2")).toBe(
-			"session-1:submission-2",
-		);
-		expect(builderSessionStreamKey(null, "submission-2")).toBeNull();
 	});
 
 	it("offers a newer ready version for review without replacing the live version", () => {

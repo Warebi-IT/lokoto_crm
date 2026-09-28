@@ -30,10 +30,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { type ComponentProps, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
-import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
-import { CopyValue } from "../copy-value";
+import { CopyValue } from "./copy-value";
 
 const FORM = "add-sso-provider";
 
@@ -76,7 +75,7 @@ function AddSsoProviderForm() {
 	const redirectId = useId();
 
 	const [open, setOpen] = useQueryState(
-		SEARCH_PARAM.dialog.create,
+		"new",
 		parseAsBoolean.withDefault(false),
 	);
 	const [values, setValues] = useState(EMPTY);
@@ -112,7 +111,7 @@ function AddSsoProviderForm() {
 
 			<SheetContent side="right">
 				<SheetHeader>
-					<SheetTitle>Add an identity provider</SheetTitle>
+					<SheetTitle>Ajouter un fournisseur d’identité</SheetTitle>
 					<SheetDescription>
 						Configure an OpenID Connect provider.
 					</SheetDescription>
@@ -134,7 +133,7 @@ function AddSsoProviderForm() {
 				>
 					<FieldGroup>
 						<Field>
-							<FieldLabel htmlFor={providerIdId}>Name</FieldLabel>
+							<FieldLabel htmlFor={providerIdId}>Nom</FieldLabel>
 							<Input
 								id={providerIdId}
 								value={values.providerId}
@@ -170,7 +169,7 @@ function AddSsoProviderForm() {
 						</Field>
 
 						<Field>
-							<FieldLabel htmlFor={domainId}>Email domain</FieldLabel>
+							<FieldLabel htmlFor={domainId}>Domaine e-mail</FieldLabel>
 							<Input
 								id={domainId}
 								value={values.domain}
@@ -237,7 +236,7 @@ function AddSsoProviderForm() {
 						Add provider
 					</Button>
 					<SheetClose asChild>
-						<Button variant="outline">Cancel</Button>
+						<Button variant="outline">Annuler</Button>
 					</SheetClose>
 				</SheetFooter>
 			</SheetContent>

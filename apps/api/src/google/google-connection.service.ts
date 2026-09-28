@@ -1,8 +1,8 @@
 import { isGoogleConfigured, signsInWithGoogle } from "@crm/auth";
-import type { Db, Prisma } from "@crm/db";
+import { type Db, GoogleSyncStatus, type Prisma } from "@crm/db";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { normalizeDomain } from "../companies/domain";
 import { ActivityStampService } from "../crm/activity-stamp.service";
+import { normalizeDomain } from "../crm/domain";
 import { InjectDatabase } from "../database/database.constants";
 import { MailboxMatchService } from "../mailbox/mailbox-match.service";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
@@ -13,15 +13,25 @@ import {
 	type GoogleSyncSource,
 	SCOPE_FOR_SOURCE,
 } from "./google.constants";
-import type {
-	GoogleConnectionStatus,
-	GoogleSourceStatus,
-	PurgeSyncedDataOutput,
-	RevokeAccessOutput,
-	SuppressDomainOutput,
-} from "./google.contracts";
 
 const PURGE_TIMEOUT_MS = 60_000;
+
+export type SourceStatus = {
+	source: GoogleSyncSource;
+	connected: boolean;
+	status: GoogleSyncStatus | null;
+	lastSyncedAt: string | null;
+	lastError: string | null;
+	autoCreate: boolean;
+};
+
+export type ConnectionStatus = {
+	configured: boolean;
+	linked: boolean;
+	required: boolean;
+	hasRefreshToken: boolean;
+	sources: SourceStatus[];
+};
 
 @Injectable()
 export class GoogleConnectionService {
@@ -35,7 +45,7 @@ export class GoogleConnectionService {
 		private readonly stamp: ActivityStampService,
 	) {}
 
-	async status(userId: string): Promise<GoogleConnectionStatus> {
+	async status(userId: string): Promise<ConnectionStatus> {
 		await this.onConnected(userId);
 
 		const [granted, rows, hasRefreshToken, accounts] = await Promise.all([
@@ -47,7 +57,7 @@ export class GoogleConnectionService {
 
 		const bySource = new Map(rows.map((row) => [row.source, row]));
 
-		const sources = GOOGLE_SYNC_SOURCES.map((source): GoogleSourceStatus => {
+		const sources = GOOGLE_SYNC_SOURCES.map((source): SourceStatus => {
 			const row = bySource.get(source);
 			const connected = granted.has(SCOPE_FOR_SOURCE[source]);
 
@@ -114,7 +124,7 @@ export class GoogleConnectionService {
 		}
 	}
 
-	async purgeSyncedData(userId: string): Promise<PurgeSyncedDataOutput> {
+	async purgeSyncedData(userId: string): Promise<{ purged: number }> {
 		const mine: Prisma.EmailMessageWhereInput = {
 			syncedByUserId: userId,
 			gmailMessageId: { not: null },
@@ -153,7 +163,7 @@ export class GoogleConnectionService {
 		return { purged };
 	}
 
-	async revoke(userId: string): Promise<RevokeAccessOutput> {
+	async revoke(userId: string): Promise<{ revoked: boolean }> {
 		for (const source of GOOGLE_SYNC_SOURCES) {
 			await this.state.remove(userId, source);
 		}
@@ -178,7 +188,7 @@ export class GoogleConnectionService {
 	async suppressDomain(
 		domain: string,
 		options: { reason?: string; purge: boolean },
-	): Promise<SuppressDomainOutput> {
+	): Promise<{ domain: string; purged: number }> {
 		const normalised = normalizeDomain(domain);
 		if (!normalised) {
 			throw new NotFoundException(`"${domain}" is not a domain.`);
@@ -199,16 +209,22 @@ export class GoogleConnectionService {
 
 		if (!options.purge) return { domain: normalised, purged: 0 };
 
-		const company = await this.db.company.findUnique({
-			where: { domain: normalised },
+		const contacts = await this.db.contact.findMany({
+			where: { email: { endsWith: `@${normalised}`, mode: "insensitive" } },
 			select: { id: true },
 		});
 
-		if (!company) return { domain: normalised, purged: 0 };
+		if (contacts.length === 0) return { domain: normalised, purged: 0 };
+
+		const contactIds = contacts.map((contact) => contact.id);
 
 		const [threads, events] = await this.db.$transaction([
-			this.db.emailThread.deleteMany({ where: { companyId: company.id } }),
-			this.db.calendarEvent.deleteMany({ where: { companyId: company.id } }),
+			this.db.emailThread.deleteMany({
+				where: { contactId: { in: contactIds } },
+			}),
+			this.db.calendarEvent.deleteMany({
+				where: { contactId: { in: contactIds } },
+			}),
 		]);
 
 		await this.stamp.recomputeAll();

@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { FieldsSheetHost } from "@/components/crm/fields/fields-sheet";
-import { CloseReasonDialog } from "@/components/crm/stage-change";
+import { CancelReasonDialog } from "@/components/crm/status-change";
 import { DetailSheet } from "@/components/detail-sheet";
-import { CompanySheet } from "./company-sheet";
 import { ContactSheet } from "./contact-sheet";
-import { DealSheet } from "./deal-sheet";
 import { type RecordRef, recordKey, useRecordStack } from "./record-stack";
+import { RentalContractSheet } from "./rental-contract-sheet";
+import { VehicleSheet } from "./vehicle-sheet";
 
 export function RecordSheetHost() {
 	const { stack, top, closeAll } = useRecordStack();
@@ -25,22 +25,22 @@ export function RecordSheetHost() {
 					if (!next) closeAll();
 				}}
 			>
-				{shown?.kind === "company" ? (
-					<CompanySheet key={recordKey(shown)} companyId={shown.id} />
-				) : null}
-
 				{shown?.kind === "contact" ? (
 					<ContactSheet key={recordKey(shown)} contactId={shown.id} />
 				) : null}
 
-				{shown?.kind === "deal" ? (
-					<DealSheet key={recordKey(shown)} dealId={shown.id} />
+				{shown?.kind === "vehicle" ? (
+					<VehicleSheet key={recordKey(shown)} vehicleId={shown.id} />
+				) : null}
+
+				{shown?.kind === "rentalContract" ? (
+					<RentalContractSheet key={recordKey(shown)} contractId={shown.id} />
 				) : null}
 			</DetailSheet>
 
 			<FieldsSheetHost />
 
-			<CloseReasonDialog />
+			<CancelReasonDialog />
 		</>
 	);
 }

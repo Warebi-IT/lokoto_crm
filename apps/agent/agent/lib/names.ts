@@ -22,22 +22,6 @@ export function searchTerms(local: string): string[] {
 	return terms;
 }
 
-export function looksLikeSameCompany(
-	employer: string,
-	companyName: string,
-	domain: string,
-): boolean {
-	const a = normalise(employer);
-	const b = normalise(companyName);
-	const c = normalise(domain.replace(/\.[a-z.]+$/, ""));
-
-	if (!a || (!b && !c)) return false;
-	return (
-		(b !== "" && (a === b || a.includes(b) || b.includes(a))) ||
-		(c !== "" && a.includes(c))
-	);
-}
-
 export function nameMatchesLocalPart(
 	person: { firstName: string | null; lastName: string | null },
 	local: string,
@@ -89,23 +73,6 @@ export function splitName(
 export function domainOf(email: string): string | null {
 	const at = email.lastIndexOf("@");
 	return at > 0 ? email.slice(at + 1).toLowerCase() : null;
-}
-
-export function hostOf(value: string): string {
-	const trimmed = value.trim().toLowerCase();
-	if (trimmed === "") return "";
-
-	const withoutScheme = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
-	const host = withoutScheme.split("/")[0]?.split("@").pop() ?? "";
-
-	return host.replace(/^www\./, "").replace(/\.$/, "");
-}
-
-export function sameDomain(left: string | null, right: string): boolean {
-	if (!left) return false;
-
-	const a = hostOf(left);
-	return a !== "" && a === hostOf(right);
 }
 
 export function namesMatch(a: string | null, b: string | null): boolean {

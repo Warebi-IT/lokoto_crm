@@ -24,7 +24,8 @@ function isWorkspaceRoot(directory: string): boolean {
 	try {
 		const parsed: unknown = JSON.parse(readFileSync(manifest, "utf8"));
 		return (
-			parsed instanceof Object &&
+			typeof parsed === "object" &&
+			parsed !== null &&
 			"workspaces" in parsed &&
 			parsed.workspaces !== undefined
 		);
@@ -33,10 +34,8 @@ function isWorkspaceRoot(directory: string): boolean {
 	}
 }
 
-type EnvValues = Record<string, string>;
-
-export function parseEnv(source: string): EnvValues {
-	const values: EnvValues = {};
+export function parseEnv(source: string): Record<string, string> {
+	const values: Record<string, string> = {};
 
 	for (const rawLine of source.split(/\r?\n/)) {
 		const line = rawLine.trim();
@@ -79,7 +78,7 @@ export function loadRootEnv(): void {
 	const root = findWorkspaceRoot(process.cwd());
 	if (!root) return;
 
-	const merged: EnvValues = {};
+	const merged: Record<string, string> = {};
 	const runtimeFs = process.getBuiltinModule("node:fs");
 
 	for (const file of FILES) {

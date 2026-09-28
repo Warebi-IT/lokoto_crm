@@ -1,9 +1,8 @@
 import {
 	isWorkspaceAdmin,
-	toWorkspaceRole,
+	isWorkspaceRole,
 	WORKSPACE_ID,
 	type WorkspaceRole,
-	workspaceRoleOf,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
 import {
@@ -19,13 +18,18 @@ export class AgentAccessService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
 	async assertMember(userId: string): Promise<WorkspaceRole> {
-		const role = await workspaceRoleOf(userId);
+		const member = await this.db.member.findUnique({
+			where: {
+				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+			},
+			select: { role: true },
+		});
 
-		if (!role) {
+		if (!member) {
 			throw new ForbiddenException("You are not a member of this workspace.");
 		}
 
-		return role;
+		return isWorkspaceRole(member.role) ? member.role : "member";
 	}
 
 	async assertCanManageInTransaction(
@@ -45,7 +49,7 @@ export class AgentAccessService {
 			throw new ForbiddenException("You are not a member of this workspace.");
 		}
 
-		const role = toWorkspaceRole(member.role);
+		const role = isWorkspaceRole(member.role) ? member.role : "member";
 		const agent = await tx.agentDefinition.findFirst({
 			where: { id: agentId, status: { not: "DELETED" } },
 			select: {
@@ -75,7 +79,7 @@ export class AgentAccessService {
 	}
 
 	async assertCanRead(agentId: string, userId: string) {
-		const role = await this.assertMember(userId);
+		await this.assertMember(userId);
 		const agent = await this.db.agentDefinition.findFirst({
 			where: { id: agentId, status: { not: "DELETED" } },
 			select: {
@@ -90,10 +94,6 @@ export class AgentAccessService {
 			throw new NotFoundException(`No agent with id ${agentId}.`);
 		}
 
-		return {
-			...agent,
-			role,
-			canManage: agent.createdById === userId || isWorkspaceAdmin(role),
-		};
+		return agent;
 	}
 }

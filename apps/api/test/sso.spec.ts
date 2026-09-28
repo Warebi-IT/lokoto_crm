@@ -20,10 +20,8 @@ const LIST = {
 	pageSize: 25,
 };
 
-type Seen = { providerWhere?: unknown };
-
 function service(role: string | null, rows: Row[] = []) {
-	const seen: Seen = {};
+	const seen: { providerWhere?: unknown } = {};
 
 	const db = {
 		member: {

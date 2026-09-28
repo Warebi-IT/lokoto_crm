@@ -10,13 +10,8 @@ import {
 	CardPanelEmpty,
 	CardTitle,
 } from "@crm/ui/components/card";
-import { CardTableEmpty } from "@crm/ui/components/card-table";
 import { Checkbox } from "@crm/ui/components/checkbox";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
-import {
-	EntityLogo,
-	type EntityLogoTone,
-} from "@crm/ui/components/entity-logo";
 import {
 	SimpleTable,
 	type SimpleTableColumn,
@@ -29,76 +24,57 @@ import { formatCount, formatMoneyCompact } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { toast } from "sonner";
-import { DealStageIndicator } from "@/components/crm/deal-stage";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
+import { RentalStatusIndicator } from "@/components/crm/rental-status";
 import { LocalRelativeTime } from "@/components/local-date-time";
-import { activityLabel } from "@/lib/activity-presentation";
-import { dealStageColor } from "@/lib/deal-stage";
-import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+import {
+	FleetDashboardOverview,
+	FleetDashboardTrends,
+} from "./fleet-dashboard";
 import { overviewParsers } from "./overview-search-params";
-import { SalesDashboard } from "./sales-dashboard";
 
 const CELL = "px-3 py-2.5 align-middle";
-const OPEN_COLUMNS: SimpleTableColumn[] = [
-	{ id: "deal", header: "Deal" },
+
+const STATUS_COLOR: Record<string, string> = {
+	DRAFT: "var(--chart-5)",
+	RESERVED: "var(--chart-1)",
+	ACTIVE: "var(--chart-2)",
+};
+
+const CONTRACT_COLUMNS: SimpleTableColumn[] = [
+	{ id: "contract", header: "Contrat" },
 	{
-		id: "stage",
-		header: "Stage",
+		id: "status",
+		header: "Statut",
 		width: "w-32",
 		className: "hidden lg:table-cell",
 	},
 	{
 		id: "share",
-		srLabel: "Share of the largest",
+		srLabel: "Part du contrat le plus important",
 		width: "w-24",
 		className: "hidden sm:table-cell",
 	},
-	{ id: "value", header: "Value", width: "w-20", align: "right" },
+	{ id: "value", header: "Valeur", width: "w-20", align: "right" },
 ];
 const TASK_COLUMNS: SimpleTableColumn[] = [
-	{ id: "done", srLabel: "Done", width: "w-8" },
-	{ id: "task", header: "Task" },
-	{ id: "overdue", header: "Overdue", width: "w-24", align: "right" },
+	{ id: "done", srLabel: "Terminée", width: "w-8" },
+	{ id: "task", header: "Tâche" },
+	{ id: "overdue", header: "En retard", width: "w-24", align: "right" },
 ];
-const ACTIVITY_COLUMNS: SimpleTableColumn[] = [
-	{ id: "activity", header: "Activity" },
-	{
-		id: "company",
-		header: "Company",
-		width: "w-44",
-		className: "hidden md:table-cell",
-	},
-	{
-		id: "deal",
-		header: "Deal",
-		width: "w-48",
-		className: "hidden lg:table-cell",
-	},
-	{
-		id: "who",
-		header: "Who",
-		width: "w-32",
-		className: "hidden md:table-cell",
-	},
-	{ id: "when", header: "When", width: "w-20", align: "right" },
-];
-
 export function DashboardSummary() {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const openRecord = useOpenRecord();
 	const workspaceUrl = useWorkspaceUrl();
 
-	const [scope] = useQueryState(
-		SEARCH_PARAM.overview.scope,
-		overviewParsers[SEARCH_PARAM.overview.scope],
-	);
+	const [scope] = useQueryState("scope", overviewParsers.scope);
 
 	const summaryQuery = useQuery({
 		...trpc.dashboard.summary.queryOptions({ scope }),
@@ -122,71 +98,78 @@ export function DashboardSummary() {
 		);
 	}
 
-	const { biggestOpen, overdueTasks, recentActivity } = summary;
-
-	const mine = scope === "me";
-	const largestOpenCents = biggestOpen[0]?.baseAmountCents ?? 0;
+	const { topActiveContracts, overdueTasks } = summary;
+	const largestActiveCents = topActiveContracts[0]?.baseAmountCents ?? 0;
 
 	return (
 		<div className="flex flex-col gap-6">
-			<SalesDashboard summary={summary} />
+			<FleetDashboardOverview summary={summary} />
 
 			<div className="grid gap-6 @3xl/page-content:grid-cols-2">
 				<Card className="min-w-0">
 					<CardHeader>
-						<CardTitle>Deals in progress</CardTitle>
+						<CardTitle>Contrats actifs</CardTitle>
 						<CardDescription>
-							The largest open deals, and how long each has sat in its stage
+							Les réservations et locations en cours les plus importantes
 						</CardDescription>
 						<CardAction>
 							<Button asChild variant="contrast" size="sm">
-								<Link href={workspaceUrl("/deals")}>Open deals</Link>
+								<Link href={workspaceUrl("/rental-contracts")}>
+									Voir les contrats
+								</Link>
 							</Button>
 						</CardAction>
 					</CardHeader>
 					<CardPanel>
-						{biggestOpen.length === 0 ? (
+						{topActiveContracts.length === 0 ? (
 							<CardPanelEmpty>
-								Nothing open. Time to fill the pipeline.
+								Aucun contrat actif pour le moment.
 							</CardPanelEmpty>
 						) : (
 							<SimpleTable
 								variant="panel"
 								surface="page"
-								columns={OPEN_COLUMNS}
+								columns={CONTRACT_COLUMNS}
 							>
-								{biggestOpen.map((deal) => (
+								{topActiveContracts.map((contract) => (
 									<SimpleTableRow
-										key={deal.id}
+										key={contract.id}
 										clickable
-										onClick={() => openRecord({ kind: "deal", id: deal.id })}
+										onClick={() =>
+											openRecord({ kind: "rentalContract", id: contract.id })
+										}
 									>
 										<TableCell className={CELL}>
-											<DealCell
-												name={deal.name}
-												company={deal.company}
-												meta={<LocalRelativeTime date={deal.stageChangedAt} />}
+											<ContractCell
+												vehicle={contract.vehicle}
+												renterName={`${contract.contact.firstName} ${contract.contact.lastName ?? ""}`.trim()}
 											/>
 										</TableCell>
 										<TableCell className={`${CELL} hidden lg:table-cell`}>
-											<DealStageIndicator stage={deal.stage} />
+											<RentalStatusIndicator status={contract.status} />
 										</TableCell>
 										<TableCell className={`${CELL} hidden sm:table-cell`}>
 											<ValueMeter
 												share={
-													largestOpenCents > 0
-														? ((deal.baseAmountCents ?? 0) / largestOpenCents) *
+													largestActiveCents > 0
+														? ((contract.baseAmountCents ?? 0) /
+																largestActiveCents) *
 															100
 														: 0
 												}
-												color={dealStageColor(deal.stage)}
+												color={
+													STATUS_COLOR[contract.status] ?? "var(--chart-5)"
+												}
 											/>
 										</TableCell>
 										<TableCell className={`${CELL} text-right tabular-nums`}>
-											{deal.amountCents === null ? (
+											{contract.totalAmountCents === null ? (
 												<EmptyCellValue />
 											) : (
-												formatMoneyCompact(deal.amountCents, deal.currency)
+												formatMoneyCompact(
+													contract.totalAmountCents,
+													contract.currency,
+												)
 											)}
 										</TableCell>
 									</SimpleTableRow>
@@ -198,16 +181,16 @@ export function DashboardSummary() {
 
 				<Card className="min-w-0">
 					<CardHeader>
-						<CardTitle>Overdue tasks</CardTitle>
+						<CardTitle>Tâches en retard</CardTitle>
 						<CardDescription>
 							{overdueTasks.length === 0
-								? "Every task you have logged is either done or still to come"
-								: `${formatCount(overdueTasks.length, "task")} past due`}
+								? "Toutes vos tâches sont terminées ou à venir"
+								: `${formatCount(overdueTasks.length, "tâche")} en retard`}
 						</CardDescription>
 					</CardHeader>
 					<CardPanel>
 						{overdueTasks.length === 0 ? (
-							<CardPanelEmpty>Nothing overdue. Good.</CardPanelEmpty>
+							<CardPanelEmpty>Aucune tâche en retard.</CardPanelEmpty>
 						) : (
 							<SimpleTable
 								variant="panel"
@@ -220,7 +203,7 @@ export function DashboardSummary() {
 											<Checkbox
 												checked={false}
 												disabled={complete.isPending}
-												aria-label="Mark as done"
+												aria-label="Marquer comme terminée"
 												onCheckedChange={() =>
 													complete.mutate({ id: task.id, completed: true })
 												}
@@ -230,13 +213,12 @@ export function DashboardSummary() {
 											<span className="flex min-w-0 flex-col">
 												<span className="truncate">{task.subject}</span>
 												<span className="flex min-w-0 text-muted-foreground">
-													{task.deal ? (
-														<RecordLink kind="deal" id={task.deal.id}>
-															{task.deal.name}
-														</RecordLink>
-													) : task.company ? (
-														<RecordLink kind="company" id={task.company.id}>
-															{task.company.name}
+													{task.rentalContract ? (
+														<RecordLink
+															kind="rentalContract"
+															id={task.rentalContract.id}
+														>
+															{task.rentalContract.vehicle.plateNumber}
 														</RecordLink>
 													) : null}
 												</span>
@@ -249,7 +231,7 @@ export function DashboardSummary() {
 													task.dueAt ? (
 														<LocalRelativeTime date={task.dueAt} />
 													) : (
-														"No due date"
+														"Aucune échéance"
 													)
 												}
 											/>
@@ -262,104 +244,25 @@ export function DashboardSummary() {
 				</Card>
 			</div>
 
-			<Card className="min-w-0">
-				<CardHeader>
-					<CardTitle>
-						{mine ? "Your recent activity" : "Recent activity"}
-					</CardTitle>
-					<CardDescription>
-						{mine
-							? "Every note, task and stage change you have logged"
-							: "Every note, task and stage change across the workspace"}
-					</CardDescription>
-					<CardAction>
-						<Button asChild variant="contrast" size="sm">
-							<Link href={workspaceUrl("/companies")}>All companies</Link>
-						</Button>
-					</CardAction>
-				</CardHeader>
-				{recentActivity.length === 0 ? (
-					<CardTableEmpty>Nothing has happened yet.</CardTableEmpty>
-				) : (
-					<SimpleTable columns={ACTIVITY_COLUMNS}>
-						{recentActivity.map((entry) => (
-							<SimpleTableRow key={entry.id}>
-								<TableCell className={CELL}>
-									<span className="truncate">
-										{entry.subject ?? activityLabel(entry.type)}
-									</span>
-								</TableCell>
-								<TableCell className={`${CELL} hidden md:table-cell`}>
-									{entry.company ? (
-										<RecordLink kind="company" id={entry.company.id}>
-											{entry.company.name}
-										</RecordLink>
-									) : (
-										<EmptyCellValue />
-									)}
-								</TableCell>
-								<TableCell className={`${CELL} hidden lg:table-cell`}>
-									{entry.deal ? (
-										<RecordLink kind="deal" id={entry.deal.id}>
-											{entry.deal.name}
-										</RecordLink>
-									) : (
-										<EmptyCellValue />
-									)}
-								</TableCell>
-								<TableCell
-									className={`${CELL} hidden truncate text-muted-foreground md:table-cell`}
-								>
-									{entry.createdBy.name}
-								</TableCell>
-								<TableCell
-									className={`${CELL} text-right text-muted-foreground`}
-								>
-									<LocalRelativeTime date={entry.createdAt} />
-								</TableCell>
-							</SimpleTableRow>
-						))}
-					</SimpleTable>
-				)}
-			</Card>
+			<FleetDashboardTrends summary={summary} />
 		</div>
 	);
 }
 
-function DealCell({
-	name,
-	company,
-	meta,
+function ContractCell({
+	vehicle,
+	renterName,
 }: {
-	name: string;
-	company: {
-		name: string;
-		iconUrl: string | null;
-		iconDarkUrl: string | null;
-		iconTone: string | null;
-	};
-	meta?: ReactNode;
+	vehicle: { make: string; model: string; plateNumber: string };
+	renterName: string;
 }) {
 	return (
-		<span className="flex min-w-0 items-center gap-2">
-			<EntityLogo
-				src={company.iconUrl}
-				darkSrc={company.iconDarkUrl}
-				tone={company.iconTone as EntityLogoTone | null | undefined}
-				name={company.name}
-				size="sm"
-			/>
-			<span className="flex min-w-0 flex-col">
-				<span className="truncate font-medium">{name}</span>
-				<span className="truncate text-muted-foreground">
-					{meta ? (
-						<>
-							{company.name} · {meta}
-						</>
-					) : (
-						company.name
-					)}
-				</span>
+		<span className="flex min-w-0 flex-col">
+			<span className="truncate font-medium">
+				{vehicle.make} {vehicle.model}
+			</span>
+			<span className="truncate text-muted-foreground">
+				{vehicle.plateNumber} · {renterName}
 			</span>
 		</span>
 	);

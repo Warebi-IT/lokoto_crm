@@ -4,24 +4,17 @@ import { cn } from "@crm/ui/lib/utils";
 import type * as React from "react";
 import { PageTransition } from "./page-transition";
 
-function PageShell({
-	className,
-	contained = false,
-	...props
-}: React.ComponentProps<"div"> & { contained?: boolean }) {
+function PageShell({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<PageTransition>
 			<main
 				data-slot="page-shell-scroll"
-				className={cn(
-					"flex min-w-0 flex-1 flex-col px-4 pt-4 pb-4 md:px-6 md:pt-6 md:pb-6",
-					contained ? "min-h-0 overflow-hidden" : "overflow-y-auto",
-				)}
+				className="flex min-w-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-5 md:px-8 md:pt-8 md:pb-8"
 			>
 				<div
 					data-slot="page-shell"
 					className={cn(
-						"mx-auto flex w-full min-w-0 max-w-7xl flex-1 flex-col gap-6",
+						"mx-auto flex w-full min-w-0 max-w-7xl flex-1 flex-col gap-7",
 						className,
 					)}
 					{...props}
@@ -119,7 +112,7 @@ function PageShellContent({
 		<div
 			data-slot="page-shell-content"
 			className={cn(
-				"@container/page-content flex flex-1 flex-col gap-6",
+				"@container/page-content flex flex-1 flex-col gap-7",
 				className,
 			)}
 			{...props}
@@ -148,7 +141,7 @@ function PageShellFallback() {
 				<div className="flex flex-col gap-3">
 					<Skeleton className="h-14 w-full rounded-lg" />
 					<Skeleton className="h-14 w-full rounded-lg" />
-					<Skeleton className="h-40 w-full rounded-lg" />
+					<Skeleton className="h-40 w-full rounded-xl" />
 				</div>
 			</div>
 			<span role="status" className="sr-only">

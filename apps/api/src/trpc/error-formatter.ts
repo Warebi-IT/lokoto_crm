@@ -1,21 +1,9 @@
 import type { TRPCDefaultErrorShape, TRPCErrorFormatter } from "@trpc/server";
-import { z } from "zod";
 
-const issueShape = z
-	.object({
-		message: z.string().catch(""),
-		path: z.array(z.unknown()).catch([]),
-	})
-	.catch({ message: "", path: [] });
-
-type Issue = z.infer<typeof issueShape>;
-
-const pathSegment = z.string().nullable().catch(null);
-
-const failedParse = z
-	.object({ issues: z.array(issueShape).min(1) })
-	.nullable()
-	.catch(null);
+interface Issue {
+	message?: unknown;
+	path?: unknown;
+}
 
 /**
  * tRPC stringifies a failed input parse into the whole `ZodError`, so a form
@@ -28,23 +16,29 @@ const failedParse = z
  * matching and put the JSON back on screen.
  */
 function issuesIn(cause: unknown): Issue[] | null {
-	return failedParse.parse(cause)?.issues ?? null;
+	if (typeof cause !== "object" || cause === null) return null;
+
+	const issues = (cause as { issues?: unknown }).issues;
+
+	return Array.isArray(issues) && issues.length > 0
+		? (issues as Issue[])
+		: null;
 }
 
 function sentence(issue: Issue): string | null {
+	if (typeof issue.message !== "string" || issue.message.trim() === "") {
+		return null;
+	}
+
 	const message = issue.message.trim();
-	if (message === "") return null;
 
 	// Zod's own defaults ("Required", "Invalid input") name nothing, so they are
 	// only useful with the field in front of them. Ours are whole sentences.
 	if (/[.!?]$/.test(message)) return message;
 
-	const field = issue.path
-		.flatMap((part) => {
-			const segment = pathSegment.parse(part);
-			return segment === null ? [] : [segment];
-		})
-		.at(-1);
+	const field = Array.isArray(issue.path)
+		? issue.path.filter((part) => typeof part === "string").at(-1)
+		: undefined;
 
 	return field ? `${field}: ${message}` : message;
 }

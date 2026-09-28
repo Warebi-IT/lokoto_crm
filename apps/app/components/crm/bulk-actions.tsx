@@ -57,17 +57,13 @@ export function reportBulk(
 
 export function BulkActionsMenu({
 	pending,
-	open,
-	onOpenChange,
 	children,
 }: {
 	pending?: boolean;
-	open?: boolean;
-	onOpenChange?: (open: boolean) => void;
 	children: ReactNode;
 }) {
 	return (
-		<DropdownMenu open={open} onOpenChange={onOpenChange}>
+		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button variant="outline" size="sm" disabled={pending}>
 					{pending ? <Spinner /> : null}
@@ -141,7 +137,7 @@ export function BulkDeleteDialog({
 				</AlertDialogHeader>
 
 				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogCancel>Annuler</AlertDialogCancel>
 					<AlertDialogAction variant="destructive" onClick={onConfirm}>
 						Delete
 					</AlertDialogAction>

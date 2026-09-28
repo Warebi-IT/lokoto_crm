@@ -10,7 +10,6 @@ import {
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { GOOGLE_PROVIDER_ID } from "../google/google.constants";
-import { SEED_OWNER_PREFIX } from "./seed";
 
 @Injectable()
 export class FunnelService {
@@ -88,12 +87,6 @@ export class FunnelService {
 			case "first_non_seed_contact":
 				return this.earliest(
 					this.db.contact.findFirst({
-						where: {
-							OR: [
-								{ ownerId: null },
-								{ ownerId: { not: { startsWith: SEED_OWNER_PREFIX } } },
-							],
-						},
 						orderBy: { createdAt: "asc" },
 						select: { createdAt: true },
 					}),

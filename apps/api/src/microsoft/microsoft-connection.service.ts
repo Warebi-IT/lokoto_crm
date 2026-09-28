@@ -1,5 +1,5 @@
 import { isMicrosoftConfigured, signsInWithMicrosoft } from "@crm/auth";
-import type { Db, Prisma } from "@crm/db";
+import { type Db, GoogleSyncStatus, type Prisma } from "@crm/db";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { InjectDatabase } from "../database/database.constants";
@@ -11,14 +11,25 @@ import {
 	type MicrosoftSyncSource,
 	SCOPE_FOR_SOURCE,
 } from "./microsoft.constants";
-import type {
-	MicrosoftConnectionStatus,
-	MicrosoftSourceStatus,
-	PurgeSyncedDataOutput,
-	RevokeAccessOutput,
-} from "./microsoft.contracts";
 
 const PURGE_TIMEOUT_MS = 60_000;
+
+export type SourceStatus = {
+	source: MicrosoftSyncSource;
+	connected: boolean;
+	status: GoogleSyncStatus | null;
+	lastSyncedAt: string | null;
+	lastError: string | null;
+	autoCreate: boolean;
+};
+
+export type ConnectionStatus = {
+	configured: boolean;
+	linked: boolean;
+	required: boolean;
+	hasRefreshToken: boolean;
+	sources: SourceStatus[];
+};
 
 @Injectable()
 export class MicrosoftConnectionService {
@@ -31,7 +42,7 @@ export class MicrosoftConnectionService {
 		private readonly stamp: ActivityStampService,
 	) {}
 
-	async status(userId: string): Promise<MicrosoftConnectionStatus> {
+	async status(userId: string): Promise<ConnectionStatus> {
 		await this.onConnected(userId);
 
 		const [granted, rows, hasRefreshToken, accounts] = await Promise.all([
@@ -43,20 +54,18 @@ export class MicrosoftConnectionService {
 
 		const bySource = new Map(rows.map((row) => [row.source, row]));
 
-		const sources = MICROSOFT_SYNC_SOURCES.map(
-			(source): MicrosoftSourceStatus => {
-				const row = bySource.get(source);
+		const sources = MICROSOFT_SYNC_SOURCES.map((source): SourceStatus => {
+			const row = bySource.get(source);
 
-				return {
-					source,
-					connected: granted.has(SCOPE_FOR_SOURCE[source]),
-					status: row?.status ?? null,
-					lastSyncedAt: row?.lastSyncedAt?.toISOString() ?? null,
-					lastError: row?.lastError ?? null,
-					autoCreate: row?.autoCreate ?? false,
-				};
-			},
-		);
+			return {
+				source,
+				connected: granted.has(SCOPE_FOR_SOURCE[source]),
+				status: row?.status ?? null,
+				lastSyncedAt: row?.lastSyncedAt?.toISOString() ?? null,
+				lastError: row?.lastError ?? null,
+				autoCreate: row?.autoCreate ?? false,
+			};
+		});
 
 		return {
 			configured: isMicrosoftConfigured(),
@@ -114,7 +123,7 @@ export class MicrosoftConnectionService {
 		}
 	}
 
-	async purgeSyncedData(userId: string): Promise<PurgeSyncedDataOutput> {
+	async purgeSyncedData(userId: string): Promise<{ purged: number }> {
 		const mine: Prisma.EmailMessageWhereInput = {
 			syncedByUserId: userId,
 			outlookMessageId: { not: null },
@@ -149,7 +158,7 @@ export class MicrosoftConnectionService {
 		return { purged };
 	}
 
-	async revoke(userId: string): Promise<RevokeAccessOutput> {
+	async revoke(userId: string): Promise<{ revoked: boolean }> {
 		for (const source of MICROSOFT_SYNC_SOURCES) {
 			await this.state.remove(userId, source);
 		}

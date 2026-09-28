@@ -1,30 +1,25 @@
 "use client";
 
-import Archive from "@carbon/icons-react/es/Archive";
-import { Button } from "@crm/ui/components/button";
+import CheckmarkFilled from "@carbon/icons-react/es/CheckmarkFilled";
+import CloseFilled from "@carbon/icons-react/es/CloseFilled";
 import {
 	DataTable,
 	type DataTableColumn,
 	type DataTableFacet,
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
+import { Icon } from "@crm/ui/components/icon";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
-import { useSearchInput } from "@crm/ui/hooks/use-search-input";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
-import { CompanyCell } from "@/components/crm/company-cell";
+import { useMemo } from "react";
 import { contactName } from "@/components/crm/contact-name";
 import { useFieldColumns } from "@/components/crm/fields/field-columns";
-import { useFieldFacets } from "@/components/crm/fields/field-facets";
-import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { ListSearch } from "@/components/data-table/list-search";
-import { SavedViewsMenu } from "@/components/data-table/saved-views-menu";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalRelativeTime } from "@/components/local-date-time";
-import { ACTIVITY_FACET_OPTIONS } from "@/lib/activity-recency";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { ContactsBulkActions } from "./contacts-bulk-actions";
@@ -35,10 +30,10 @@ type ContactRow = RouterOutputs["contacts"]["list"]["rows"][number];
 const COLUMNS: DataTableColumn<ContactRow>[] = [
 	{
 		id: "name",
-		header: "Name",
+		header: "Nom",
 		sortable: true,
 		hideable: false,
-		width: "w-[22%]",
+		width: "w-[28%]",
 		cell: (row) => (
 			<span className="flex min-w-0 items-center gap-2">
 				<PersonAvatar
@@ -52,50 +47,61 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 		),
 	},
 	{
-		id: "title",
-		header: "Title",
-		sortable: true,
-		width: "w-[20%]",
+		id: "gender",
+		header: "Sexe",
+		width: "w-[10%]",
 		hideBelow: "lg",
+		cell: (row) => (row.gender === "H" ? "Homme" : "Femme"),
+	},
+	{
+		id: "contact",
+		header: "Coordonnées",
+		sortable: true,
+		width: "w-[25%]",
+		hideBelow: "md",
 		cell: (row) =>
-			row.title ? (
-				<span className="truncate">{row.title}</span>
+			row.email || row.phone ? (
+				<span className="truncate text-muted-foreground">
+					{row.email ?? row.phone}
+				</span>
 			) : (
 				<EmptyCellValue />
 			),
 	},
 	{
-		id: "email",
-		header: "Email",
-		sortable: true,
-		width: "w-[24%]",
-		hideBelow: "md",
-		cell: (row) =>
-			row.email ? (
-				<span className="truncate text-muted-foreground">{row.email}</span>
-			) : (
-				<EmptyCellValue />
-			),
-	},
-	{
-		id: "company",
-		header: "Company",
-		sortable: true,
-		width: "w-[18%]",
-		cell: (row) => <CompanyCell company={row.company} />,
-	},
-	{
-		id: "owner",
-		header: "Owner",
-		sortable: true,
-		width: "w-[16%]",
-		hideBelow: "md",
-		cell: (row) => <OwnerCell owner={row.owner} />,
+		id: "documents",
+		header: "Dossiers",
+		width: "w-[12%]",
+		hideBelow: "lg",
+		cell: (row) => {
+			const complete = ["DRIVERS_LICENSE", "ID_CARD", "PROOF_OF_ADDRESS"].every(
+				(type) => row.documentTypes.includes(type),
+			);
+			return (
+				<span
+					className="flex items-center gap-1 text-muted-foreground"
+					role="img"
+					aria-label={complete ? "Dossier complet" : "Dossier incomplet"}
+					title={complete ? "Dossier complet" : "Dossier incomplet"}
+				>
+					<Icon
+						icon={complete ? CheckmarkFilled : CloseFilled}
+						className={complete ? "text-success" : "text-destructive"}
+					/>
+					{
+						row.documentTypes.filter((type) =>
+							["DRIVERS_LICENSE", "ID_CARD", "PROOF_OF_ADDRESS"].includes(type),
+						).length
+					}
+					/3
+				</span>
+			);
+		},
 	},
 	{
 		id: "createdAt",
-		header: "Created",
-		label: "Created date",
+		header: "Créé le",
+		label: "Date de création",
 		sortable: true,
 		align: "right",
 		width: "w-[10%]",
@@ -108,7 +114,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	},
 	{
 		id: "lastActivity",
-		header: "Last activity",
+		header: "Dernière activité",
 		sortable: true,
 		align: "right",
 		width: "w-[12%]",
@@ -125,161 +131,33 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	},
 ];
 
-const ARCHIVED_COLUMN: DataTableColumn<ContactRow> = {
-	id: "archivedAt",
-	header: "Archived",
-	label: "Archived date",
-	sortable: true,
-	align: "right",
-	width: "w-[12%]",
-	cell: (row) => (
-		<span className="text-muted-foreground">
-			{row.archivedAt ? (
-				<LocalRelativeTime date={row.archivedAt} />
-			) : (
-				<EmptyCellValue />
-			)}
-		</span>
-	),
-};
-
 export function ContactsTable() {
 	const openRecord = useOpenRecord();
 	const trpc = useTRPC();
 	const prefetchRecord = usePrefetchRecord();
-	const table = useTableQuery(contactsSearchParams);
-	const { query, input, setArchived } = table;
+	const { query, input } = useTableQuery(contactsSearchParams);
 
 	const contacts = useQuery({
 		...trpc.contacts.list.queryOptions(input),
 		placeholderData: (previous) => previous,
 	});
-	const users = useQuery(trpc.users.list.queryOptions());
-
-	const [companyQuery, setCompanyQuery] = useState("");
-	const [companyText, setCompanyText] = useSearchInput(
-		companyQuery,
-		setCompanyQuery,
-	);
-	const companies = useQuery({
-		...trpc.companies.options.queryOptions({ q: companyQuery }),
-		placeholderData: (previous) => previous,
-	});
-
 	const rows = contacts.data?.rows ?? [];
 	const selection = useTableSelection(
 		useMemo(() => rows.map((row) => row.id), [rows]),
 	);
-	const settledIds = useMemo(() => {
-		const matching = new Set(
-			rows
-				.filter((row) => Boolean(row.archivedAt) === input.archived)
-				.map((row) => row.id),
-		);
-		return selection.ids.filter((id) => matching.has(id));
-	}, [rows, input.archived, selection.ids]);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: clearing on archived-mode change is the entire purpose of this effect.
-	useEffect(() => {
-		selection.clear();
-	}, [input.archived]);
-
-	const toggleArchived = (next: boolean) => {
-		selection.clear();
-		if (!next && query.sort === "archivedAt") query.setSort("");
-		setArchived(next);
-	};
 
 	const facetCounts = contacts.data?.facetCounts;
-	const fieldFacets = useFieldFacets("CONTACT", facetCounts);
 
-	const facets: DataTableFacet[] = [
-		{
-			id: "owner",
-			label: "Owner",
-			options: [
-				{ value: "unassigned", label: "Unassigned" },
-				...(users.data ?? []).map((user) => ({
-					value: user.id,
-					label: user.name,
-				})),
-			].filter((option) => (facetCounts?.owner?.[option.value] ?? 0) > 0),
-		},
-		{
-			id: "company",
-			label: "Company",
-			searchable: true,
-			search: companyText,
-			onSearchChange: setCompanyText,
-			stale: companies.isFetching || companyText.trim() !== companyQuery.trim(),
-			empty: companies.isFetching ? "Searching…" : "No company matches.",
-			options: [
-				...(companyQuery.trim()
-					? []
-					: [{ value: "none", label: "No company" }]),
-				...(companies.data ?? []).map((company) => ({
-					value: company.id,
-					label: company.name,
-				})),
-			].filter((option) => (facetCounts?.company?.[option.value] ?? 0) > 0),
-		},
-		{
-			id: "title",
-			label: "Title",
-			options: Object.keys(facetCounts?.title ?? {})
-				.sort()
-				.map((value) => ({ value, label: value })),
-		},
-		{
-			id: "seniority",
-			label: "Seniority",
-			options: Object.keys(facetCounts?.seniority ?? {})
-				.sort()
-				.map((value) => ({ value, label: value })),
-		},
-		{
-			id: "persona",
-			label: "Persona",
-			options: Object.keys(facetCounts?.persona ?? {})
-				.sort()
-				.map((value) => ({ value, label: value })),
-		},
-		{
-			id: "activity",
-			label: "Activity",
-			options: ACTIVITY_FACET_OPTIONS.filter(
-				(option) => (facetCounts?.activity?.[option.value] ?? 0) > 0,
-			),
-		},
-		...fieldFacets,
-	];
+	const facets: DataTableFacet[] = [];
 
 	const fieldColumns = useFieldColumns<ContactRow>("CONTACT");
-	const columns = useMemo(
-		() =>
-			input.archived
-				? [...COLUMNS, ARCHIVED_COLUMN, ...fieldColumns]
-				: [...COLUMNS, ...fieldColumns],
-		[fieldColumns, input.archived],
-	);
+	const columns = useMemo(() => [...COLUMNS, ...fieldColumns], [fieldColumns]);
 
 	return (
 		<DataTable
 			query={query}
-			search={<ListSearch placeholder="Search by name, email or company…" />}
-			actions={
-				<>
-					<SavedViewsMenu entity="CONTACT" table={table} />
-					<Button
-						variant={input.archived ? "contrast" : "outline"}
-						size="sm"
-						className="justify-start sm:justify-center"
-						onClick={() => toggleArchived(!input.archived)}
-					>
-						<Archive data-icon="inline-start" />
-						Archived
-					</Button>
-				</>
+			search={
+				<ListSearch placeholder="Rechercher un client par nom ou e-mail…" />
 			}
 			columns={columns}
 			rows={rows}
@@ -289,11 +167,7 @@ export function ContactsTable() {
 			selection={{
 				state: selection,
 				actions: (
-					<ContactsBulkActions
-						ids={settledIds}
-						onDone={selection.clear}
-						archived={input.archived}
-					/>
+					<ContactsBulkActions ids={selection.ids} onDone={selection.clear} />
 				),
 				rowLabel: (row) => contactName(row),
 			}}
@@ -301,11 +175,7 @@ export function ContactsTable() {
 			loading={contacts.isFetching}
 			onRowHover={(row) => prefetchRecord({ kind: "contact", id: row.id })}
 			onRowClick={(row) => openRecord({ kind: "contact", id: row.id })}
-			empty={
-				input.archived
-					? "No archived contacts."
-					: "No contacts match this view."
-			}
+			empty="No clients match this view."
 		/>
 	);
 }

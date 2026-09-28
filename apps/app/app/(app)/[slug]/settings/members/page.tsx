@@ -26,7 +26,7 @@ export default function MembersSettingsPage({
 		<PageShell className="min-h-0">
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Members</PageShellTitle>
+					<PageShellTitle>Membres</PageShellTitle>
 					<PageShellDescription>
 						Everyone who has access to your CRM.
 					</PageShellDescription>

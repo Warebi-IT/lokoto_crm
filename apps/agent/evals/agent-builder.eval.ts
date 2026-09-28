@@ -1,5 +1,4 @@
 import { db } from "@crm/db";
-import { agentManifest } from "@crm/validation/agent-manifest";
 import { defineEval } from "eve/evals";
 import { equals, satisfies } from "eve/evals/expect";
 
@@ -63,8 +62,8 @@ export default defineEval({
 			sessionId = await waitForBuilderSession(conversation.id, t.signal);
 			await t.require(
 				sessionId,
-				satisfies<string | null>(
-					(value) => value !== null,
+				satisfies(
+					(value) => typeof value === "string",
 					"builder session started",
 				),
 			);
@@ -99,12 +98,15 @@ export default defineEval({
 			t.check(
 				saved.agent?.versions[0]?.manifest,
 				satisfies((value) => {
-					const parsed = agentManifest.safeParse(value);
+					const manifest = recordOf(value);
+					const scope = recordOf(manifest.dataScope);
+					const actions = Array.isArray(manifest.actions)
+						? manifest.actions.map(recordOf)
+						: [];
 					return (
-						parsed.success &&
-						parsed.data.dataScope.mode === "WORKSPACE" &&
-						parsed.data.actions.length === 1 &&
-						parsed.data.actions[0]?.type === "run.summary"
+						scope.mode === "WORKSPACE" &&
+						actions.length === 1 &&
+						actions[0]?.type === "run.summary"
 					);
 				}, "saved manifest is workspace-scoped and side-effect-free"),
 			);
@@ -163,4 +165,10 @@ async function cleanupBuilderEval(
 		await db.agentConversation.deleteMany({ where: { id: conversationId } });
 	}
 	await db.user.deleteMany({ where: { id: userId } });
+}
+
+function recordOf(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
 }

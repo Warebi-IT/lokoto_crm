@@ -1,4 +1,4 @@
-import { domainFromEmail, isMachineDomain } from "../companies/domain";
+import { domainFromEmail, isMachineDomain } from "../crm/domain";
 
 export type Participant = {
 	email: string;
@@ -188,12 +188,10 @@ export function dominantDomain(
 	return best;
 }
 
-export type PersonName = {
-	firstName: string;
-	lastName: string | null;
-};
-
-export function splitName(name: string | null, email: string): PersonName {
+export function splitName(
+	name: string | null,
+	email: string,
+): { firstName: string; lastName: string | null } {
 	const cleaned = name?.trim().replace(/\s+/g, " ") ?? "";
 
 	if (cleaned && !cleaned.includes("@")) {

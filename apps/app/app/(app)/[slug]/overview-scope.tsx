@@ -2,17 +2,16 @@
 
 import { ToggleGroup, ToggleGroupItem } from "@crm/ui/components/toggle-group";
 import { useQueryState } from "nuqs";
-import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import {
 	OVERVIEW_SCOPES,
 	type OverviewScope,
 	overviewParsers,
 } from "./overview-search-params";
 
-const LABELS = {
+const LABELS: Record<OverviewScope, string> = {
 	me: "Me",
 	everyone: "Everyone",
-} satisfies Record<OverviewScope, string>;
+};
 
 function isScope(value: string): value is OverviewScope {
 	return (OVERVIEW_SCOPES as readonly string[]).includes(value);
@@ -38,10 +37,7 @@ export function OverviewScopeToggleFallback() {
 }
 
 export function OverviewScopeToggle() {
-	const [scope, setScope] = useQueryState(
-		SEARCH_PARAM.overview.scope,
-		overviewParsers[SEARCH_PARAM.overview.scope],
-	);
+	const [scope, setScope] = useQueryState("scope", overviewParsers.scope);
 
 	return (
 		<ToggleGroup

@@ -1,5 +1,4 @@
 import { ActivityType, type Db, type Prisma } from "@crm/db";
-import { activityMeta } from "@crm/validation/activity-meta";
 import {
 	BadRequestException,
 	Injectable,
@@ -11,12 +10,9 @@ import { blankToNull } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
 import type {
 	ActivityCreateInput,
-	ActivityEntry,
 	MyTasksInput,
-	TimelineCounts,
 	TimelineFilter,
 	TimelineInput,
-	TimelineResult,
 } from "./activities.contracts";
 
 const AUTHOR_SELECT = {
@@ -37,9 +33,15 @@ const ENTRY_SELECT = {
 	meta: true,
 	createdAt: true,
 	createdBy: { select: AUTHOR_SELECT },
-	company: { select: { id: true, name: true } },
 	contact: { select: { id: true, firstName: true, lastName: true } },
-	deal: { select: { id: true, name: true } },
+	vehicle: { select: { id: true, plateNumber: true, make: true, model: true } },
+	rentalContract: {
+		select: {
+			id: true,
+			status: true,
+			vehicle: { select: { plateNumber: true } },
+		},
+	},
 
 	emailThread: {
 		select: {
@@ -77,15 +79,14 @@ export class ActivitiesService {
 		private readonly stamp: ActivityStampService,
 	) {}
 
-	async timeline(input: TimelineInput): Promise<TimelineResult> {
+	async timeline(input: TimelineInput) {
 		const where = this.anchor(input);
 		Object.assign(where, filterClause(input.filter));
 
 		const rows = await this.db.activity.findMany({
 			where,
 			take: input.limit + 1,
-			cursor: input.cursor ? { id: input.cursor } : undefined,
-			skip: input.cursor ? 1 : undefined,
+			...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
 			orderBy: [
 				{ occurredAt: { sort: "desc", nulls: "last" } },
 				{ id: "desc" },
@@ -103,8 +104,8 @@ export class ActivitiesService {
 	}
 
 	async timelineCounts(
-		input: Pick<TimelineInput, "companyId" | "contactId" | "dealId">,
-	): Promise<TimelineCounts> {
+		input: Pick<TimelineInput, "contactId" | "vehicleId" | "rentalContractId">,
+	) {
 		const anchor = this.anchor(input);
 
 		const [all, notes, upcoming, done, email, meetings] = await Promise.all([
@@ -127,12 +128,7 @@ export class ActivitiesService {
 		return { all, notes, upcoming, done, email, meetings };
 	}
 
-	async create(
-		input: ActivityCreateInput,
-		actingUserId: string,
-	): Promise<ActivityEntry> {
-		const companyId = await this.resolveCompanyId(input);
-
+	async create(input: ActivityCreateInput, actingUserId: string) {
 		const isTask = input.type === ActivityType.TASK;
 
 		const activity = await this.db.activity.create({
@@ -142,16 +138,20 @@ export class ActivitiesService {
 				body: blankToNull(input.body ?? ""),
 				occurredAt: parseDate(input.occurredAt) ?? new Date(),
 				dueAt: isTask ? parseDate(input.dueAt) : null,
-				companyId,
 				contactId: input.contactId ?? null,
-				dealId: input.dealId ?? null,
+				vehicleId: input.vehicleId ?? null,
+				rentalContractId: input.rentalContractId ?? null,
 				createdById: actingUserId,
 			},
 			select: ENTRY_SELECT,
 		});
 
 		await this.stamp.touch(
-			{ companyId, contactId: input.contactId, dealId: input.dealId },
+			{
+				contactId: input.contactId,
+				vehicleId: input.vehicleId,
+				rentalContractId: input.rentalContractId,
+			},
 			activity.createdAt,
 		);
 
@@ -164,7 +164,7 @@ export class ActivitiesService {
 		return serializeEntry(activity);
 	}
 
-	async complete(id: string, completed: boolean): Promise<ActivityEntry> {
+	async complete(id: string, completed: boolean) {
 		const activity = await this.db.activity.findUnique({
 			where: { id },
 			select: { type: true },
@@ -187,10 +187,7 @@ export class ActivitiesService {
 		return serializeEntry(updated);
 	}
 
-	async myTasks(
-		input: MyTasksInput,
-		actingUserId: string,
-	): Promise<ActivityEntry[]> {
+	async myTasks(input: MyTasksInput, actingUserId: string) {
 		const now = new Date();
 		const where: Prisma.ActivityWhereInput = {
 			type: ActivityType.TASK,
@@ -215,44 +212,16 @@ export class ActivitiesService {
 	}
 
 	private anchor(
-		input: Pick<TimelineInput, "companyId" | "contactId" | "dealId">,
+		input: Pick<TimelineInput, "contactId" | "vehicleId" | "rentalContractId">,
 	): Prisma.ActivityWhereInput {
-		if (input.dealId) return { dealId: input.dealId };
+		if (input.rentalContractId) {
+			return { rentalContractId: input.rentalContractId };
+		}
+		if (input.vehicleId) return { vehicleId: input.vehicleId };
 		if (input.contactId) return { contactId: input.contactId };
-		if (input.companyId) return { companyId: input.companyId };
 		throw new BadRequestException(
-			"A timeline needs a company, a contact or a deal.",
+			"A timeline needs a contact, a vehicle or a rental contract.",
 		);
-	}
-
-	private async resolveCompanyId(
-		input: ActivityCreateInput,
-	): Promise<string | null> {
-		if (input.companyId) return input.companyId;
-
-		if (input.dealId) {
-			const deal = await this.db.deal.findUnique({
-				where: { id: input.dealId },
-				select: { companyId: true },
-			});
-			if (!deal) {
-				throw new NotFoundException(`No deal with id ${input.dealId}.`);
-			}
-			return deal.companyId;
-		}
-
-		if (input.contactId) {
-			const contact = await this.db.contact.findUnique({
-				where: { id: input.contactId },
-				select: { companyId: true },
-			});
-			if (!contact) {
-				throw new NotFoundException(`No contact with id ${input.contactId}.`);
-			}
-			return contact.companyId;
-		}
-
-		return null;
 	}
 }
 
@@ -284,7 +253,7 @@ function serializeEntry(entry: Entry) {
 		dueAt: entry.dueAt?.toISOString() ?? null,
 		completedAt: entry.completedAt?.toISOString() ?? null,
 		createdAt: entry.createdAt.toISOString(),
-		meta: activityMeta.parse(entry.meta),
+		meta: entry.meta as Record<string, unknown> | null,
 
 		emailThread: entry.emailThread
 			? {

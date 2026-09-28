@@ -1,25 +1,6 @@
 import ContextDev from "context.dev";
 import { APIError } from "context.dev/core/error";
-import { z } from "zod";
 import { contextDevKey } from "./capabilities";
-import { CONTEXT } from "./context-config";
-
-export type JsonSchema = {
-	type?:
-		| "array"
-		| "boolean"
-		| "integer"
-		| "null"
-		| "number"
-		| "object"
-		| "string";
-	description?: string;
-	properties?: Record<string, JsonSchema>;
-	items?: JsonSchema;
-	required?: string[];
-	enum?: (string | number | boolean | null)[];
-	additionalProperties?: boolean | JsonSchema;
-};
 
 export type Brand = {
 	domain?: string | null;
@@ -65,9 +46,11 @@ export type SearchResult = {
 	markdown: string | null;
 };
 
+const TIMEOUT_MS = 60_000;
+
 let client: { key: string; api: ContextDev } | null = null;
 
-export async function contextDev(): Promise<ContextDev | null> {
+async function contextDev(): Promise<ContextDev | null> {
 	const key = await contextDevKey();
 
 	if (!key) {
@@ -98,6 +81,8 @@ export type KeyCheck =
  */
 const PROBE_EMAIL = "key-check@gmail.com";
 
+const VERIFY_TIMEOUT_MS = 15_000;
+
 export async function verifyKey(key: string): Promise<KeyCheck> {
 	const api = new ContextDev({ apiKey: key });
 
@@ -105,7 +90,7 @@ export async function verifyKey(key: string): Promise<KeyCheck> {
 		await api.brand.retrieve({
 			type: "by_email",
 			email: PROBE_EMAIL,
-			timeoutMS: CONTEXT.verifyTimeoutMs,
+			timeoutMS: VERIFY_TIMEOUT_MS,
 		});
 
 		return { outcome: "valid" };
@@ -114,16 +99,16 @@ export async function verifyKey(key: string): Promise<KeyCheck> {
 	}
 }
 
-export function classifyKey(cause: unknown): KeyCheck {
-	if (!(cause instanceof APIError)) {
-		return { outcome: "unknown", reason: describe(cause) };
+export function classifyKey(error: unknown): KeyCheck {
+	if (!(error instanceof APIError)) {
+		return { outcome: "unknown", reason: describe(error) };
 	}
 
-	if (cause.status === undefined) {
-		return { outcome: "unknown", reason: describe(cause) };
+	if (error.status === undefined) {
+		return { outcome: "unknown", reason: describe(error) };
 	}
 
-	if (cause.status === 401 && !recognisedKeyFailure(cause)) {
+	if (error.status === 401 && !recognisedKeyFailure(error)) {
 		return {
 			outcome: "invalid",
 			reason: "Context did not recognise that API key.",
@@ -137,17 +122,16 @@ export async function brandByDomain(
 	domain: string,
 	maxAgeMs?: number,
 ): Promise<LookupResult> {
-	const params = {
+	return lookup({
 		type: "by_domain",
 		domain,
-		timeoutMS: CONTEXT.timeoutMs,
-	} as const;
-
-	return lookup(maxAgeMs === undefined ? params : { ...params, maxAgeMs });
+		timeoutMS: TIMEOUT_MS,
+		...(maxAgeMs === undefined ? {} : { maxAgeMs }),
+	});
 }
 
 export async function brandByEmail(email: string): Promise<LookupResult> {
-	return lookup({ type: "by_email", email, timeoutMS: CONTEXT.timeoutMs });
+	return lookup({ type: "by_email", email, timeoutMS: TIMEOUT_MS });
 }
 
 export async function prefetch(domain: string): Promise<void> {
@@ -161,7 +145,7 @@ export async function prefetch(domain: string): Promise<void> {
 
 export async function extract(
 	url: string,
-	schema: JsonSchema,
+	schema: Record<string, unknown>,
 	instructions: string,
 ): Promise<
 	{ outcome: "found"; data: unknown } | { outcome: "failed"; reason: string }
@@ -177,7 +161,7 @@ export async function extract(
 			schema,
 			instructions,
 			maxPages: 8,
-			timeoutMS: CONTEXT.timeoutMs,
+			timeoutMS: TIMEOUT_MS,
 		});
 		return { outcome: "found", data: response.data };
 	} catch (error) {
@@ -197,18 +181,15 @@ export async function search(
 		return { outcome: "failed", reason: "Context.dev is not configured." };
 	}
 
-	const params = {
-		query,
-		numResults: Math.max(options.limit ?? 10, 10),
-		markdownOptions: { enabled: true },
-	};
-
 	try {
-		const response = await api.web.search(
-			options.excludeDomains
-				? { ...params, excludeDomains: options.excludeDomains }
-				: params,
-		);
+		const response = await api.web.search({
+			query,
+			numResults: Math.max(options.limit ?? 10, 10),
+			markdownOptions: { enabled: true },
+			...(options.excludeDomains
+				? { excludeDomains: options.excludeDomains }
+				: {}),
+		});
 
 		const results = (response.results ?? []).map((result) => ({
 			url: result.url ?? null,
@@ -246,14 +227,14 @@ async function lookup(
 	}
 }
 
-function classify(cause: unknown): LookupResult {
-	if (!(cause instanceof APIError)) {
-		return { outcome: "failed", reason: describe(cause), retryable: true };
+function classify(error: unknown): LookupResult {
+	if (!(error instanceof APIError)) {
+		return { outcome: "failed", reason: describe(error), retryable: true };
 	}
 
-	const code = errorCode(cause);
+	const code = errorCode(error);
 
-	if (cause.status === 400) {
+	if (error.status === 400) {
 		if (code === "NOT_FOUND" || code === "WEBSITE_ACCESS_ERROR") {
 			return {
 				outcome: "skipped",
@@ -263,46 +244,42 @@ function classify(cause: unknown): LookupResult {
 						: "The site could not be reached.",
 			};
 		}
-		return { outcome: "failed", reason: describe(cause), retryable: false };
+		return { outcome: "failed", reason: describe(error), retryable: false };
 	}
 
-	if (cause.status === 422) {
+	if (error.status === 422) {
 		return {
 			outcome: "skipped",
 			reason: "That is a personal or disposable email address.",
 		};
 	}
 
-	if (cause.status === 401 || cause.status === 403) {
-		return { outcome: "failed", reason: describe(cause), retryable: false };
+	if (error.status === 401 || error.status === 403) {
+		return { outcome: "failed", reason: describe(error), retryable: false };
 	}
 
-	if (cause.status === 408 || cause.status === 429) {
-		return { outcome: "failed", reason: describe(cause), retryable: true };
+	if (error.status === 408 || error.status === 429) {
+		return { outcome: "failed", reason: describe(error), retryable: true };
 	}
 
 	return {
 		outcome: "failed",
-		reason: describe(cause),
-		retryable: (cause.status ?? 500) >= 500,
+		reason: describe(error),
+		retryable: (error.status ?? 500) >= 500,
 	};
 }
 
-const apiErrorBody = z
-	.object({
-		error_code: z.string().optional().catch(undefined),
-		message: z.string().optional().catch(undefined),
-	})
-	.catch({});
-
 function errorCode(error: APIError): string | undefined {
-	return apiErrorBody.parse(error.error).error_code;
+	const body = error.error as { error_code?: unknown } | undefined;
+	return typeof body?.error_code === "string" ? body.error_code : undefined;
 }
 
 function recognisedKeyFailure(error: APIError): boolean {
-	const body = apiErrorBody.parse(error.error);
-	const detail = [body.error_code, body.message, error.message]
-		.filter((value) => value !== undefined)
+	const body = error.error as
+		| { error_code?: unknown; message?: unknown }
+		| undefined;
+	const detail = [body?.error_code, body?.message, error.message]
+		.filter((value): value is string => typeof value === "string")
 		.join(" ");
 
 	return /(usage|credit|quota|allowance|billing|rate.?limit|limit.?exceeded|insufficient.?permission)/i.test(
@@ -310,9 +287,9 @@ function recognisedKeyFailure(error: APIError): boolean {
 	);
 }
 
-export function describe(cause: unknown): string {
-	if (cause instanceof APIError) {
-		return `${cause.status ?? "?"} ${errorCode(cause) ?? cause.message}`;
+function describe(error: unknown): string {
+	if (error instanceof APIError) {
+		return `${error.status ?? "?"} ${errorCode(error) ?? error.message}`;
 	}
-	return cause instanceof Error ? cause.message : String(cause);
+	return error instanceof Error ? error.message : String(error);
 }

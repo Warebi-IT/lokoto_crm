@@ -1,7 +1,17 @@
-import { canManageCurrency, workspaceRoleOf } from "@crm/auth";
+import {
+	canManageCurrency,
+	isWorkspaceRole,
+	WORKSPACE_ID,
+	type WorkspaceRole,
+} from "@crm/auth";
 import type { Db } from "@crm/db";
 import { Prisma, RateSource } from "@crm/db";
-import { CURRENCIES, currencyName, normalizeCurrency } from "@crm/db/currency";
+import {
+	CURRENCIES,
+	type CurrencyMeta,
+	currencyName,
+	normalizeCurrency,
+} from "@crm/db/currency";
 import { writeReportingCurrency } from "@crm/db/settings";
 import {
 	BadRequestException,
@@ -10,9 +20,35 @@ import {
 	Logger,
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
-import { ConversionService } from "./conversion.service";
-import type { CurrencyRate, CurrencySettings } from "./currency.contracts";
+import { ConversionService, type Unconverted } from "./conversion.service";
 import { RatesService } from "./rates.service";
+
+export interface CurrencyRate {
+	currency: string;
+	name: string | null;
+	rate: number;
+	asOf: string;
+	source: RateSource;
+	provider: string | null;
+	overriding: boolean;
+}
+
+export interface CurrencyInUse {
+	currency: string;
+	name: string | null;
+	count: number;
+	convertible: boolean;
+}
+
+export interface CurrencySettings {
+	reportingCurrency: string;
+	refreshedAt: string | null;
+	rates: CurrencyRate[];
+	inUse: CurrencyInUse[];
+	unconverted: Unconverted;
+	catalog: CurrencyMeta[];
+	canManage: boolean;
+}
 
 @Injectable()
 export class CurrencyService {
@@ -39,12 +75,8 @@ export class CurrencyService {
 				},
 			}),
 			this.rates.refreshedAt(),
-			this.conversion.unconverted(),
-			this.db.deal.groupBy({
-				by: ["currency"],
-				where: { amount: { not: null } },
-				_count: { _all: true },
-			}),
+			this.conversion.unconvertedEverywhere(),
+			this.conversion.currencyUsage(),
 		]);
 
 		const manual = new Set(
@@ -83,26 +115,36 @@ export class CurrencyService {
 				a.currency.localeCompare(b.currency),
 			),
 			inUse: usage
-				.map((row) => {
-					const currency = normalizeCurrency(row.currency);
-					return {
-						currency,
-						name: currencyName(currency),
-						deals: row._count._all,
-						convertible: convertible.has(currency),
-					};
-				})
+				.map((row) => ({
+					currency: row.currency,
+					name: currencyName(row.currency),
+					count: row.count,
+					convertible: convertible.has(row.currency),
+				}))
 				.sort(
-					(a, b) => b.deals - a.deals || a.currency.localeCompare(b.currency),
+					(a, b) => b.count - a.count || a.currency.localeCompare(b.currency),
 				),
 			unconverted,
 			catalog: [...CURRENCIES],
-			canManage: canManageCurrency(await workspaceRoleOf(actingUserId)),
+			canManage: canManageCurrency(await this.roleOf(actingUserId)),
 		};
 	}
 
+	private async roleOf(userId: string): Promise<WorkspaceRole | null> {
+		const member = await this.db.member.findUnique({
+			where: {
+				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+			},
+			select: { role: true },
+		});
+
+		if (!member) return null;
+
+		return isWorkspaceRole(member.role) ? member.role : "member";
+	}
+
 	private async requireManager(userId: string): Promise<void> {
-		if (!canManageCurrency(await workspaceRoleOf(userId))) {
+		if (!canManageCurrency(await this.roleOf(userId))) {
 			throw new ForbiddenException(
 				"Only an owner or an admin can change how money is reported.",
 			);
@@ -123,7 +165,7 @@ export class CurrencyService {
 		await writeReportingCurrency(this.db, currency);
 
 		const refresh = await this.rates.refresh();
-		const rerated = await this.conversion.rerateAll();
+		const rerated = await this.conversion.rerateEverything();
 
 		this.logger.log({
 			message: "Reporting currency changed",
@@ -174,7 +216,7 @@ export class CurrencyService {
 			update: { rate: new Prisma.Decimal(rate), asOf },
 		});
 
-		const filled = await this.conversion.fillMissing();
+		const filled = await this.conversion.fillMissingEverywhere();
 
 		this.logger.log({
 			message: "Manual exchange rate saved",
@@ -217,7 +259,7 @@ export class CurrencyService {
 			throw new BadRequestException(refresh.reason ?? "Could not fetch rates.");
 		}
 
-		await this.conversion.fillMissing();
+		await this.conversion.fillMissingEverywhere();
 
 		return this.settings(actingUserId);
 	}

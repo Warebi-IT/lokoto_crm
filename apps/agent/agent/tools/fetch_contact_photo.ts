@@ -7,7 +7,7 @@ import { assertResearchPurpose } from "../lib/session-purpose";
 
 export default defineTool({
 	description:
-		"Find and store a photograph for a contact, from their LinkedIn profile, their GitHub account, or their employer's own team page — whichever is on the record. Never searches for a face by name. Reports which source it used, or what it tried.",
+		"Find and store a photograph for a contact, from their LinkedIn profile or their GitHub account — whichever is on the record. Never searches for a face by name. Reports which source it used, or what it tried.",
 	inputSchema: z.object({
 		contactId: z.string(),
 		force: z

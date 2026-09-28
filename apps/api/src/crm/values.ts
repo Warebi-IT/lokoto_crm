@@ -1,5 +1,6 @@
 import type { Prisma } from "@crm/db";
 import { Prisma as PrismaNamespace } from "@crm/db";
+import { BadRequestException } from "@nestjs/common";
 
 export function toCents(amount: Prisma.Decimal | null): number | null {
 	return amount === null ? null : amount.times(100).toNumber();
@@ -24,4 +25,13 @@ export function blankToNull(value: string): string | null {
 
 export function normalizeEmail(value: string): string | null {
 	return blankToNull(value)?.toLowerCase() ?? null;
+}
+
+export function parseDate(value: string | null | undefined): Date | null {
+	if (value === null || value === undefined || value === "") return null;
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		throw new BadRequestException(`"${value}" is not a date.`);
+	}
+	return date;
 }

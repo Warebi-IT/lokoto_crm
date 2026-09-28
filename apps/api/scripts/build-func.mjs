@@ -30,15 +30,7 @@ const EXTERNALS = [
 	"cardinal",
 ];
 
-const VENDOR_ROOTS = [
-	"express",
-	"@nestjs/swagger",
-	"reflect-metadata",
-	"@nestjs/common",
-	"@nestjs/core",
-	"class-transformer",
-	"class-validator",
-];
+const VENDOR_ROOTS = ["express"];
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(funcDir, { recursive: true });
@@ -110,18 +102,7 @@ function vendorDeps(realDir, name, placedDir) {
 	} catch {
 		return;
 	}
-	const optionalPeers = new Set(
-		Object.entries(pj.peerDependenciesMeta || {})
-			.filter(([, meta]) => meta.optional)
-			.map(([depName]) => depName),
-	);
-	const depNames = new Set([
-		...Object.keys(pj.dependencies || {}),
-		...Object.keys(pj.peerDependencies || {}).filter(
-			(depName) => !optionalPeers.has(depName),
-		),
-	]);
-	for (const depName of depNames) {
+	for (const depName of Object.keys(pj.dependencies || {})) {
 		const depReal = resolveDep(realDir, name, depName);
 		if (!depReal) {
 			console.warn(`  ! not found: ${depName} (needed by ${name})`);

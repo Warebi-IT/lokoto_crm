@@ -9,40 +9,22 @@ import {
 import { db, type FieldEntity } from "@crm/db";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
-import { CompaniesService } from "../src/companies/companies.service";
-import { CompanyDirectoryService } from "../src/companies/company-directory.service";
-import type { FaviconService } from "../src/companies/favicon.service";
 import { ContactsService } from "../src/contacts/contacts.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
-import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
-import { withDiscardedCrmEvents } from "./agent-trigger.stub";
+import { VehiclesService } from "../src/vehicles/vehicles.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "fields-spec";
 const domain = `fields-${suffix}.test`;
 const ownerId = `owner-${suffix}`;
 
-const queued: {
-	entity: FieldEntity;
-	keys: string[];
-	ids: string[];
-	reason: string;
-}[] = [];
+const queued: { entity: FieldEntity; key: string; reason: string }[] = [];
 
 const agent = {
-	contactCreated: async () => true,
-	companyCreated: async () => undefined,
-	companyRequested: async () => true,
-	withCrmEvents: withDiscardedCrmEvents,
-	fieldBackfillRecords: async (
-		entity: FieldEntity,
-		keys: string[],
-		ids: string[],
-		reason: string,
-	) => {
-		queued.push({ entity, keys, ids, reason });
-		return { queued: ids.length, merged: 0 };
+	contactCreated: async () => undefined,
+	fieldBackfill: async (entity: FieldEntity, key: string, reason: string) => {
+		queued.push({ entity, key, reason });
 	},
 } as unknown as AgentTriggerService;
 
@@ -51,69 +33,36 @@ const queue = new AgentQueueService(db);
 const conversion = new ConversionService(db);
 
 const fields = new FieldsService(db, agent);
-const companies = new CompaniesService(
-	db,
-	agent,
-	queue,
-	{ backfill: async () => undefined } as unknown as FaviconService,
-	stamp,
-	conversion,
-	fields,
-);
-const contacts = new ContactsService(
-	db,
-	new CompanyDirectoryService(agent),
-	agent,
-	queue,
-	stamp,
-	fields,
-);
-const deals = new DealsService(db, agent, stamp, conversion, fields);
+const contacts = new ContactsService(db, agent, queue, stamp, fields);
+const vehicles = new VehiclesService(db, stamp, conversion, fields);
 
-let companyId: string;
+let contactId: string;
 let bridgeSecret: string | undefined;
 
 async function clean() {
-	const owned = await db.company.findMany({
-		where: { domain: { endsWith: domain } },
-		select: { id: true },
-	});
-	const companyIds = owned.map((row) => row.id);
-	const ownedContacts = await db.contact.findMany({
-		where: { companyId: { in: companyIds } },
-		select: { id: true },
-	});
-	const contactIds = ownedContacts.map((row) => row.id);
-
 	await db.agentTask.deleteMany({
-		where: {
-			kind: "field-backfill",
-			OR: [
-				{ reason: { contains: "spec_" } },
-				{ companyId: { in: companyIds } },
-				{ contactId: { in: contactIds } },
-			],
-		},
+		where: { kind: "field-backfill", reason: { contains: "spec_" } },
 	});
-	await db.deal.deleteMany({ where: { companyId: { in: companyIds } } });
-	await db.contact.deleteMany({ where: { companyId: { in: companyIds } } });
+	await db.vehicle.deleteMany({
+		where: { plateNumber: { contains: suffix } },
+	});
 	await db.fieldValue.deleteMany({
-		where: { companyId: { in: companyIds } },
+		where: { contact: { email: { endsWith: domain } } },
 	});
+	await db.contact.deleteMany({ where: { email: { endsWith: domain } } });
 	await db.fieldDefinition.deleteMany({
 		where: { key: { startsWith: "spec_" } },
 	});
-	await db.company.deleteMany({ where: { domain: { endsWith: domain } } });
 	await db.user.deleteMany({ where: { id: ownerId } });
 }
 
-async function makeCompany(name: string): Promise<string> {
-	const company = await db.company.create({
-		data: { name: `${name} ${suffix}`, domain: `${name}-${domain}` },
+async function makeContact(name: string): Promise<string> {
+	const contact = await db.contact.create({
+		data: { firstName: name, email: `${name}@${domain}` },
 		select: { id: true },
 	});
 
-	return company.id;
+	return contact.id;
 }
 
 beforeAll(async () => {
@@ -126,7 +75,7 @@ beforeAll(async () => {
 		data: { id: ownerId, name: "Fields Rep", email: `rep@${domain}` },
 	});
 
-	companyId = await makeCompany("fields-co");
+	contactId = await makeContact("fields-contact");
 });
 
 afterAll(async () => {
@@ -146,7 +95,7 @@ beforeEach(() => {
 describe("field definitions", () => {
 	it("derives a key from the label and queues a backfill", async () => {
 		const field = await fields.create({
-			entity: "COMPANY",
+			entity: "CONTACT",
 			label: "Spec runs on",
 			type: "SELECT",
 			options: [{ label: "AWS" }, { label: "Azure" }],
@@ -155,7 +104,6 @@ describe("field definitions", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: false,
-			showOnFilter: false,
 		});
 
 		expect(field.key).toBe("spec_runs_on");
@@ -163,19 +111,15 @@ describe("field definitions", () => {
 			"AWS",
 			"Azure",
 		]);
-		expect(queued).toHaveLength(1);
-		expect(queued[0]).toMatchObject({
-			entity: "COMPANY",
-			keys: ["spec_runs_on"],
-			reason: "New field: Spec runs on",
-		});
-		expect(queued[0]?.ids).toContain(companyId);
+		expect(queued).toEqual([
+			{ entity: "CONTACT", key: "spec_runs_on", reason: "New field" },
+		]);
 	});
 
 	it("refuses a duplicate key", async () => {
 		await expect(
 			fields.create({
-				entity: "COMPANY",
+				entity: "CONTACT",
 				label: "Spec runs on",
 				type: "TEXT",
 				options: [],
@@ -184,13 +128,12 @@ describe("field definitions", () => {
 				required: false,
 				showOnSheet: true,
 				showOnTable: false,
-				showOnFilter: false,
 			}),
 		).rejects.toThrow(/already a field/);
 	});
 
 	it("keeps the same key when the label is renamed", async () => {
-		const before = await fields.byKey("COMPANY", "spec_runs_on");
+		const before = await fields.byKey("CONTACT", "spec_runs_on");
 
 		const after = await fields.update(before.id, { label: "Spec cloud" });
 
@@ -199,24 +142,20 @@ describe("field definitions", () => {
 	});
 
 	it("will not retype a field that already holds values", async () => {
-		const field = await fields.byKey("COMPANY", "spec_runs_on");
+		const field = await fields.byKey("CONTACT", "spec_runs_on");
 
-		await fields.applyValues(db, "COMPANY", companyId, {
+		await fields.applyValues(db, "CONTACT", contactId, {
 			spec_runs_on: "AWS",
 		});
 
-		let refused: Error | null = null;
-		try {
-			await fields.update(field.id, { type: "TEXT" });
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused?.message).toMatch(/cannot change/);
+		await expect(fields.update(field.id, { type: "TEXT" })).rejects.toThrow(
+			/cannot change/,
+		);
 	});
 
 	it("will not turn a field into a select with nothing to choose", async () => {
 		const field = await fields.create({
-			entity: "DEAL",
+			entity: "VEHICLE",
 			label: "Spec plain",
 			type: "TEXT",
 			options: [],
@@ -225,31 +164,26 @@ describe("field definitions", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: false,
-			showOnFilter: false,
 		});
 
-		let refused: Error | null = null;
-		try {
-			await fields.update(field.id, { type: "SELECT" });
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused?.message).toMatch(/at least one option/);
+		await expect(fields.update(field.id, { type: "SELECT" })).rejects.toThrow(
+			/at least one option/,
+		);
 	});
 
 	it("archives without losing values, and restores them", async () => {
-		const field = await fields.byKey("COMPANY", "spec_runs_on");
+		const field = await fields.byKey("CONTACT", "spec_runs_on");
 
 		await fields.archive(field.id);
 
 		expect(
-			(await fields.valuesFor("COMPANY", companyId)).map((entry) => entry.key),
+			(await fields.valuesFor("CONTACT", contactId)).map((entry) => entry.key),
 		).not.toContain("spec_runs_on");
 		expect(await db.fieldValue.count({ where: { fieldId: field.id } })).toBe(1);
 
 		await fields.restore(field.id);
 
-		const back = await fields.valuesFor("COMPANY", companyId);
+		const back = await fields.valuesFor("CONTACT", contactId);
 		expect(back.map((entry) => entry.key)).toContain("spec_runs_on");
 	});
 
@@ -263,7 +197,7 @@ describe("field definitions", () => {
 
 	it("reorders inside one entity only", async () => {
 		const second = await fields.create({
-			entity: "COMPANY",
+			entity: "CONTACT",
 			label: "Spec seats",
 			type: "NUMBER",
 			options: [],
@@ -272,13 +206,12 @@ describe("field definitions", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: false,
-			showOnFilter: false,
 		});
 
-		const first = await fields.byKey("COMPANY", "spec_runs_on");
+		const first = await fields.byKey("CONTACT", "spec_runs_on");
 
 		const reordered = await fields.reorder({
-			entity: "COMPANY",
+			entity: "CONTACT",
 			ids: [second.id, first.id],
 		});
 
@@ -289,20 +222,16 @@ describe("field definitions", () => {
 			keys.indexOf("spec_runs_on"),
 		);
 
-		let refused: Error | null = null;
-		try {
-			await fields.reorder({ entity: "CONTACT", ids: [first.id] });
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused?.message).toMatch(/not on this record type/);
+		await expect(
+			fields.reorder({ entity: "VEHICLE", ids: [first.id] }),
+		).rejects.toThrow(/not on this record type/);
 	});
 });
 
 describe("field values", () => {
 	it("round-trips each storage class", async () => {
 		await fields.create({
-			entity: "COMPANY",
+			entity: "CONTACT",
 			label: "Spec renewal",
 			type: "DATE",
 			options: [],
@@ -311,15 +240,14 @@ describe("field values", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: false,
-			showOnFilter: false,
 		});
 
-		await fields.applyValues(db, "COMPANY", companyId, {
+		await fields.applyValues(db, "CONTACT", contactId, {
 			spec_seats: "240",
 			spec_renewal: "2027-03-31",
 		});
 
-		const values = await fields.valuesFor("COMPANY", companyId);
+		const values = await fields.valuesFor("CONTACT", contactId);
 		const byKey = new Map(values.map((field) => [field.key, field.value]));
 
 		expect(byKey.get("spec_seats")).toBe(240);
@@ -327,28 +255,24 @@ describe("field values", () => {
 	});
 
 	it("takes a date as ISO 8601 and nothing else", async () => {
-		const record = await makeCompany("dates");
+		const record = await makeContact("dates");
 
-		await fields.applyValues(db, "COMPANY", record, {
+		await fields.applyValues(db, "CONTACT", record, {
 			spec_renewal: "2027-03-31T12:30:00.000Z",
 		});
 
-		const values = await fields.valuesFor("COMPANY", record);
+		const values = await fields.valuesFor("CONTACT", record);
 		const renewal = values.find((field) => field.key === "spec_renewal");
 		expect(renewal?.value).toBe("2027-03-31T12:30:00.000Z");
 
 		for (const raw of ["2027/03/31", "03-31-2027", "31 March 2027"]) {
-			let refused: Error | null = null;
-			try {
-				await fields.applyValues(db, "COMPANY", record, { spec_renewal: raw });
-			} catch (cause) {
-				refused = cause as Error;
-			}
-			expect(refused?.message).toMatch(/takes a date/);
+			await expect(
+				fields.applyValues(db, "CONTACT", record, { spec_renewal: raw }),
+			).rejects.toThrow(/takes a date/);
 		}
 
 		expect(
-			(await fields.valuesFor("COMPANY", record)).find(
+			(await fields.valuesFor("CONTACT", record)).find(
 				(field) => field.key === "spec_renewal",
 			)?.value,
 		).toBe("2027-03-31T12:30:00.000Z");
@@ -356,38 +280,34 @@ describe("field values", () => {
 
 	it("rejects a value the type cannot hold", async () => {
 		await expect(
-			fields.applyValues(db, "COMPANY", companyId, { spec_seats: "loads" }),
+			fields.applyValues(db, "CONTACT", contactId, { spec_seats: "loads" }),
 		).rejects.toThrow(/takes a number/);
 	});
 
 	it("rejects an unknown key", async () => {
 		await expect(
-			fields.applyValues(db, "COMPANY", companyId, { nope: "x" }),
+			fields.applyValues(db, "CONTACT", contactId, { nope: "x" }),
 		).rejects.toThrow(/no field called/);
 	});
 
 	it("writes none of a batch when one value in it is refused", async () => {
-		const record = await makeCompany("batch");
+		const record = await makeContact("batch");
 
-		let refused: Error | null = null;
-		try {
-			await fields.applyValues(db, "COMPANY", record, {
+		await expect(
+			fields.applyValues(db, "CONTACT", record, {
 				spec_seats: "12",
 				spec_renewal: "the spring",
-			});
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused?.message).toMatch(/takes a date/);
+			}),
+		).rejects.toThrow(/takes a date/);
 
-		expect(await db.fieldValue.count({ where: { companyId: record } })).toBe(0);
+		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
 	});
 
 	it("refuses a user who does not work here, and keeps the batch out", async () => {
-		const record = await makeCompany("people");
+		const record = await makeContact("people");
 
 		await fields.create({
-			entity: "COMPANY",
+			entity: "CONTACT",
 			label: "Spec champion",
 			type: "USER",
 			options: [],
@@ -396,61 +316,56 @@ describe("field values", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: false,
-			showOnFilter: false,
 		});
 
-		let refused: Error | null = null;
-		try {
-			await fields.applyValues(db, "COMPANY", record, {
+		await expect(
+			fields.applyValues(db, "CONTACT", record, {
 				spec_seats: "12",
 				spec_champion: `nobody-${suffix}`,
-			});
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused?.message).toMatch(/works here/);
+			}),
+		).rejects.toThrow(/works here/);
 
-		expect(await db.fieldValue.count({ where: { companyId: record } })).toBe(0);
+		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
 
-		await fields.applyValues(db, "COMPANY", record, {
+		await fields.applyValues(db, "CONTACT", record, {
 			spec_champion: ownerId,
 		});
 
 		expect(
-			(await fields.valuesFor("COMPANY", record)).find(
+			(await fields.valuesFor("CONTACT", record)).find(
 				(field) => field.key === "spec_champion",
 			)?.value,
 		).toBe(ownerId);
 	});
 
 	it("clears a value when it is blanked", async () => {
-		await fields.applyValues(db, "COMPANY", companyId, { spec_seats: "" });
+		await fields.applyValues(db, "CONTACT", contactId, { spec_seats: "" });
 
-		const values = await fields.valuesFor("COMPANY", companyId);
+		const values = await fields.valuesFor("CONTACT", contactId);
 		const seats = values.find((field) => field.key === "spec_seats");
 
 		expect(seats?.value).toBeNull();
 	});
 
 	it("goes with the record when the record is deleted", async () => {
-		const doomed = await makeCompany("doomed");
+		const doomed = await makeContact("doomed");
 
-		await fields.applyValues(db, "COMPANY", doomed, {
+		await fields.applyValues(db, "CONTACT", doomed, {
 			spec_renewal: "2027-01-01",
 		});
 
-		await db.company.delete({ where: { id: doomed } });
+		await db.contact.delete({ where: { id: doomed } });
 
-		expect(await db.fieldValue.count({ where: { companyId: doomed } })).toBe(0);
+		expect(await db.fieldValue.count({ where: { contactId: doomed } })).toBe(0);
 	});
 });
 
 describe("a select option that was taken away", () => {
 	it("still labels what it left behind, but cannot be chosen again", async () => {
-		const record = await makeCompany("retired");
+		const record = await makeContact("retired");
 
 		const field = await fields.create({
-			entity: "COMPANY",
+			entity: "CONTACT",
 			label: "Spec tier",
 			type: "SELECT",
 			options: [{ label: "Gold" }, { label: "Silver" }],
@@ -459,19 +374,18 @@ describe("a select option that was taken away", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: false,
-			showOnFilter: false,
 		});
 
 		const gold = field.options.find((option) => option.label === "Gold");
 		const silver = field.options.find((option) => option.label === "Silver");
 
-		await fields.applyValues(db, "COMPANY", record, { spec_tier: "Gold" });
+		await fields.applyValues(db, "CONTACT", record, { spec_tier: "Gold" });
 
 		await fields.update(field.id, {
 			options: [{ id: silver?.id, label: "Silver" }],
 		});
 
-		const [tier] = (await fields.valuesFor("COMPANY", record)).filter(
+		const [tier] = (await fields.valuesFor("CONTACT", record)).filter(
 			(entry) => entry.key === "spec_tier",
 		);
 
@@ -481,25 +395,21 @@ describe("a select option that was taken away", () => {
 		);
 
 		expect(
-			(await fields.byKey("COMPANY", "spec_tier")).options.map(
+			(await fields.byKey("CONTACT", "spec_tier")).options.map(
 				(option) => option.label,
 			),
 		).toEqual(["Silver"]);
 
-		let refused: Error | null = null;
-		try {
-			await fields.applyValues(db, "COMPANY", record, { spec_tier: "Gold" });
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused?.message).toMatch(/no option/);
+		await expect(
+			fields.applyValues(db, "CONTACT", record, { spec_tier: "Gold" }),
+		).rejects.toThrow(/no option/);
 	});
 
 	it("still reads as a label in a table, not as an option id", async () => {
-		const record = await makeCompany("retired-table");
+		const record = await makeContact("retired-table");
 
 		const field = await fields.create({
-			entity: "COMPANY",
+			entity: "CONTACT",
 			label: "Spec plan",
 			type: "SELECT",
 			options: [{ label: "Pilot" }, { label: "Rollout" }],
@@ -508,42 +418,23 @@ describe("a select option that was taken away", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: true,
-			showOnFilter: false,
 		});
 
 		const rollout = field.options.find((option) => option.label === "Rollout");
 
-		await fields.applyValues(db, "COMPANY", record, { spec_plan: "Pilot" });
+		await fields.applyValues(db, "CONTACT", record, { spec_plan: "Pilot" });
 
 		await fields.update(field.id, {
 			options: [{ id: rollout?.id, label: "Rollout" }],
 		});
 
-		const table = await fields.tableValuesFor("COMPANY", [record]);
+		const table = await fields.tableValuesFor("CONTACT", [record]);
 
 		expect(table.get(record)?.spec_plan).toBe("Pilot");
 	});
 });
 
 describe("a record update that fails", () => {
-	it("leaves a company's field values as they were", async () => {
-		const record = await makeCompany("company-rollback");
-
-		let refused: Error | null = null;
-		try {
-			await companies.update(record, {
-				name: "Renamed",
-				ownerId: `nobody-${suffix}`,
-				fields: { spec_seats: "99" },
-			});
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused).not.toBeNull();
-
-		expect(await db.fieldValue.count({ where: { companyId: record } })).toBe(0);
-	});
-
 	it("leaves a contact's field values as they were", async () => {
 		await fields.create({
 			entity: "CONTACT",
@@ -555,37 +446,27 @@ describe("a record update that fails", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: false,
-			showOnFilter: false,
 		});
 
 		const contact = await db.contact.create({
-			data: {
-				firstName: "Ada",
-				email: `ada@${domain}`,
-				companyId,
-			},
+			data: { firstName: "Ada", email: `ada@${domain}` },
 			select: { id: true },
 		});
 
-		let refused: Error | null = null;
-		try {
-			await contacts.update(contact.id, {
-				companyId: `nobody-${suffix}`,
+		await expect(
+			contacts.update(contact.id, {
 				fields: { spec_note: "Reads the docs" },
-			});
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused).not.toBeNull();
+			}),
+		).rejects.toThrow();
 
 		expect(
 			await db.fieldValue.count({ where: { contactId: contact.id } }),
 		).toBe(0);
 	});
 
-	it("leaves a deal's field values as they were", async () => {
+	it("leaves a vehicle's field values as they were", async () => {
 		await fields.create({
-			entity: "DEAL",
+			entity: "VEHICLE",
 			label: "Spec risk",
 			type: "TEXT",
 			options: [],
@@ -594,93 +475,44 @@ describe("a record update that fails", () => {
 			required: false,
 			showOnSheet: true,
 			showOnTable: false,
-			showOnFilter: false,
 		});
 
-		const deal = await db.deal.create({
-			data: { name: `Spec deal ${suffix}`, companyId, ownerId },
+		const vehicle = await db.vehicle.create({
+			data: {
+				type: "CAR",
+				make: "Toyota",
+				model: "Corolla",
+				plateNumber: `SPEC-${suffix}`,
+			},
 			select: { id: true },
 		});
 
-		let refused: Error | null = null;
-		try {
-			await deals.update(deal.id, {
-				companyId: `nobody-${suffix}`,
-				fields: { spec_risk: "Champion left" },
-			});
-		} catch (cause) {
-			refused = cause as Error;
-		}
-		expect(refused).not.toBeNull();
+		await vehicles.update(vehicle.id, {
+			fields: { spec_risk: "Champion left" },
+		});
 
-		expect(await db.fieldValue.count({ where: { dealId: deal.id } })).toBe(0);
-
-		await deals.update(deal.id, { fields: { spec_risk: "Champion left" } });
-
-		expect(await db.fieldValue.count({ where: { dealId: deal.id } })).toBe(1);
+		expect(
+			await db.fieldValue.count({ where: { vehicleId: vehicle.id } }),
+		).toBe(1);
 	});
 });
 
 describe("queueing a backfill", () => {
-	it("targets the record, and merges a second field into the same pending task", async () => {
+	it("keeps one entity's field apart from another's with the same key", async () => {
 		const trigger = new AgentTriggerService(db);
-		const otherCompanyId = await makeCompany("fields-co-2");
 
-		const first = await trigger.fieldBackfillRecords(
-			"COMPANY",
-			["spec_website"],
-			[companyId, otherCompanyId],
-			"New field",
-		);
-		expect(first).toEqual({ queued: 2, merged: 0 });
-
-		const second = await trigger.fieldBackfillRecords(
-			"COMPANY",
-			["spec_segment"],
-			[companyId],
-			"New field",
-		);
-		expect(second).toEqual({ queued: 0, merged: 1 });
+		await trigger.fieldBackfill("CONTACT", "spec_website", "New field");
+		await trigger.fieldBackfill("VEHICLE", "spec_website", "New field");
+		await trigger.fieldBackfill("CONTACT", "spec_website", "Brief changed");
 
 		const tasks = await db.agentTask.findMany({
-			where: {
-				kind: "field-backfill",
-				companyId: { in: [companyId, otherCompanyId] },
-			},
-			select: { companyId: true, payload: true },
+			where: { kind: "field-backfill", reason: { contains: "spec_website" } },
+			select: { reason: true },
 		});
 
-		expect(tasks).toHaveLength(2);
-		const mine = tasks.find((task) => task.companyId === companyId);
-		expect(mine?.payload).toEqual({
-			entity: "COMPANY",
-			keys: ["spec_website", "spec_segment"],
-		});
-	});
-
-	it("keeps a company's field apart from a contact's field with the same key", async () => {
-		const trigger = new AgentTriggerService(db);
-		const contact = await db.contact.create({
-			data: { firstName: "Backfill", email: `backfill@${domain}`, companyId },
-			select: { id: true },
-		});
-
-		await trigger.fieldBackfillRecords(
-			"CONTACT",
-			["spec_website"],
-			[contact.id],
-			"New field",
-		);
-
-		const tasks = await db.agentTask.findMany({
-			where: { kind: "field-backfill", contactId: contact.id },
-			select: { payload: true },
-		});
-
-		expect(tasks).toHaveLength(1);
-		expect(tasks[0]?.payload).toEqual({
-			entity: "CONTACT",
-			keys: ["spec_website"],
-		});
+		expect(tasks.map((task) => task.reason).sort()).toEqual([
+			"contact.spec_website: New field",
+			"vehicle.spec_website: New field",
+		]);
 	});
 });

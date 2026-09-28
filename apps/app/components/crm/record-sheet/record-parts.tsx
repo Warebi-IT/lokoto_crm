@@ -104,7 +104,7 @@ export function AddRow({
 	);
 }
 
-export function DealAmount({
+export function MoneyAmount({
 	amountCents,
 	currency,
 }: {

@@ -74,31 +74,26 @@ function describe(exception: unknown): string {
 	return typeof exception === "string" ? exception : "Unknown exception";
 }
 
-interface ErrorBody {
-	statusCode?: number;
-	message?: unknown;
-	requestId?: string;
-	[field: string]: unknown;
-}
-
 function body(
 	exception: unknown,
 	status: number,
 	requestId: string | undefined,
-): ErrorBody {
-	const reported = exceptionBody(exception, status);
+): Record<string, unknown> {
+	const withRequestId = requestId ? { requestId } : {};
 
-	return requestId ? { ...reported, requestId } : reported;
-}
-
-function exceptionBody(exception: unknown, status: number): ErrorBody {
 	if (!(exception instanceof HttpException)) {
-		return { statusCode: status, message: "Internal server error" };
+		return {
+			statusCode: status,
+			message: "Internal server error",
+			...withRequestId,
+		};
 	}
 
 	const original = exception.getResponse();
 
-	return typeof original === "string"
-		? { statusCode: status, message: original }
-		: { ...original };
+	if (typeof original === "string") {
+		return { statusCode: status, message: original, ...withRequestId };
+	}
+
+	return { ...(original as Record<string, unknown>), ...withRequestId };
 }

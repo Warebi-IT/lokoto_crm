@@ -5,7 +5,6 @@ import { formatTrpcError } from "./error-formatter";
 import { AuthMiddleware } from "./middlewares/auth.middleware";
 import { DomainErrorMiddleware } from "./middlewares/domain-error.middleware";
 import { LoggingMiddleware } from "./middlewares/logging.middleware";
-import { SessionOnlyMiddleware } from "./middlewares/session-only.middleware";
 import { TrpcContext } from "./trpc.context";
 import { TrpcErrorHandler } from "./trpc-error.handler";
 
@@ -26,8 +25,7 @@ import { TrpcErrorHandler } from "./trpc-error.handler";
 		LoggingMiddleware,
 		DomainErrorMiddleware,
 		AuthMiddleware,
-		SessionOnlyMiddleware,
 	],
-	exports: [AuthMiddleware, SessionOnlyMiddleware],
+	exports: [AuthMiddleware],
 })
 export class TrpcModule {}

@@ -1,19 +1,17 @@
-import Building from "@carbon/icons-react/es/Building";
+import CarFront from "@carbon/icons-react/es/CarFront";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
+import DocumentSigned from "@carbon/icons-react/es/DocumentSigned";
 import Group from "@carbon/icons-react/es/Group";
-import Partnership from "@carbon/icons-react/es/Partnership";
 import Settings from "@carbon/icons-react/es/Settings";
 import Logo from "@crm/ui/components/logo";
 import Image from "next/image";
 import { BuiltWith } from "../built-with";
-import { CompaniesList, CompaniesPage } from "./companies-page";
-import { CompanyDrawer, CompanySheet } from "./company-sheet";
 
 const RAIL = [
-	{ icon: Dashboard, label: "Overview", active: false },
-	{ icon: Building, label: "Companies", active: true },
+	{ icon: Dashboard, label: "Overview", active: true },
 	{ icon: Group, label: "Contacts", active: false },
-	{ icon: Partnership, label: "Deals", active: false },
+	{ icon: CarFront, label: "Vehicles", active: false },
+	{ icon: DocumentSigned, label: "Rental contracts", active: false },
 	{ icon: Settings, label: "Settings", active: false },
 ];
 
@@ -22,7 +20,7 @@ export function ProductShot() {
 		<section className="relative flex w-full shrink-0 flex-col items-center px-6 pt-20">
 			<div
 				role="img"
-				aria-label="The companies list with an account open on its Agent tab"
+				aria-label="The Lokoto fleet dashboard"
 				className="w-[1183px] max-w-full select-none overflow-clip rounded-xl border border-border bg-background"
 			>
 				<div className="relative hidden h-[690px] w-[1182px] shrink-0 flex-col overflow-clip lg:flex">
@@ -30,20 +28,12 @@ export function ProductShot() {
 						<AppHeader />
 						<div className="flex min-h-0 grow">
 							<AppRail />
-							<CompaniesPage />
 						</div>
 					</div>
-
-					<div className="absolute inset-y-0 right-[211.5px] left-0 bg-black/55 backdrop-blur-[4px]" />
-					<CompanySheet />
 				</div>
 
 				<div className="relative flex h-[600px] w-full flex-col overflow-clip lg:hidden">
 					<AppHeader />
-					<CompaniesList />
-
-					<div className="absolute inset-0 bg-black/55 backdrop-blur-[3px]" />
-					<CompanyDrawer />
 				</div>
 			</div>
 
@@ -61,7 +51,7 @@ function AppHeader() {
 				</span>
 				<span className="mx-1 h-5 w-px shrink-0" />
 				<span className="line-clamp-1 font-medium text-sm/[142%]">
-					Comp AI CRM
+					Lokoto CRM
 				</span>
 			</div>
 

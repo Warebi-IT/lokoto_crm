@@ -109,7 +109,7 @@ export function AgentModel() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Research agent</CardTitle>
+				<CardTitle>Agent de recherche</CardTitle>
 				<CardDescription>
 					The model the agent thinks with, routed through the Vercel AI Gateway.
 				</CardDescription>
@@ -134,7 +134,7 @@ export function AgentModel() {
 						<Command>
 							<CommandInput placeholder="Search models…" />
 							<CommandList>
-								<CommandEmpty>No model matches that.</CommandEmpty>
+								<CommandEmpty>Aucun modèle correspondant.</CommandEmpty>
 
 								<CommandGroup>
 									<CommandItem

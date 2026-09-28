@@ -3,11 +3,12 @@ import {
 	canConfigureSso,
 	isGoogleConfigured,
 	isMicrosoftConfigured,
+	isWorkspaceRole,
 	ssoCallbackBase,
 	ssoCallbackURL,
 	ssoProviderName,
 	WORKSPACE_ID,
-	workspaceRoleOf,
+	type WorkspaceRole,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
 import {
@@ -19,22 +20,39 @@ import {
 	Logger,
 } from "@nestjs/common";
 import { APIError } from "better-auth/api";
-import { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
-import {
-	type ListResult,
-	type OrderByColumns,
-	paginate,
-	resolveOrderBy,
-} from "../trpc/list-input";
+import { type ListResult, paginate, resolveOrderBy } from "../trpc/list-input";
 import type {
 	DeleteSsoProviderInput,
 	RegisterSsoProviderInput,
-	SignInOptions,
-	SsoProvider,
 	SsoProviderListInput,
-	SsoSettings,
 } from "./sso.contracts";
+
+export interface PublicSsoProvider {
+	providerId: string;
+	name: string;
+}
+
+export interface SignInOptions {
+	google: boolean;
+	microsoft: boolean;
+	providers: PublicSsoProvider[];
+}
+
+export interface SsoProvider {
+	providerId: string;
+	name: string;
+	type: "oidc" | "saml";
+	issuer: string;
+	domains: string[];
+	clientIdLastFour: string | null;
+	callbackURL: string;
+}
+
+export interface SsoSettings {
+	canConfigure: boolean;
+	callbackBase: string;
+}
 
 const PROVIDER_SELECT = {
 	providerId: true,
@@ -48,20 +66,23 @@ type ProviderRow = Prisma.SsoProviderGetPayload<{
 	select: typeof PROVIDER_SELECT;
 }>;
 
-const SORTABLE: OrderByColumns<Prisma.SsoProviderOrderByWithRelationInput> = {
+const SORTABLE: Record<
+	string,
+	(dir: "asc" | "desc") => Prisma.SsoProviderOrderByWithRelationInput
+> = {
 	providerId: (dir) => ({ providerId: dir }),
 	domain: (dir) => ({ domain: dir }),
 	issuer: (dir) => ({ issuer: dir }),
 };
 
-const STATUS_BY_CODE = new Map<string, number>([
-	["BAD_REQUEST", 400],
-	["UNAUTHORIZED", 401],
-	["FORBIDDEN", 403],
-	["NOT_FOUND", 404],
-	["CONFLICT", 409],
-	["UNPROCESSABLE_ENTITY", 400],
-]);
+const STATUS_BY_CODE: Record<string, number> = {
+	BAD_REQUEST: 400,
+	UNAUTHORIZED: 401,
+	FORBIDDEN: 403,
+	NOT_FOUND: 404,
+	CONFLICT: 409,
+	UNPROCESSABLE_ENTITY: 400,
+};
 
 function splitDomains(value: string): string[] {
 	return value
@@ -76,28 +97,27 @@ function splitDomains(value: string): string[] {
 		.filter(Boolean);
 }
 
-const oidcConfig = z
-	.object({ clientId: z.string().catch("") })
-	.catch({ clientId: "" });
-
-type OidcConfig = z.infer<typeof oidcConfig>;
-
-function lastFour(clientId: string): string | null {
-	return clientId.length >= 4 ? clientId.slice(-4) : null;
+function lastFour(clientId: unknown): string | null {
+	return typeof clientId === "string" && clientId.length >= 4
+		? clientId.slice(-4)
+		: null;
 }
 
-function readOidcConfig(value: string | null): OidcConfig | null {
+function parseConfig(value: string | null): Record<string, unknown> | null {
 	if (!value) return null;
 
 	try {
-		return oidcConfig.parse(JSON.parse(value));
+		const parsed: unknown = JSON.parse(value);
+		return parsed && typeof parsed === "object"
+			? (parsed as Record<string, unknown>)
+			: null;
 	} catch {
 		return null;
 	}
 }
 
 function toProvider(row: ProviderRow): SsoProvider {
-	const oidc = readOidcConfig(row.oidcConfig);
+	const oidc = parseConfig(row.oidcConfig);
 
 	return {
 		providerId: row.providerId,
@@ -135,7 +155,7 @@ export class SsoService {
 
 	async settings(userId: string): Promise<SsoSettings> {
 		return {
-			canConfigure: canConfigureSso(await workspaceRoleOf(userId, this.db)),
+			canConfigure: canConfigureSso(await this.roleOf(userId)),
 			callbackBase: ssoCallbackBase(),
 		};
 	}
@@ -251,11 +271,11 @@ export class SsoService {
 		} catch (error) {
 			if (error instanceof APIError) {
 				const status =
-					STATUS_BY_CODE.get(error.body?.code ?? "") ?? error.statusCode;
+					STATUS_BY_CODE[error.body?.code ?? ""] ?? error.statusCode;
 
 				throw new HttpException(
 					error.body?.message ?? "The identity provider could not be saved.",
-					status,
+					typeof status === "number" ? status : 400,
 				);
 			}
 
@@ -271,10 +291,23 @@ export class SsoService {
 	}
 
 	private async requireConfigurer(userId: string): Promise<void> {
-		if (!canConfigureSso(await workspaceRoleOf(userId, this.db))) {
+		if (!canConfigureSso(await this.roleOf(userId))) {
 			throw new ForbiddenException(
 				"Only an owner or an admin can change how people sign in.",
 			);
 		}
+	}
+
+	private async roleOf(userId: string): Promise<WorkspaceRole | null> {
+		const member = await this.db.member.findUnique({
+			where: {
+				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+			},
+			select: { role: true },
+		});
+
+		if (!member) return null;
+
+		return isWorkspaceRole(member.role) ? member.role : "member";
 	}
 }

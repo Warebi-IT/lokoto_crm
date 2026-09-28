@@ -14,7 +14,6 @@ export const bulkIdsInput = z.object({
 export type BulkResult = {
 	requested: number;
 	succeeded: number;
-	skipped: number;
 	failed: number;
 	message: string | null;
 };
@@ -41,17 +40,12 @@ export async function runBulk(
 ): Promise<BulkResult> {
 	const unique = [...new Set(ids)];
 	let succeeded = 0;
-	let skipped = 0;
 	let message: string | null = null;
 
 	for (const id of unique) {
 		try {
-			const outcome = await act(id);
-			if (outcome === null) {
-				skipped += 1;
-			} else {
-				succeeded += 1;
-			}
+			await act(id);
+			succeeded += 1;
 		} catch (error) {
 			message ??=
 				error instanceof Error ? error.message : "Something went wrong.";
@@ -61,8 +55,7 @@ export async function runBulk(
 	return {
 		requested: unique.length,
 		succeeded,
-		skipped,
-		failed: unique.length - succeeded - skipped,
+		failed: unique.length - succeeded,
 		message,
 	};
 }

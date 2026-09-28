@@ -29,12 +29,7 @@ describe("scoreEvidence", () => {
 
 	it("refuses to write anything without a primary source, however much of it there is", () => {
 		const scored = scoreEvidence(
-			of(
-				"handle.name-form",
-				"search.cites-profile",
-				"web.cited-claim",
-				"employer-only",
-			),
+			of("handle.name-form", "search.cites-profile", "web.cited-claim"),
 		);
 
 		expect(scored.score).toBeGreaterThan(BAND_FLOOR.PROBABLE);
@@ -56,10 +51,10 @@ describe("scoreEvidence", () => {
 
 	it("holds a fact when sources disagree, rather than averaging them", () => {
 		const scored = scoreEvidence([
-			...of("linkedin.employer-and-name"),
+			...of("linkedin.name-match"),
 			{
 				kind: "contradiction",
-				detail: "their signature says a different employer",
+				detail: "their signature says a different name",
 			},
 		]);
 
@@ -68,7 +63,6 @@ describe("scoreEvidence", () => {
 	});
 
 	it("drops evidence too weak to keep at all", () => {
-		expect(scoreEvidence(of("employer-only")).band).toBeNull();
 		expect(scoreEvidence([]).band).toBeNull();
 	});
 
@@ -76,7 +70,7 @@ describe("scoreEvidence", () => {
 		const everything = scoreEvidence(
 			of(
 				"profile.email-match",
-				"linkedin.employer-and-name",
+				"linkedin.name-match",
 				"crm.thread-reply",
 				"github.account-identity",
 			),

@@ -13,743 +13,499 @@ import { z } from "zod";
 
 const t = initTRPC.create();
 const publicProcedure = t.procedure;
-import { timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
-import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
-import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
-import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
-import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
-import { conversationListInput, conversationListOutput, builderListOutput, builderResourceSearchInput, builderResourcesOutput, conversationIdInput, builderConversationDetailOutput, conversationEventsInput, conversationEventsOutput, conversationSaveInput, conversationIdOutput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, builderResponseRatingOutput, conversationShareStatusOutput, conversationShareTokenOutput, sharedConversationInput, sharedConversationOutput } from "../conversations/conversations.contracts";
-import { currencySettingsOutput, setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
-import { dashboardSummaryInput, dashboardSummaryOutput } from "../dashboard/dashboard.contracts";
-import { dealListInput, dealListOutput, dealIdInput, dealDetailOutput, dealCreateInput, dealCreateOutput, dealUpdateArgs, dealMutateOutput, setStageInput, dealSetStageOutput, dealContactsInput, dealContactOptionsOutput, dealAttachContactInput, dealContactLinkOutput, dealDetachContactInput, dealContactRoleInput, dealContactRoleOutput, dealBulkOwnerInput, dealBulkResultOutput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
-import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
-import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
-import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
-import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
-import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
-import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
-import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
-import { ssoSignInOptionsOutput, ssoSettingsOutput, ssoProviderListInput, ssoProviderListOutput, registerSsoProviderInput, ssoProviderOutput, deleteSsoProviderInput, deleteSsoProviderOutput } from "../sso/sso.contracts";
-import { trackingSettingsOutput, trackingFlagInput, cookieLifetimeInput, addDomainInput, trackedDomainOutput, removeDomainInput, rotateSiteIdOutput, verifyInput, verifyOutput, sourcesOutput, companyActivityInput, websiteActivityOutput, contactActivityInput } from "../tracking/tracking.contracts";
-import { workspaceOutput, memberListInput, memberListOutput, updateWorkspaceInput, setMemberRoleInput, workspaceMemberOutput } from "../workspace/workspace.contracts";
+import { timelineInput, timelineCountsInput, myTasksInput, activityCreateInput, completeInput } from "../activities/activities.contracts";
+import { agentIdInput, agentHistoryInput, agentUpdateInput, agentDeployInput, agentRunNowInput } from "../agent/agents.contracts";
+import { contactListInput, contactIdInput, contactOptionsInput, contactCreateInput, contactUpdateArgs, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
+import { conversationListInput, builderResourceSearchInput, conversationIdInput, conversationEventsInput, conversationSaveInput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, sharedConversationInput } from "../conversations/conversations.contracts";
+import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
+import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
+import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput } from "../fields/fields.contracts";
+import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
+import { incidentsByVehicleInput, incidentsByContractInput, incidentCreateInput, incidentUpdateArgs, incidentIdInput, damageAnnotationCreateInput, damageAnnotationUpdateArgs } from "../incidents/incidents.contracts";
+import { inspectionsByContractInput, inspectionCreateInput, inspectionIdInput } from "../inspections/inspections.contracts";
+import { maintenanceByVehicleInput, maintenanceCreateInput, maintenanceUpdateArgs, maintenanceIdInput } from "../maintenance/maintenance.contracts";
+import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { paymentsByContractInput, paymentCreateInput, paymentUpdateArgs, paymentIdInput } from "../payments/payments.contracts";
+import { profitabilitySummaryInput, profitabilityByVehicleInput, profitabilityTopVehiclesInput, profitabilityTopClientsInput, profitabilityBySegmentInput } from "../profitability/profitability.contracts";
+import { rentalContractListInput, rentalContractIdInput, rentalContractPlanningInput, rentalContractCreateInput, rentalContractUpdateArgs, setRentalContractStatusInput, recordPickupInput, recordReturnInput, setDepositStatusInput, rentalContractDriversInput, attachDriverInput, detachDriverInput, setDriverRoleInput, rentalContractBulkOwnerInput, rentalContractBulkInput } from "../rental-contracts/rental-contracts.contracts";
+import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
+import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
+import { vehicleChargesByVehicleInput, vehicleChargeCreateInput, vehicleChargeIdInput } from "../vehicle-charges/vehicle-charges.contracts";
+import { vehicleListInput, vehicleIdInput, vehicleAvailabilityInput, vehicleCreateInput, vehicleUpdateArgs, vehicleBulkStatusInput, vehicleBulkInput, vehicleSetFinancingInput, vehicleClearFinancingInput } from "../vehicles/vehicles.contracts";
+import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
+import type { ActivitiesRouter } from "../activities/activities.router";
+import type { AgentsRouter } from "../agent/agents.router";
+import type { ContactsRouter } from "../contacts/contacts.router";
+import type { ConversationsRouter } from "../conversations/conversations.router";
+import type { CurrencyRouter } from "../currency/currency.router";
+import type { DashboardRouter } from "../dashboard/dashboard.router";
+import type { FieldsRouter } from "../fields/fields.router";
+import type { GoogleRouter } from "../google/google.router";
+import type { IncidentsRouter } from "../incidents/incidents.router";
+import type { InspectionsRouter } from "../inspections/inspections.router";
+import type { MaintenanceRouter } from "../maintenance/maintenance.router";
+import type { MicrosoftRouter } from "../microsoft/microsoft.router";
+import type { PaymentsRouter } from "../payments/payments.router";
+import type { ProfitabilityRouter } from "../profitability/profitability.router";
+import type { RentalContractsRouter } from "../rental-contracts/rental-contracts.router";
+import type { SearchRouter } from "../search/search.router";
+import type { SettingsRouter } from "../settings/settings.router";
+import type { SsoRouter } from "../sso/sso.router";
 import type { UsersRouter } from "../users/users.router";
+import type { VehicleChargesRouter } from "../vehicle-charges/vehicle-charges.router";
+import type { VehiclesRouter } from "../vehicles/vehicles.router";
+import type { WorkspaceRouter } from "../workspace/workspace.router";
 
 const appRouter = t.router({
   activities: t.router({
     timeline: publicProcedure
       .input(timelineInput)
-      .output(timelineOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ActivitiesRouter["timeline"]>>),
     timelineCounts: publicProcedure
       .input(timelineCountsInput)
-      .output(timelineCountsOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ActivitiesRouter["timelineCounts"]>>),
     myTasks: publicProcedure
       .input(myTasksInput)
-      .output(myTasksOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ActivitiesRouter["myTasks"]>>),
     create: publicProcedure
       .input(activityCreateInput)
-      .output(activityCreateOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ActivitiesRouter["create"]>>),
     complete: publicProcedure
       .input(completeInput)
-      .output(completeOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ActivitiesRouter["complete"]>>)
     }),
   agents: t.router({
     list: publicProcedure
-      .output(agentListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    revise: publicProcedure
-      .input(agentReviseInput)
-      .output(agentReviseOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    files: publicProcedure
-      .input(agentIdInput)
-      .output(agentFilesOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    saveFile: publicProcedure
-      .input(agentSaveFileInput)
-      .output(agentSaveFileOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["list"]>>),
     byId: publicProcedure
       .input(agentIdInput)
-      .output(agentByIdOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["byId"]>>),
     history: publicProcedure
       .input(agentHistoryInput)
-      .output(agentHistoryOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["history"]>>),
     activity: publicProcedure
       .input(agentHistoryInput)
-      .output(agentActivityOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["activity"]>>),
     update: publicProcedure
       .input(agentUpdateInput)
-      .output(agentUpdateOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["update"]>>),
     deploy: publicProcedure
       .input(agentDeployInput)
-      .output(agentDeployOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["deploy"]>>),
     pause: publicProcedure
       .input(agentIdInput)
-      .output(agentPauseOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["pause"]>>),
     resume: publicProcedure
       .input(agentIdInput)
-      .output(agentResumeOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["resume"]>>),
     archive: publicProcedure
       .input(agentIdInput)
-      .output(agentArchiveOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["archive"]>>),
     restore: publicProcedure
       .input(agentIdInput)
-      .output(agentRestoreOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["restore"]>>),
     remove: publicProcedure
       .input(agentIdInput)
-      .output(agentRemoveOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["remove"]>>),
     runNow: publicProcedure
       .input(agentRunNowInput)
-      .output(agentRunNowOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    retryRun: publicProcedure
-      .input(agentRetryRunInput)
-      .output(agentRetryRunOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    cancelRun: publicProcedure
-      .input(agentCancelRunInput)
-      .output(agentCancelRunOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
-    }),
-  apiKeys: t.router({
-    list: publicProcedure
-      .input(apiKeyListInput)
-      .output(apiKeyListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    create: publicProcedure
-      .input(createApiKeyInput)
-      .output(createApiKeyOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    revoke: publicProcedure
-      .input(revokeApiKeyInput)
-      .output(revokeApiKeyOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
-    }),
-  companies: t.router({
-    list: publicProcedure
-      .input(companyListInput)
-      .output(companyListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    byId: publicProcedure
-      .input(companyIdInput)
-      .output(companyDetailOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    options: publicProcedure
-      .input(companyOptionsInput)
-      .output(companyOptionOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    create: publicProcedure
-      .input(companyCreateInput)
-      .output(companySummaryOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    update: publicProcedure
-      .input(companyUpdateArgs)
-      .output(companySummaryOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    archive: publicProcedure
-      .input(companyIdInput)
-      .output(companyArchiveResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    restore: publicProcedure
-      .input(companyIdInput)
-      .output(companyArchiveResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    purge: publicProcedure
-      .input(companyIdInput)
-      .output(companyArchiveResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkAssignOwner: publicProcedure
-      .input(companyBulkOwnerInput)
-      .output(companyBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkEnrich: publicProcedure
-      .input(companyBulkInput)
-      .output(companyBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkArchive: publicProcedure
-      .input(companyBulkInput)
-      .output(companyBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkRestore: publicProcedure
-      .input(companyBulkInput)
-      .output(companyBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkPurge: publicProcedure
-      .input(companyBulkInput)
-      .output(companyBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    enrich: publicProcedure
-      .input(companyIdInput)
-      .output(companyEnrichOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    research: publicProcedure
-      .input(companyIdInput)
-      .output(companyResearchOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    setPrimaryContact: publicProcedure
-      .input(setPrimaryContactInput)
-      .output(companySetPrimaryContactOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["runNow"]>>)
     }),
   contacts: t.router({
     list: publicProcedure
       .input(contactListInput)
-      .output(contactListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["list"]>>),
     byId: publicProcedure
       .input(contactIdInput)
-      .output(contactByIdOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["byId"]>>),
+    options: publicProcedure
+      .input(contactOptionsInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["options"]>>),
     create: publicProcedure
       .input(contactCreateInput)
-      .output(contactBasicOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["create"]>>),
     update: publicProcedure
       .input(contactUpdateArgs)
-      .output(contactBasicOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    archive: publicProcedure
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["update"]>>),
+    delete: publicProcedure
       .input(contactIdInput)
-      .output(contactNameOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    restore: publicProcedure
-      .input(contactIdInput)
-      .output(contactNameOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    purge: publicProcedure
-      .input(contactIdInput)
-      .output(contactNameOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["delete"]>>),
     enrich: publicProcedure
       .input(contactIdInput)
-      .output(contactEnrichOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkAssignOwner: publicProcedure
-      .input(contactBulkOwnerInput)
-      .output(bulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkSetCompany: publicProcedure
-      .input(contactBulkCompanyInput)
-      .output(bulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["enrich"]>>),
     bulkEnrich: publicProcedure
       .input(contactBulkInput)
-      .output(bulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkArchive: publicProcedure
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["bulkEnrich"]>>),
+    bulkDelete: publicProcedure
       .input(contactBulkInput)
-      .output(bulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkRestore: publicProcedure
-      .input(contactBulkInput)
-      .output(bulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkPurge: publicProcedure
-      .input(contactBulkInput)
-      .output(bulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["bulkDelete"]>>),
     decideFact: publicProcedure
       .input(factDecisionInput)
-      .output(decideFactOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["decideFact"]>>)
     }),
   conversations: t.router({
     list: publicProcedure
       .input(conversationListInput)
-      .output(conversationListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["list"]>>),
     builderList: publicProcedure
-      .output(builderListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["builderList"]>>),
     builderResources: publicProcedure
       .input(builderResourceSearchInput)
-      .output(builderResourcesOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["builderResources"]>>),
     builderById: publicProcedure
       .input(conversationIdInput)
-      .output(builderConversationDetailOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["builderById"]>>),
     events: publicProcedure
       .input(conversationEventsInput)
-      .output(conversationEventsOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["events"]>>),
     save: publicProcedure
       .input(conversationSaveInput)
-      .output(conversationIdOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["save"]>>),
     createBuilder: publicProcedure
       .input(builderConversationCreateInput)
-      .output(conversationIdOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["createBuilder"]>>),
     submitBuilder: publicProcedure
       .input(builderConversationSubmitInput)
-      .output(conversationIdOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["submitBuilder"]>>),
     answerBuilderQuestion: publicProcedure
       .input(builderQuestionResponseInput)
-      .output(conversationIdOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["answerBuilderQuestion"]>>),
     rateBuilderResponse: publicProcedure
       .input(builderResponseRatingInput)
-      .output(builderResponseRatingOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["rateBuilderResponse"]>>),
     markRead: publicProcedure
       .input(conversationIdInput)
-      .output(conversationIdOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["markRead"]>>),
     shareStatus: publicProcedure
       .input(conversationIdInput)
-      .output(conversationShareStatusOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["shareStatus"]>>),
     createShare: publicProcedure
       .input(conversationIdInput)
-      .output(conversationShareTokenOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["createShare"]>>),
     revokeShare: publicProcedure
       .input(conversationIdInput)
-      .output(conversationIdOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["revokeShare"]>>),
     shared: publicProcedure
       .input(sharedConversationInput)
-      .output(sharedConversationOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["shared"]>>),
     remove: publicProcedure
       .input(conversationIdInput)
-      .output(conversationIdOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["remove"]>>)
     }),
   currency: t.router({
     settings: publicProcedure
-      .output(currencySettingsOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CurrencyRouter["settings"]>>),
     setReportingCurrency: publicProcedure
       .input(setReportingCurrencyInput)
-      .output(currencySettingsOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CurrencyRouter["setReportingCurrency"]>>),
     setManualRate: publicProcedure
       .input(setManualRateInput)
-      .output(currencySettingsOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CurrencyRouter["setManualRate"]>>),
     removeManualRate: publicProcedure
       .input(removeManualRateInput)
-      .output(currencySettingsOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CurrencyRouter["removeManualRate"]>>),
     refreshRates: publicProcedure
-      .output(currencySettingsOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CurrencyRouter["refreshRates"]>>)
     }),
   dashboard: t.router({
     summary: publicProcedure
       .input(dashboardSummaryInput)
-      .output(dashboardSummaryOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
-    }),
-  deals: t.router({
-    list: publicProcedure
-      .input(dealListInput)
-      .output(dealListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    byId: publicProcedure
-      .input(dealIdInput)
-      .output(dealDetailOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    create: publicProcedure
-      .input(dealCreateInput)
-      .output(dealCreateOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    update: publicProcedure
-      .input(dealUpdateArgs)
-      .output(dealMutateOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    archive: publicProcedure
-      .input(dealIdInput)
-      .output(dealMutateOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    restore: publicProcedure
-      .input(dealIdInput)
-      .output(dealMutateOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    purge: publicProcedure
-      .input(dealIdInput)
-      .output(dealMutateOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    setStage: publicProcedure
-      .input(setStageInput)
-      .output(dealSetStageOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    contactOptions: publicProcedure
-      .input(dealContactsInput)
-      .output(dealContactOptionsOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    attachContact: publicProcedure
-      .input(dealAttachContactInput)
-      .output(dealContactLinkOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    detachContact: publicProcedure
-      .input(dealDetachContactInput)
-      .output(dealContactLinkOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    setContactRole: publicProcedure
-      .input(dealContactRoleInput)
-      .output(dealContactRoleOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkAssignOwner: publicProcedure
-      .input(dealBulkOwnerInput)
-      .output(dealBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkSetStage: publicProcedure
-      .input(dealBulkStageInput)
-      .output(dealBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkArchive: publicProcedure
-      .input(dealBulkInput)
-      .output(dealBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkRestore: publicProcedure
-      .input(dealBulkInput)
-      .output(dealBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    bulkPurge: publicProcedure
-      .input(dealBulkInput)
-      .output(dealBulkResultOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
-    }),
-  enrichment: t.router({
-    queue: publicProcedure
-      .input(enrichmentQueueInput)
-      .output(z.object({
-	rows: z.array(z.object({
-	id: z.string(),
-	state: z.enum(["running", "queued", "failed"]),
-	line: z.string(),
-	startedAt: z.string().nullable(),
-	subject: z.discriminatedUnion("kind", [
-	z.object({
-	kind: z.literal("contact"),
-	id: z.string(),
-	name: z.string(),
-	email: z.string().nullable(),
-	imageUrl: z.string().nullable(),
-}),
-	z.object({
-	kind: z.literal("company"),
-	id: z.string(),
-	name: z.string(),
-	logoUrl: z.string().nullable(),
-	logoDarkUrl: z.string().nullable(),
-	logoTone: z.string().nullable(),
-}),
-]),
-})),
-	total: z.number(),
-	scheduled: z.array(z.object({
-	id: z.string(),
-	due: z.string(),
-	subject: z.discriminatedUnion("kind", [
-	z.object({
-	kind: z.literal("contact"),
-	id: z.string(),
-	name: z.string(),
-	email: z.string().nullable(),
-	imageUrl: z.string().nullable(),
-}),
-	z.object({
-	kind: z.literal("company"),
-	id: z.string(),
-	name: z.string(),
-	logoUrl: z.string().nullable(),
-	logoDarkUrl: z.string().nullable(),
-	logoTone: z.string().nullable(),
-}),
-]),
-})),
-	scheduledTotal: z.number(),
-}))
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["summary"]>>)
     }),
   fields: t.router({
     list: publicProcedure
       .input(fieldListInput)
-      .output(fieldListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["list"]>>),
     byKey: publicProcedure
       .input(fieldByKeyInput)
-      .output(serializedFieldOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    filters: publicProcedure
-      .input(fieldEntityInput)
-      .output(fieldFiltersOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["byKey"]>>),
     coverage: publicProcedure
       .input(fieldIdInput)
-      .output(fieldCoverageOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["coverage"]>>),
     create: publicProcedure
       .input(fieldCreateInput)
-      .output(serializedFieldOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["create"]>>),
     update: publicProcedure
       .input(fieldUpdateArgs)
-      .output(serializedFieldOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["update"]>>),
     reorder: publicProcedure
       .input(fieldReorderInput)
-      .output(fieldReorderOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["reorder"]>>),
     archive: publicProcedure
       .input(fieldIdInput)
-      .output(serializedFieldOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["archive"]>>),
     restore: publicProcedure
       .input(fieldIdInput)
-      .output(serializedFieldOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["restore"]>>),
     delete: publicProcedure
       .input(fieldIdInput)
-      .output(fieldDeleteOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["delete"]>>),
     backfill: publicProcedure
       .input(fieldIdInput)
-      .output(fieldBackfillOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["backfill"]>>)
     }),
   google: t.router({
     status: publicProcedure
-      .output(googleConnectionStatusOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<GoogleRouter["status"]>>),
     purgeSyncedData: publicProcedure
-      .output(purgeSyncedDataOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<GoogleRouter["purgeSyncedData"]>>),
     revokeAccess: publicProcedure
-      .output(revokeAccessOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<GoogleRouter["revokeAccess"]>>),
     syncNow: publicProcedure
-      .output(googleConnectionStatusOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<GoogleRouter["syncNow"]>>),
     setAutoCreate: publicProcedure
       .input(setAutoCreateInput)
-      .output(googleConnectionStatusOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<GoogleRouter["setAutoCreate"]>>),
     suppressDomain: publicProcedure
       .input(suppressDomainInput)
-      .output(suppressDomainOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<GoogleRouter["suppressDomain"]>>),
     thread: publicProcedure
       .input(threadInput)
-      .output(emailThreadOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<GoogleRouter["thread"]>>),
     event: publicProcedure
       .input(calendarEventInput)
-      .output(calendarEventOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<GoogleRouter["event"]>>)
+    }),
+  incidents: t.router({
+    listByVehicle: publicProcedure
+      .input(incidentsByVehicleInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<IncidentsRouter["listByVehicle"]>>),
+    listByContract: publicProcedure
+      .input(incidentsByContractInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<IncidentsRouter["listByContract"]>>),
+    create: publicProcedure
+      .input(incidentCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<IncidentsRouter["create"]>>),
+    update: publicProcedure
+      .input(incidentUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<IncidentsRouter["update"]>>),
+    delete: publicProcedure
+      .input(incidentIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<IncidentsRouter["delete"]>>),
+    createDamageAnnotation: publicProcedure
+      .input(damageAnnotationCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<IncidentsRouter["createDamageAnnotation"]>>),
+    updateDamageAnnotation: publicProcedure
+      .input(damageAnnotationUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<IncidentsRouter["updateDamageAnnotation"]>>),
+    deleteDamageAnnotation: publicProcedure
+      .input(incidentIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<IncidentsRouter["deleteDamageAnnotation"]>>)
+    }),
+  vehicleInspections: t.router({
+    listByContract: publicProcedure
+      .input(inspectionsByContractInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<InspectionsRouter["listByContract"]>>),
+    create: publicProcedure
+      .input(inspectionCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<InspectionsRouter["create"]>>),
+    delete: publicProcedure
+      .input(inspectionIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<InspectionsRouter["delete"]>>)
+    }),
+  maintenanceRecords: t.router({
+    listByVehicle: publicProcedure
+      .input(maintenanceByVehicleInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MaintenanceRouter["listByVehicle"]>>),
+    create: publicProcedure
+      .input(maintenanceCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MaintenanceRouter["create"]>>),
+    update: publicProcedure
+      .input(maintenanceUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MaintenanceRouter["update"]>>),
+    delete: publicProcedure
+      .input(maintenanceIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MaintenanceRouter["delete"]>>)
     }),
   microsoft: t.router({
     status: publicProcedure
-      .output(microsoftConnectionStatusOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MicrosoftRouter["status"]>>),
     purgeSyncedData: publicProcedure
-      .output(purgeSyncedDataOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MicrosoftRouter["purgeSyncedData"]>>),
     revokeAccess: publicProcedure
-      .output(revokeAccessOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MicrosoftRouter["revokeAccess"]>>),
     syncNow: publicProcedure
-      .output(microsoftConnectionStatusOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MicrosoftRouter["syncNow"]>>),
     setAutoCreate: publicProcedure
       .input(setOutlookAutoCreateInput)
-      .output(microsoftConnectionStatusOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MicrosoftRouter["setAutoCreate"]>>)
     }),
-  savedViews: t.router({
-    list: publicProcedure
-      .input(savedViewListInput)
-      .output(savedViewListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+  payments: t.router({
+    listByContract: publicProcedure
+      .input(paymentsByContractInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PaymentsRouter["listByContract"]>>),
     create: publicProcedure
-      .input(savedViewCreateInput)
-      .output(savedViewOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .input(paymentCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PaymentsRouter["create"]>>),
     update: publicProcedure
-      .input(savedViewUpdateArgs)
-      .output(savedViewOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .input(paymentUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PaymentsRouter["update"]>>),
     delete: publicProcedure
-      .input(savedViewIdInput)
-      .output(savedViewDeleteOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .input(paymentIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PaymentsRouter["delete"]>>)
+    }),
+  profitability: t.router({
+    summary: publicProcedure
+      .input(profitabilitySummaryInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProfitabilityRouter["summary"]>>),
+    byVehicle: publicProcedure
+      .input(profitabilityByVehicleInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProfitabilityRouter["byVehicle"]>>),
+    topVehicles: publicProcedure
+      .input(profitabilityTopVehiclesInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProfitabilityRouter["topVehicles"]>>),
+    topClients: publicProcedure
+      .input(profitabilityTopClientsInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProfitabilityRouter["topClients"]>>),
+    bySegment: publicProcedure
+      .input(profitabilityBySegmentInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProfitabilityRouter["bySegment"]>>)
+    }),
+  rentalContracts: t.router({
+    list: publicProcedure
+      .input(rentalContractListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["list"]>>),
+    byId: publicProcedure
+      .input(rentalContractIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["byId"]>>),
+    planning: publicProcedure
+      .input(rentalContractPlanningInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["planning"]>>),
+    create: publicProcedure
+      .input(rentalContractCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["create"]>>),
+    update: publicProcedure
+      .input(rentalContractUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["update"]>>),
+    delete: publicProcedure
+      .input(rentalContractIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["delete"]>>),
+    setStatus: publicProcedure
+      .input(setRentalContractStatusInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["setStatus"]>>),
+    recordPickup: publicProcedure
+      .input(recordPickupInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["recordPickup"]>>),
+    recordReturn: publicProcedure
+      .input(recordReturnInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["recordReturn"]>>),
+    setDepositStatus: publicProcedure
+      .input(setDepositStatusInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["setDepositStatus"]>>),
+    driverOptions: publicProcedure
+      .input(rentalContractDriversInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["driverOptions"]>>),
+    attachDriver: publicProcedure
+      .input(attachDriverInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["attachDriver"]>>),
+    detachDriver: publicProcedure
+      .input(detachDriverInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["detachDriver"]>>),
+    setDriverRole: publicProcedure
+      .input(setDriverRoleInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["setDriverRole"]>>),
+    bulkAssignOwner: publicProcedure
+      .input(rentalContractBulkOwnerInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["bulkAssignOwner"]>>),
+    bulkDelete: publicProcedure
+      .input(rentalContractBulkInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RentalContractsRouter["bulkDelete"]>>)
     }),
   search: t.router({
     quick: publicProcedure
       .input(z.object({ q: z.string().default("") }))
-      .output(z.object({ hits: z.array(z.object({
-	kind: z.enum(["company", "contact", "deal"]),
-	id: z.string(),
-	label: z.string(),
-	detail: z.string().nullable(),
-	iconUrl: z.string().nullable(),
-	iconDarkUrl: z.string().nullable(),
-	iconTone: z.string().nullable(),
-	imageUrl: z.string().nullable(),
-})) }))
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SearchRouter["quick"]>>)
     }),
   settings: t.router({
     agentModel: publicProcedure
-      .output(agentModelOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["agentModel"]>>),
     modelCatalog: publicProcedure
-      .output(modelCatalogOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["modelCatalog"]>>),
     setAgentModel: publicProcedure
       .input(setAgentModelInput)
-      .output(agentModelOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setAgentModel"]>>),
     researchKey: publicProcedure
-      .output(researchKeyOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["researchKey"]>>),
     setResearchKey: publicProcedure
       .input(setResearchKeyInput)
-      .output(researchKeyOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    archiveRetention: publicProcedure
-      .output(archiveRetentionOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    setArchiveRetention: publicProcedure
-      .input(setArchiveRetentionDaysInput)
-      .output(archiveRetentionOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
-    }),
-  slack: t.router({
-    status: publicProcedure
-      .output(slackStatusOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    matches: publicProcedure
-      .output(slackMatchesOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    channels: publicProcedure
-      .input(slackChannelsInput)
-      .output(slackChannelsOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    joinChannel: publicProcedure
-      .input(slackJoinChannelInput)
-      .output(slackJoinChannelOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    refreshPeople: publicProcedure
-      .output(slackRefreshPeopleOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    createChannel: publicProcedure
-      .input(slackCreateChannelInput)
-      .output(slackCreateChannelOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    disconnect: publicProcedure
-      .output(slackDisconnectOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setResearchKey"]>>)
     }),
   sso: t.router({
     signInOptions: publicProcedure
-      .output(ssoSignInOptionsOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SsoRouter["signInOptions"]>>),
     settings: publicProcedure
-      .output(ssoSettingsOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SsoRouter["settings"]>>),
     list: publicProcedure
       .input(ssoProviderListInput)
-      .output(ssoProviderListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SsoRouter["list"]>>),
     register: publicProcedure
       .input(registerSsoProviderInput)
-      .output(ssoProviderOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SsoRouter["register"]>>),
     remove: publicProcedure
       .input(deleteSsoProviderInput)
-      .output(deleteSsoProviderOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
-    }),
-  tracking: t.router({
-    settings: publicProcedure
-      .output(trackingSettingsOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    setFlag: publicProcedure
-      .input(trackingFlagInput)
-      .output(z.void())
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    setCookieLifetime: publicProcedure
-      .input(cookieLifetimeInput)
-      .output(z.void())
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    addDomain: publicProcedure
-      .input(addDomainInput)
-      .output(trackedDomainOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    removeDomain: publicProcedure
-      .input(removeDomainInput)
-      .output(z.void())
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    rotateSiteId: publicProcedure
-      .output(rotateSiteIdOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    verify: publicProcedure
-      .input(verifyInput)
-      .output(verifyOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    sources: publicProcedure
-      .output(sourcesOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    companyActivity: publicProcedure
-      .input(companyActivityInput)
-      .output(websiteActivityOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    contactActivity: publicProcedure
-      .input(contactActivityInput)
-      .output(websiteActivityOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SsoRouter["remove"]>>)
     }),
   users: t.router({
     me: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<UsersRouter["me"]>>),
     list: publicProcedure
-      .output(z.array(
-	z.object({
-		id: z.string(),
-		name: z.string(),
-		email: z.string(),
-		image: z.string().nullable(),
-	}),
-))
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<UsersRouter["list"]>>)
+    }),
+  vehicleCharges: t.router({
+    listByVehicle: publicProcedure
+      .input(vehicleChargesByVehicleInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehicleChargesRouter["listByVehicle"]>>),
+    create: publicProcedure
+      .input(vehicleChargeCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehicleChargesRouter["create"]>>),
+    delete: publicProcedure
+      .input(vehicleChargeIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehicleChargesRouter["delete"]>>)
+    }),
+  vehicles: t.router({
+    list: publicProcedure
+      .input(vehicleListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["list"]>>),
+    byId: publicProcedure
+      .input(vehicleIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["byId"]>>),
+    availability: publicProcedure
+      .input(vehicleAvailabilityInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["availability"]>>),
+    create: publicProcedure
+      .input(vehicleCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["create"]>>),
+    update: publicProcedure
+      .input(vehicleUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["update"]>>),
+    delete: publicProcedure
+      .input(vehicleIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["delete"]>>),
+    bulkSetStatus: publicProcedure
+      .input(vehicleBulkStatusInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["bulkSetStatus"]>>),
+    bulkDelete: publicProcedure
+      .input(vehicleBulkInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["bulkDelete"]>>),
+    setFinancing: publicProcedure
+      .input(vehicleSetFinancingInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["setFinancing"]>>),
+    clearFinancing: publicProcedure
+      .input(vehicleClearFinancingInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["clearFinancing"]>>)
     }),
   workspace: t.router({
     get: publicProcedure
-      .output(workspaceOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["get"]>>),
     members: publicProcedure
       .input(memberListInput)
-      .output(memberListOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["members"]>>),
     update: publicProcedure
       .input(updateWorkspaceInput)
-      .output(workspaceOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["update"]>>),
     setMemberRole: publicProcedure
       .input(setMemberRoleInput)
-      .output(workspaceMemberOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["setMemberRole"]>>)
     })
 });
 

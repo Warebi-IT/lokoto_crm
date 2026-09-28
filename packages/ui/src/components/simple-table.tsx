@@ -62,7 +62,7 @@ export function SimpleTable({
 			className={cn("w-full", panel && "table-fixed", className)}
 			containerClassName={cn(
 				panel && "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
-				!panel && "rounded-lg border bg-card",
+				!panel && "rounded-xl border bg-card shadow-xs",
 				containerClassName,
 			)}
 		>

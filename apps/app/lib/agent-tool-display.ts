@@ -1,12 +1,4 @@
-import {
-	type EveToolFields,
-	type EveToolInput,
-	eveToolText,
-} from "@crm/validation/eve-tool";
-
-type ArtifactNames = Record<string, string>;
-
-const ARTIFACT_NAMES: ArtifactNames = {
+const ARTIFACT_NAMES: Record<string, string> = {
 	"agent/instructions.md": "instructions",
 	"agent/manifest.json": "the manifest",
 	"agent/README.md": "the readme",
@@ -14,29 +6,28 @@ const ARTIFACT_NAMES: ArtifactNames = {
 
 type LabelInput = {
 	tool: string;
-	input: EveToolInput;
+	input: Record<string, unknown> | null;
 	label: string;
 	pending: boolean;
 };
 
-type ToolInputLabel = (input: EveToolFields, pending: boolean) => string | null;
-
-type ToolInputLabels = Record<string, ToolInputLabel>;
-
-const INPUT_LABELS: ToolInputLabels = {
+const INPUT_LABELS: Record<
+	string,
+	(input: Record<string, unknown>, pending: boolean) => string | null
+> = {
 	write_agent_file: (input, pending) => {
-		const path = eveToolText.parse(input.path);
+		const path = typeof input.path === "string" ? input.path : null;
 		if (!path) return null;
 		const name = ARTIFACT_NAMES[path] ?? path;
 		return pending ? `Writing ${name}` : `Wrote ${name}`;
 	},
 	save_agent_draft: (input, pending) => {
-		const name = eveToolText.parse(input.name).trim();
+		const name = typeof input.name === "string" ? input.name.trim() : "";
 		const verb = pending ? "Saving draft" : "Saved draft";
 		return name ? `${verb} · ${name}` : verb;
 	},
 	set_chat_title: (input, pending) => {
-		const title = eveToolText.parse(input.title).trim();
+		const title = typeof input.title === "string" ? input.title.trim() : "";
 		const verb = pending ? "Naming this chat" : "Named this chat";
 		return title ? `${verb} · ${title}` : verb;
 	},

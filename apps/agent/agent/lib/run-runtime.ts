@@ -1,113 +1,20 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { ActivityType, db, type Prisma } from "@crm/db";
-import type { AgentActionStatus, AgentTriggerType } from "@crm/db/enums";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
-import {
-	AGENT_ACTION_TYPES,
-	type AgentManifestResource,
-	parseAgentManifest,
-} from "@crm/validation/agent-manifest";
-import { z } from "zod";
-import { readCompanyHistory, readDealHistory } from "./accounts";
-import { AGENT_ACTION_EXECUTORS, isAgentActionType } from "./agent-actions";
+import { readRentalContractHistory } from "./accounts";
 import { readCrmHistory } from "./crm";
-import { DISPATCH } from "./dispatch-config";
 import { searchCrm } from "./lookup";
-import {
-	type LockedAgentRun,
-	lockAgentRun,
-	runTerminalEventId,
-} from "./run-state";
-import { slackAccessToken } from "./slack-connection";
+import { lockAgentRun, runTerminalEventId } from "./run-state";
 
-const ACTION_LEASE_MS = DISPATCH.run.actionLeaseMs;
-const NO_ACTION_TRIGGER_TYPES = new Set<AgentTriggerType>(
-	DISPATCH.run.noActionTriggerTypes,
-);
+const ACTION_LEASE_MS = 5 * 60_000;
 
-type RunRecordScope = "SELECTED" | "WORKSPACE";
-
-const json = z.json();
-
-type Json = z.infer<typeof json>;
-
-const runResult = z.record(z.string(), json);
-
-export type RunResult = z.infer<typeof runResult>;
-
-const storedRunResult = runResult.catch({});
-
-export type SlackRunDestination = {
-	kind: "channel" | "user";
+type RunResource = {
+	kind: "integration" | "contact" | "vehicle" | "rentalContract";
 	id: string;
 	label: string;
 };
 
-type RunDataScope = {
-	mode: RunRecordScope;
-	resources: AgentManifestResource[];
-};
-
-export type RunHistorySources = {
-	gmail: boolean;
-	calendar: boolean;
-};
-
-type SlackRequestBody = Record<string, Json>;
-
-type HashableRequest = Record<string, string | boolean | null>;
-
-const optionalText = z.string().nullable().catch(null);
-
-const slackActionMetadata = z
-	.object({ clientMessageId: z.string().min(1).nullable().catch(null) })
-	.catch({ clientMessageId: null });
-
-const slackEnvelope = z
-	.object({ ok: z.boolean().nullable().catch(null), error: optionalText })
-	.catch({ ok: null, error: null });
-
-const slackOpenedConversation = z
-	.object({
-		channel: z
-			.object({ id: z.string().min(1).nullable().catch(null) })
-			.nullable()
-			.catch(null),
-	})
-	.catch({ channel: null });
-
-const slackPostedMessage = z
-	.object({ channel: optionalText, ts: optionalText })
-	.catch({ channel: null, ts: null });
-
-const noActionResult = z
-	.object({ noActionNeeded: optionalText })
-	.catch({ noActionNeeded: null });
-
-type RunActionRow = {
-	id: string;
-	status: AgentActionStatus;
-	externalId: string | null;
-	requestHash: string | null;
-	metadata: Prisma.JsonValue;
-};
-
-type RunActionClaim =
-	| { claimed: false; actionId: string; externalId: string | null }
-	| {
-			claimed: true;
-			actionId: string;
-			claimedAt: Date;
-			metadata: Prisma.JsonValue;
-	  };
-
-const RUN_ACTION_FIELDS = {
-	id: true,
-	status: true,
-	externalId: true,
-	requestHash: true,
-	metadata: true,
-} as const;
+type RunRecordScope = "SELECTED" | "WORKSPACE";
 
 export async function approvedRunInstructions(runId: string): Promise<string> {
 	const run = await db.agentRun.findUnique({
@@ -166,7 +73,7 @@ export async function queryRunCrm(
 	runId: string,
 	input: {
 		query: string;
-		kinds?: ("contact" | "company" | "deal")[];
+		kinds?: ("contact" | "rentalContract")[];
 		limit: number;
 	},
 ) {
@@ -183,23 +90,21 @@ export async function queryRunCrm(
 	const contacts = result.contacts.filter((row) =>
 		allowed.has(`contact:${row.id}`),
 	);
-	const companies = result.companies.filter((row) =>
-		allowed.has(`company:${row.id}`),
+	const rentalContracts = result.rentalContracts.filter((row) =>
+		allowed.has(`rentalContract:${row.id}`),
 	);
-	const deals = result.deals.filter((row) => allowed.has(`deal:${row.id}`));
 	return {
 		...result,
 		contacts,
-		companies,
-		deals,
-		total: contacts.length + companies.length + deals.length,
+		rentalContracts,
+		total: contacts.length + rentalContracts.length,
 	};
 }
 
 export async function readRunRecord(
 	runId: string,
 	input: {
-		kind: "contact" | "company" | "deal";
+		kind: "contact" | "rentalContract";
 		id: string;
 	},
 ) {
@@ -213,15 +118,7 @@ export async function readRunRecord(
 			includeEmail: sources.gmail,
 			includeCalendar: sources.calendar,
 		});
-	if (input.kind === "company") {
-		return readCompanyHistory(input.id, {
-			threads: 10,
-			people: 50,
-			includeEmail: sources.gmail,
-			includeCalendar: sources.calendar,
-		});
-	}
-	return readDealHistory(input.id, {
+	return readRentalContractHistory(input.id, {
 		threads: 10,
 		includeEmail: sources.gmail,
 		includeCalendar: sources.calendar,
@@ -233,7 +130,7 @@ export async function createRunActivity(
 	callId: string,
 	input: {
 		type: "NOTE" | "TASK";
-		targetKind: "company" | "contact" | "deal";
+		targetKind: "contact" | "vehicle" | "rentalContract";
 		targetId: string;
 		subject?: string | null;
 		body?: string | null;
@@ -261,7 +158,17 @@ export async function createRunActivity(
 	});
 	const idempotencyKey = `${runId}:${callId}`;
 	const requestHash = actionRequestHash(input);
-	const existing = await findRunAction(idempotencyKey, requestHash);
+	const existing = await db.agentAction.findUnique({
+		where: { idempotencyKey },
+		select: {
+			id: true,
+			status: true,
+			externalId: true,
+			errorMessage: true,
+			requestHash: true,
+		},
+	});
+	if (existing) assertActionRequestMatches(existing.requestHash, requestHash);
 	if (existing?.status === "SUCCEEDED") {
 		return {
 			actionId: existing.id,
@@ -285,228 +192,19 @@ export async function createRunActivity(
 	const target = await targetRecord(input.targetKind, input.targetId);
 	if (!target) throw new Error("The requested CRM target no longer exists.");
 
-	const claim = await claimRunAction(existing, idempotencyKey, requestHash, {
-		agentId: run.agentId,
-		runId,
-		type: "crm.activity.create",
-		provider: "crm",
-		targetType: input.targetKind,
-		targetId: input.targetId,
-		targetLabel: target.label,
-		summary:
-			input.subject?.trim() ||
-			`Create a ${input.type.toLowerCase()} on ${target.label}`,
-		metadata: { activityType: input.type },
-	});
-	if (!claim.claimed) {
-		return {
-			actionId: claim.actionId,
-			activityId: claim.externalId,
-			replayed: true,
-		};
-	}
-
-	try {
-		const activityId = `agent-action-${claim.actionId}`;
-		const now = new Date();
-
-		await db.$transaction(async (tx) => {
-			const activeRun = await lockAgentRun(tx, runId);
-			if (activeRun.status !== "RUNNING") {
-				throw new Error("This agent run is not active.");
-			}
-			await tx.activity.upsert({
-				where: { id: activityId },
-				create: {
-					id: activityId,
-					type: input.type === "TASK" ? ActivityType.TASK : ActivityType.NOTE,
-					subject: input.subject?.trim() || null,
-					body: input.body?.trim() || null,
-					occurredAt: now,
-					dueAt: input.type === "TASK" ? dueAt : null,
-					companyId: target.companyId,
-					contactId: target.contactId,
-					dealId: target.dealId,
-					createdById: run.initiatedById ?? run.agent.createdById,
-					meta: {
-						source: "agent",
-						agentId: run.agentId,
-						runId,
-						actionId: claim.actionId,
-					},
-				},
-				update: {},
-			});
-
-			if (target.companyId) {
-				await tx.company.update({
-					where: { id: target.companyId },
-					data: { lastActivityAt: now },
-				});
-			}
-			if (target.contactId) {
-				await tx.contact.update({
-					where: { id: target.contactId },
-					data: { lastActivityAt: now },
-				});
-			}
-			if (target.dealId) {
-				await tx.deal.update({
-					where: { id: target.dealId },
-					data: { lastActivityAt: now },
-				});
-			}
-
-			await tx.agentAction.update({
-				where: { id: claim.actionId },
-				data: {
-					status: "SUCCEEDED",
-					externalId: activityId,
-					completedAt: now,
-				},
-			});
-		});
-
-		return { actionId: claim.actionId, activityId, replayed: false };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		await failRunAction(claim, "ACTION_REJECTED", message);
-		throw error;
-	}
-}
-
-export async function postRunSlackMessage(
-	runId: string,
-	callId: string,
-	input: { text: string },
-	abortSignal?: AbortSignal,
-) {
-	const run = await db.agentRun.findUnique({
-		where: { id: runId },
-		select: {
-			id: true,
-			status: true,
-			agentId: true,
-			version: { select: { manifest: true } },
-		},
-	});
-	if (!run) throw new Error("This agent run is unavailable.");
-
-	const destination = approvedSlackDestination(run.version.manifest);
-	const text = input.text.trim();
-	if (!text) throw new Error("A Slack message needs text.");
-	const idempotencyKey = `${runId}:${callId}`;
-	const requestHash = hashRequest({ destinationId: destination.id, text });
-	const existing = await findRunAction(idempotencyKey, requestHash);
-	if (existing?.status === "SUCCEEDED") {
-		return {
-			actionId: existing.id,
-			messageId: existing.externalId,
-			destination: destination.label,
-			replayed: true,
-		};
-	}
-	if (run.status !== "RUNNING") {
-		throw new Error("This agent run is not active.");
-	}
-
-	const claim = await claimRunAction(existing, idempotencyKey, requestHash, {
-		agentId: run.agentId,
-		runId,
-		type: "slack.message.post",
-		provider: "slack",
-		targetType: destination.kind,
-		targetId: destination.id,
-		targetLabel: destination.label,
-		summary: `Post a message to ${destination.label}`,
-		metadata: { clientMessageId: randomUUID() },
-	});
-	if (!claim.claimed) {
-		return {
-			actionId: claim.actionId,
-			messageId: claim.externalId,
-			destination: destination.label,
-			replayed: true,
-		};
-	}
-
-	const { actionId, claimedAt } = claim;
-	try {
-		await assertRunActive(runId);
-		const { clientMessageId } = slackActionMetadata.parse(claim.metadata);
-		if (!clientMessageId) {
-			throw new Error("This Slack action is missing its replay key.");
-		}
-		const accessToken = await slackAccessToken();
-		if (!accessToken) throw new Error("Slack is not connected.");
-
-		const posted = await sendSlackMessage(
-			accessToken,
-			destination,
-			text,
-			clientMessageId,
-			{
-				abortSignal,
-				beforePost: () => holdRunActionClaim(runId, actionId, claimedAt),
-			},
-		);
-		const messageId = `${posted.channel}:${posted.ts}`;
-		const completed = await db.agentAction.updateMany({
-			where: { id: actionId, status: "RUNNING", startedAt: claimedAt },
-			data: {
-				status: "SUCCEEDED",
-				externalId: messageId,
-				completedAt: new Date(),
-			},
-		});
-		if (completed.count === 0) {
-			await recordDeliveryOutsideClaim(actionId, messageId);
-			throw new Error(
-				"This agent run stopped while Slack was accepting the message.",
-			);
-		}
-
-		return {
-			actionId,
-			messageId,
-			destination: destination.label,
-			replayed: false,
-		};
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		await failRunAction(claim, slackActionErrorCode(message), message);
-		throw error;
-	}
-}
-
-async function findRunAction(
-	idempotencyKey: string,
-	requestHash: string,
-): Promise<RunActionRow | null> {
-	const existing = await db.agentAction.findUnique({
-		where: { idempotencyKey },
-		select: RUN_ACTION_FIELDS,
-	});
-	if (existing) assertActionRequestMatches(existing.requestHash, requestHash);
-	return existing;
-}
-
-async function claimRunAction(
-	existing: RunActionRow | null,
-	idempotencyKey: string,
-	requestHash: string,
-	data: Omit<
-		Prisma.AgentActionUncheckedCreateInput,
-		"idempotencyKey" | "requestHash"
-	>,
-): Promise<RunActionClaim> {
-	const action =
-		existing ??
-		(await db.$transaction(async (tx) => {
+	let action = existing;
+	if (!action) {
+		action = await db.$transaction(async (tx) => {
 			await lockIdempotencyKey(tx, idempotencyKey);
 			const winner = await tx.agentAction.findUnique({
 				where: { idempotencyKey },
-				select: RUN_ACTION_FIELDS,
+				select: {
+					id: true,
+					status: true,
+					externalId: true,
+					errorMessage: true,
+					requestHash: true,
+				},
 			});
 			if (winner) {
 				assertActionRequestMatches(winner.requestHash, requestHash);
@@ -514,19 +212,39 @@ async function claimRunAction(
 			}
 
 			return tx.agentAction.create({
-				data: { ...data, idempotencyKey, requestHash },
-				select: RUN_ACTION_FIELDS,
+				data: {
+					agentId: run.agentId,
+					runId,
+					type: "crm.activity.create",
+					provider: "crm",
+					targetType: input.targetKind,
+					targetId: input.targetId,
+					targetLabel: target.label,
+					summary:
+						input.subject?.trim() ||
+						`Create a ${input.type.toLowerCase()} on ${target.label}`,
+					metadata: { activityType: input.type },
+					idempotencyKey,
+					requestHash,
+				},
+				select: {
+					id: true,
+					status: true,
+					externalId: true,
+					errorMessage: true,
+					requestHash: true,
+				},
 			});
-		}));
+		});
+	}
 	if (action.status === "SUCCEEDED") {
 		return {
-			claimed: false,
 			actionId: action.id,
-			externalId: action.externalId,
+			activityId: action.externalId,
+			replayed: true,
 		};
 	}
 
-	const claimedAt = new Date();
 	const claimed = await db.agentAction.updateMany({
 		where: {
 			id: action.id,
@@ -534,13 +252,13 @@ async function claimRunAction(
 				{ status: { in: ["PLANNED", "FAILED"] } },
 				{
 					status: "RUNNING",
-					startedAt: { lt: new Date(claimedAt.getTime() - ACTION_LEASE_MS) },
+					startedAt: { lt: new Date(Date.now() - ACTION_LEASE_MS) },
 				},
 			],
 		},
 		data: {
 			status: "RUNNING",
-			startedAt: claimedAt,
+			startedAt: new Date(),
 			completedAt: null,
 			attemptCount: { increment: 1 },
 			errorCode: null,
@@ -554,216 +272,103 @@ async function claimRunAction(
 		});
 		if (current?.status === "SUCCEEDED") {
 			return {
-				claimed: false,
 				actionId: action.id,
-				externalId: current.externalId,
+				activityId: current.externalId,
+				replayed: true,
 			};
 		}
 		throw new Error("This agent action is already in progress.");
 	}
 
-	return {
-		claimed: true,
-		actionId: action.id,
-		claimedAt,
-		metadata: action.metadata,
-	};
-}
+	try {
+		const activityId = `agent-action-${action.id}`;
+		const now = new Date();
 
-async function failRunAction(
-	claim: Extract<RunActionClaim, { claimed: true }>,
-	code: string,
-	message: string,
-): Promise<void> {
-	await db.agentAction.updateMany({
-		where: {
-			id: claim.actionId,
-			status: "RUNNING",
-			startedAt: claim.claimedAt,
-		},
-		data: {
-			status: "FAILED",
-			errorCode: code,
-			errorMessage: message,
-			completedAt: new Date(),
-		},
-	});
-}
+		await db.$transaction(async (tx) => {
+			await tx.activity.upsert({
+				where: { id: activityId },
+				create: {
+					id: activityId,
+					type: input.type === "TASK" ? ActivityType.TASK : ActivityType.NOTE,
+					subject: input.subject?.trim() || null,
+					body: input.body?.trim() || null,
+					occurredAt: now,
+					dueAt: input.type === "TASK" ? dueAt : null,
+					contactId: target.contactId,
+					vehicleId: target.vehicleId,
+					rentalContractId: target.rentalContractId,
+					createdById: run.initiatedById ?? run.agent.createdById,
+					meta: {
+						source: "agent",
+						agentId: run.agentId,
+						runId,
+						actionId: action.id,
+					},
+				},
+				update: {},
+			});
 
-export async function sendSlackMessage(
-	accessToken: string,
-	destination: SlackRunDestination,
-	text: string,
-	clientMessageId: string,
-	options: {
-		fetcher?: typeof fetch;
-		abortSignal?: AbortSignal;
-		beforePost?: () => Promise<void>;
-	} = {},
-): Promise<{ channel: string; ts: string }> {
-	const { fetcher = fetch, abortSignal, beforePost } = options;
-	let channel = destination.id;
-	if (destination.kind === "user") {
-		const opened = slackOpenedConversation.parse(
-			await slackApiRequest(
-				fetcher,
-				accessToken,
-				"conversations.open",
-				{ users: destination.id, return_im: true },
-				abortSignal,
-			),
-		);
-		if (!opened.channel?.id) {
-			throw new Error("Slack did not return a direct-message channel.");
-		}
-		channel = opened.channel.id;
-	}
-	await beforePost?.();
+			if (target.contactId) {
+				await tx.contact.update({
+					where: { id: target.contactId },
+					data: { lastActivityAt: now },
+				});
+			}
+			if (target.vehicleId) {
+				await tx.vehicle.update({
+					where: { id: target.vehicleId },
+					data: { lastActivityAt: now },
+				});
+			}
+			if (target.rentalContractId) {
+				await tx.rentalContract.update({
+					where: { id: target.rentalContractId },
+					data: { lastActivityAt: now },
+				});
+			}
 
-	const posted = slackPostedMessage.parse(
-		await slackApiRequest(
-			fetcher,
-			accessToken,
-			"chat.postMessage",
-			{
-				channel,
-				text,
-				client_msg_id: clientMessageId,
-			},
-			abortSignal,
-		),
-	);
-	if (posted.channel === null || posted.ts === null) {
-		throw new Error("Slack returned an incomplete message receipt.");
-	}
-
-	return { channel: posted.channel, ts: posted.ts };
-}
-
-async function assertRunActive(runId: string): Promise<void> {
-	const run = await db.agentRun.findUnique({
-		where: { id: runId },
-		select: { status: true },
-	});
-	if (run?.status !== "RUNNING") {
-		throw new Error("This agent run is not active.");
-	}
-}
-
-async function holdRunActionClaim(
-	runId: string,
-	actionId: string,
-	claimedAt: Date,
-): Promise<void> {
-	await db.$transaction(async (tx) => {
-		const run = await lockAgentRun(tx, runId);
-		if (run.status !== "RUNNING") {
-			throw new Error("This agent run is not active.");
-		}
-		const held = await tx.agentAction.count({
-			where: { id: actionId, status: "RUNNING", startedAt: claimedAt },
+			await tx.agentAction.update({
+				where: { id: action.id },
+				data: {
+					status: "SUCCEEDED",
+					externalId: activityId,
+					completedAt: now,
+				},
+			});
 		});
-		if (held === 0) {
-			throw new Error("This agent action is no longer held by this run.");
-		}
-	});
-}
 
-async function recordDeliveryOutsideClaim(
-	actionId: string,
-	messageId: string,
-): Promise<void> {
-	const delivered =
-		"Slack accepted this message before the run stopped, and it cannot be withdrawn.";
-	const current = await db.agentAction.findUnique({
-		where: { id: actionId },
-		select: { status: true, externalId: true, errorMessage: true },
-	});
-	if (!current || current.status === "SUCCEEDED" || current.externalId) return;
-
-	await db.agentAction.updateMany({
-		where: { id: actionId, status: { not: "SUCCEEDED" }, externalId: null },
-		data: {
-			externalId: messageId,
-			errorMessage: current.errorMessage
-				? `${current.errorMessage} ${delivered}`
-				: delivered,
-		},
-	});
-}
-
-async function slackApiRequest(
-	fetcher: typeof fetch,
-	accessToken: string,
-	method: string,
-	body: SlackRequestBody,
-	abortSignal?: AbortSignal,
-): Promise<Json> {
-	const response = await fetcher(`https://slack.com/api/${method}`, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${accessToken}`,
-			"Content-Type": "application/json; charset=utf-8",
-		},
-		body: JSON.stringify(body),
-		signal: abortSignal,
-	});
-	if (!response.ok) throw new Error("Slack message delivery failed.");
-
-	const data = json.catch(null).parse(await response.json());
-	const envelope = slackEnvelope.parse(data);
-	if (envelope.ok !== true) {
-		const reason = envelope.error ?? "rejected";
-		if (reason === "not_in_channel") {
-			throw new Error(
-				"The Slack bot is not in the selected channel. Invite the app to that channel and retry the run.",
-			);
-		}
-		if (reason === "missing_scope") {
-			throw new Error(
-				"Slack needs an additional permission. Reconnect Slack, then retry the run.",
-			);
-		}
-		throw new Error(`Slack rejected the message (${reason}).`);
+		return { actionId: action.id, activityId, replayed: false };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		await db.agentAction.updateMany({
+			where: { id: action.id, status: "RUNNING" },
+			data: {
+				status: "FAILED",
+				errorCode: "ACTION_REJECTED",
+				errorMessage: message,
+				completedAt: new Date(),
+			},
+		});
+		throw error;
 	}
-	return data;
-}
-
-function slackActionErrorCode(message: string): string {
-	return message === "Slack is not connected." ||
-		message.includes("additional permission")
-		? "NOT_AUTHORISED"
-		: "PROVIDER_ERROR";
 }
 
 export async function stageRunResult(
 	runId: string,
-	input: {
-		summary: string;
-		result?: RunResult | null;
-		noActionNeeded?: { reason: string } | null;
-	},
+	input: { summary: string; result?: Record<string, unknown> | null },
 ) {
 	return db.$transaction(async (tx) => {
 		const run = await lockAgentRun(tx, runId);
 		if (run.status !== "RUNNING") {
 			throw new Error(`This agent run already ended with ${run.status}.`);
 		}
-		if (input.noActionNeeded) {
-			const refusal = await noActionNeededRefusal(tx, run);
-			if (refusal) throw new Error(refusal);
-		}
 
-		const result: RunResult = { ...(input.result ?? {}) };
-		if (input.noActionNeeded) {
-			result.noActionNeeded = input.noActionNeeded.reason;
-		}
-
+		await assertRunSummaryAllowed(tx, run.versionId);
 		await tx.agentRun.update({
 			where: { id: runId },
 			data: {
 				summary: input.summary,
-				result: result as Prisma.InputJsonValue,
+				result: (input.result ?? {}) as Prisma.InputJsonValue,
 			},
 		});
 
@@ -771,19 +376,9 @@ export async function stageRunResult(
 	});
 }
 
-export function runResultOf(value: Prisma.JsonValue): RunResult {
-	return storedRunResult.parse(value);
-}
-
-export function runReportedNoActionNeeded(
-	result: RunResult | null | undefined,
-): boolean {
-	return noActionResult.parse(result).noActionNeeded !== null;
-}
-
 export async function finishRun(
 	runId: string,
-	input: { summary: string; result?: RunResult | null },
+	input: { summary: string; result?: Record<string, unknown> | null },
 ) {
 	return db.$transaction(async (tx) => {
 		const run = await lockAgentRun(tx, runId);
@@ -793,15 +388,7 @@ export async function finishRun(
 		if (run.status !== "RUNNING") {
 			throw new Error(`This agent run already ended with ${run.status}.`);
 		}
-		const noActionAccepted =
-			runReportedNoActionNeeded(input.result) &&
-			(await noActionNeededRefusal(tx, run)) === null;
-		const actionFailure = noActionAccepted
-			? null
-			: await requiredActionFailure(tx, run);
-		if (actionFailure) {
-			return failLockedRun(tx, run, actionFailure.code, actionFailure.message);
-		}
+		await assertRunSummaryAllowed(tx, run.versionId);
 
 		const sequence = run.nextEventSequence + 1;
 		const finishedAt = new Date();
@@ -849,140 +436,50 @@ export async function finishRun(
 	});
 }
 
-async function noActionNeededRefusal(
+async function assertRunSummaryAllowed(
 	tx: Prisma.TransactionClient,
-	run: LockedAgentRun,
-): Promise<string | null> {
-	const { triggerType } = await tx.agentRun.findUniqueOrThrow({
-		where: { id: run.id },
-		select: { triggerType: true },
-	});
-	if (NO_ACTION_TRIGGER_TYPES.has(triggerType)) return null;
-
+	versionId: string,
+): Promise<void> {
 	const version = await tx.agentVersion.findUniqueOrThrow({
-		where: { id: run.versionId },
+		where: { id: versionId },
 		select: { manifest: true },
 	});
-	if (externalManifestActions(version.manifest).length === 0) return null;
-
-	return `This ${triggerType.toLowerCase()} run cannot end with no action needed, because its agent declares an action. Perform the declared action, or report why it failed.`;
+	if (
+		!manifestActions(version.manifest).some(
+			(action) => action.type === "run.summary",
+		)
+	) {
+		throw new Error("Agent version does not allow a run summary.");
+	}
 }
 
-async function requiredActionFailure(
-	tx: Prisma.TransactionClient,
-	run: LockedAgentRun,
-): Promise<{ code: string; message: string } | null> {
-	const version = await tx.agentVersion.findUniqueOrThrow({
-		where: { id: run.versionId },
-		select: { manifest: true },
-	});
-	const external = externalManifestActions(version.manifest);
-	const recorded = await tx.agentAction.findMany({
-		where: { runId: run.id },
-		orderBy: [{ completedAt: "desc" }, { plannedAt: "desc" }],
-		select: {
-			type: true,
-			status: true,
-			errorCode: true,
-			errorMessage: true,
-		},
-	});
-
-	for (const action of external) {
-		const type = action.type;
-		const rows = recorded.filter((row) => row.type === type);
-		if (rows.some((row) => row.status === "SUCCEEDED")) continue;
-
-		const executable =
-			isAgentActionType(type) && Object.hasOwn(AGENT_ACTION_EXECUTORS, type);
-		const latestFailure = rows.find((row) => row.status === "FAILED");
-		const code = executable
-			? (latestFailure?.errorCode ?? "ACTION_NOT_PERFORMED")
-			: "NO_EXECUTOR";
-		const message = executable
-			? (latestFailure?.errorMessage ??
-				`The declared ${type} action was not performed.`)
-			: `The declared ${type} action has no executor.`;
-
-		if (rows.length === 0) {
-			await tx.agentAction.create({
-				data: {
-					agentId: run.agentId,
-					runId: run.id,
-					type,
-					provider:
-						type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST ? "slack" : "crm",
-					summary: action.summary,
-					status: "FAILED",
-					idempotencyKey: `run:${run.id}:required:${type}`,
-					requestHash: hashRequest({ type, required: true }),
-					errorCode: code,
-					errorMessage: message,
-					completedAt: new Date(),
-				},
-			});
-		}
-
-		return { code, message };
+function manifestDataScope(value: unknown): {
+	mode: RunRecordScope;
+	resources: RunResource[];
+} {
+	const manifest = recordOf(value);
+	const scope = recordOf(manifest.dataScope);
+	if (scope.mode !== "SELECTED" && scope.mode !== "WORKSPACE") {
+		throw new Error("Agent version has no valid CRM record scope.");
+	}
+	if (!Array.isArray(scope.resources)) {
+		throw new Error("Agent version has no valid CRM resources.");
 	}
 
-	return null;
-}
-
-async function failLockedRun(
-	tx: Prisma.TransactionClient,
-	run: LockedAgentRun,
-	code: string,
-	message: string,
-) {
-	const sequence = run.nextEventSequence + 1;
-	const finishedAt = new Date();
-	await tx.agentRun.update({
-		where: { id: run.id },
-		data: {
-			status: "FAILED",
-			errorCode: code,
-			errorMessage: message,
-			finishedAt,
-			nextEventSequence: sequence,
-		},
+	const resources = scope.resources.flatMap((resource) => {
+		if (!resource || typeof resource !== "object") return [];
+		const row = resource as Record<string, unknown>;
+		if (
+			!["integration", "contact", "vehicle", "rentalContract"].includes(
+				String(row.kind),
+			) ||
+			typeof row.id !== "string" ||
+			typeof row.label !== "string"
+		) {
+			return [];
+		}
+		return [resource as RunResource];
 	});
-	await tx.agentRunEvent.create({
-		data: {
-			id: runTerminalEventId(run.id, "failed"),
-			runId: run.id,
-			sequence,
-			type: "run.failed",
-			data: { code, message },
-			emittedAt: finishedAt,
-		},
-	});
-	await tx.agentAuditEvent.upsert({
-		where: {
-			agentId_type_requestId: {
-				agentId: run.agentId,
-				type: "run.failed",
-				requestId: run.id,
-			},
-		},
-		create: {
-			agentId: run.agentId,
-			versionId: run.versionId,
-			actorType: "AGENT",
-			actorId: run.id,
-			type: "run.failed",
-			summary: message,
-			requestId: run.id,
-		},
-		update: {},
-	});
-
-	return { id: run.id, status: "FAILED" as const };
-}
-
-function manifestDataScope(value: Prisma.JsonValue): RunDataScope {
-	const scope = parseAgentManifest(value).dataScope;
-	const resources = scope.resources;
 	const records = resources.filter(
 		(resource) => resource.kind !== "integration",
 	);
@@ -995,23 +492,19 @@ function manifestDataScope(value: Prisma.JsonValue): RunDataScope {
 	return { mode: scope.mode, resources };
 }
 
-function manifestActions(value: Prisma.JsonValue) {
-	return parseAgentManifest(value).actions;
-}
-
-function externalManifestActions(value: Prisma.JsonValue) {
-	return manifestActions(value).filter(
-		(action) => action.type !== AGENT_ACTION_TYPES.RUN_SUMMARY,
-	);
+function manifestActions(value: unknown) {
+	const actions = recordOf(value).actions;
+	return Array.isArray(actions) ? actions.map(recordOf) : [];
 }
 
 function assertActivityAllowed(
-	manifest: Prisma.JsonValue,
+	manifest: unknown,
 	activityType: "NOTE" | "TASK",
 ) {
 	const allowed = manifestActions(manifest).some(
 		(action) =>
-			action.type === AGENT_ACTION_TYPES.CRM_ACTIVITY_CREATE &&
+			action.type === "crm.activity.create" &&
+			Array.isArray(action.activityTypes) &&
 			action.activityTypes.includes(activityType),
 	);
 	if (!allowed) {
@@ -1021,44 +514,10 @@ function assertActivityAllowed(
 	}
 }
 
-export function approvedSlackDestination(
-	manifest: Prisma.JsonValue,
-): SlackRunDestination {
-	const scope = manifestDataScope(manifest);
-	if (
-		!scope.resources.some(
-			(resource) =>
-				resource.kind === "integration" && resource.id === "slack:workspace",
-		)
-	) {
-		throw new Error("Agent version does not allow Slack.");
-	}
-
-	const destinations = manifestActions(manifest).flatMap((action) =>
-		action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST
-			? [
-					{
-						kind: action.destination.kind,
-						id: action.destination.id,
-						label: action.destination.label,
-					},
-				]
-			: [],
-	);
-	const [destination] = destinations;
-	if (!destination || destinations.length !== 1) {
-		throw new Error(
-			"Agent version needs exactly one approved Slack destination.",
-		);
-	}
-
-	return destination;
-}
-
 function assertResourceAllowed(
 	mode: RunRecordScope,
-	resources: AgentManifestResource[],
-	input: { kind: "contact" | "company" | "deal"; id: string },
+	resources: RunResource[],
+	input: { kind: RunResource["kind"]; id: string },
 ) {
 	if (mode === "WORKSPACE") return;
 	const records = resources.filter(
@@ -1076,9 +535,10 @@ function assertResourceAllowed(
 	);
 }
 
-export function allowedHistorySources(
-	resources: AgentManifestResource[],
-): RunHistorySources {
+export function allowedHistorySources(resources: RunResource[]): {
+	gmail: boolean;
+	calendar: boolean;
+} {
 	const integrations = new Set(
 		resources
 			.filter((resource) => resource.kind === "integration")
@@ -1090,72 +550,84 @@ export function allowedHistorySources(
 	};
 }
 
-async function targetRecord(kind: "company" | "contact" | "deal", id: string) {
-	if (kind === "company") {
-		const company = await db.company.findUnique({
-			where: { id },
-			select: { id: true, name: true },
-		});
-		return company
-			? {
-					label: company.name,
-					companyId: company.id,
-					contactId: null,
-					dealId: null,
-				}
-			: null;
-	}
+async function targetRecord(
+	kind: "contact" | "vehicle" | "rentalContract",
+	id: string,
+) {
 	if (kind === "contact") {
 		const contact = await db.contact.findUnique({
 			where: { id },
-			select: { id: true, firstName: true, lastName: true, companyId: true },
+			select: { id: true, firstName: true, lastName: true },
 		});
 		return contact
 			? {
 					label: [contact.firstName, contact.lastName]
 						.filter(Boolean)
 						.join(" "),
-					companyId: contact.companyId,
 					contactId: contact.id,
-					dealId: null,
+					vehicleId: null,
+					rentalContractId: null,
+				}
+			: null;
+	}
+	if (kind === "vehicle") {
+		const vehicle = await db.vehicle.findUnique({
+			where: { id },
+			select: { id: true, make: true, model: true, plateNumber: true },
+		});
+		return vehicle
+			? {
+					label: `${vehicle.make} ${vehicle.model} (${vehicle.plateNumber})`,
+					contactId: null,
+					vehicleId: vehicle.id,
+					rentalContractId: null,
 				}
 			: null;
 	}
 
-	const deal = await db.deal.findUnique({
+	const contract = await db.rentalContract.findUnique({
 		where: { id },
-		select: { id: true, name: true, companyId: true },
+		select: {
+			id: true,
+			vehicle: { select: { make: true, model: true, plateNumber: true } },
+		},
 	});
-	return deal
+	return contract
 		? {
-				label: deal.name,
-				companyId: deal.companyId,
+				label: `${contract.vehicle.make} ${contract.vehicle.model} (${contract.vehicle.plateNumber})`,
 				contactId: null,
-				dealId: deal.id,
+				vehicleId: null,
+				rentalContractId: contract.id,
 			}
 		: null;
 }
 
+function recordOf(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
+}
+
 function actionRequestHash(input: {
 	type: "NOTE" | "TASK";
-	targetKind: "company" | "contact" | "deal";
+	targetKind: "contact" | "vehicle" | "rentalContract";
 	targetId: string;
 	subject?: string | null;
 	body?: string | null;
 	dueAt?: string | null;
 }): string {
-	return hashRequest({
-		type: input.type,
-		targetKind: input.targetKind,
-		targetId: input.targetId,
-		subject: input.subject?.trim() || null,
-		body: input.body?.trim() || null,
-		dueAt: input.dueAt?.trim() || null,
-	});
-}
-
-function hashRequest(input: HashableRequest): string {
-	return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+	return createHash("sha256")
+		.update(
+			JSON.stringify({
+				type: input.type,
+				targetKind: input.targetKind,
+				targetId: input.targetId,
+				subject: input.subject?.trim() || null,
+				body: input.body?.trim() || null,
+				dueAt: input.dueAt?.trim() || null,
+			}),
+		)
+		.digest("hex");
 }
 
 function assertActionRequestMatches(

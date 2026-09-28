@@ -60,6 +60,7 @@ function StatCard({
 	value,
 	delta,
 	description,
+	icon,
 	className,
 	children,
 	...props
@@ -68,6 +69,7 @@ function StatCard({
 	value: React.ReactNode;
 	delta?: StatDelta;
 	description?: React.ReactNode;
+	icon?: React.ReactNode;
 }) {
 	return (
 		<div
@@ -75,10 +77,22 @@ function StatCard({
 			className={cn("flex flex-col gap-2.5 p-4 md:p-6", className)}
 			{...props}
 		>
-			{label != null ? (
-				<span className="truncate text-sm font-medium text-muted-foreground">
-					{label}
-				</span>
+			{label != null || icon ? (
+				<div className="flex items-center gap-2.5">
+					{icon ? (
+						<span
+							data-slot="stat-card-icon"
+							className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary [&_svg]:size-4"
+						>
+							{icon}
+						</span>
+					) : null}
+					{label != null ? (
+						<span className="truncate text-sm font-medium text-muted-foreground">
+							{label}
+						</span>
+					) : null}
+				</div>
 			) : null}
 			<div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
 				<span className="font-medium text-3xl tracking-tight tabular-nums">

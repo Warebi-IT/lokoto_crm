@@ -27,18 +27,14 @@ function stub(handler: (url: string) => Promise<Response>) {
 		handler(String(input))) as unknown as typeof fetch;
 }
 
-type GateResponse =
-	| { result: { data: unknown } }
-	| { error: { message: string } };
-
-function json(body: GateResponse, status = 200) {
+function json(body: unknown, status = 200) {
 	return new Response(JSON.stringify(body), {
 		status,
 		headers: { "content-type": "application/json" },
 	});
 }
 
-function answerWith(body: GateResponse, status = 200) {
+function answerWith(body: unknown, status = 200) {
 	stub(async () => json(body, status));
 }
 
@@ -162,7 +158,7 @@ describe("proxy", () => {
 		expect(redirectedTo(await proxy(request("/")))).toBeNull();
 		expect(redirectedTo(await proxy(request("/sign-in")))).toBeNull();
 		expect(redirectedTo(await proxy(request(`/${SLUG}`)))).toBe("/sign-in");
-		expect(redirectedTo(await proxy(request(`/${SLUG}/companies`)))).toBe(
+		expect(redirectedTo(await proxy(request(`/${SLUG}/vehicles`)))).toBe(
 			"/sign-in",
 		);
 	});
@@ -205,7 +201,7 @@ describe("proxy", () => {
 		expect(
 			redirectedTo(
 				await proxy(
-					request(`/${SLUG}/companies`, [
+					request(`/${SLUG}/vehicles`, [
 						"better-auth.session_token=someone.else",
 					]),
 				),
@@ -217,9 +213,7 @@ describe("proxy", () => {
 		setup({ onboarded: false });
 
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/vehicles`, [SESSION_COOKIE]))),
 		).toBe("/onboarding");
 	});
 
@@ -234,12 +228,12 @@ describe("proxy", () => {
 	it("asks again on every request, and remembers nothing", async () => {
 		const calls = setup();
 
-		const first = await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE]));
+		const first = await proxy(request(`/${SLUG}/vehicles`, [SESSION_COOKIE]));
 
 		expect([...first.cookies.getAll()]).toHaveLength(0);
 		expect(calls).toEqual({ workspace: 1, research: 1 });
 
-		await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE]));
+		await proxy(request(`/${SLUG}/vehicles`, [SESSION_COOKIE]));
 
 		expect(calls).toEqual({ workspace: 2, research: 2 });
 	});
@@ -247,18 +241,14 @@ describe("proxy", () => {
 	it("notices when the answer changes underneath it", async () => {
 		setup();
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/vehicles`, [SESSION_COOKIE]))),
 		).toBeNull();
 
 		// A reset database, a removed key: the browser is carrying nothing that
 		// could keep saying the gate was satisfied.
 		setup({ onboarded: false });
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/vehicles`, [SESSION_COOKIE]))),
 		).toBe("/onboarding");
 	});
 
@@ -298,7 +288,7 @@ describe("proxy", () => {
 		});
 
 		const response = await proxy(
-			request(`/${SLUG}/companies`, [SESSION_COOKIE]),
+			request(`/${SLUG}/vehicles`, [SESSION_COOKIE]),
 		);
 
 		expect(redirectedTo(response)).toBeNull();
@@ -318,11 +308,11 @@ describe("the slug the app is served under", () => {
 		setup();
 
 		const response = await proxy(
-			request("/companies?record=contact:abc", [SESSION_COOKIE]),
+			request("/vehicles?record=contact:abc", [SESSION_COOKIE]),
 		);
 
 		expect(response.headers.get("location")).toBe(
-			`http://localhost:3000/${SLUG}/companies?record=contact:abc`,
+			`http://localhost:3000/${SLUG}/vehicles?record=contact:abc`,
 		);
 	});
 
@@ -350,7 +340,7 @@ describe("the slug the app is served under", () => {
 		setup({ slug: "" });
 
 		expect(
-			redirectedTo(await proxy(request("/companies", [SESSION_COOKIE]))),
+			redirectedTo(await proxy(request("/vehicles", [SESSION_COOKIE]))),
 		).toBeNull();
 	});
 });
@@ -360,9 +350,7 @@ describe("the research key gate", () => {
 		setup({ configured: false });
 
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/vehicles`, [SESSION_COOKIE]))),
 		).toBe("/onboarding/research");
 	});
 
@@ -380,9 +368,7 @@ describe("the research key gate", () => {
 		setup({ onboarded: false, configured: false });
 
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/vehicles`, [SESSION_COOKIE]))),
 		).toBe("/onboarding");
 	});
 

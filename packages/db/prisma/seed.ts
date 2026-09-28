@@ -1,14 +1,26 @@
-import { mirror } from "../src/blob";
 import { db } from "../src/client";
 import { DEFAULT_REPORTING_CURRENCY } from "../src/currency";
-import { resolveFavicon } from "../src/favicon";
-import { fieldKeyFromLabel } from "../src/fields-shape";
 import {
 	ActivityType,
-	DealStage,
-	type FieldEntity,
-	FieldType,
+	ChargeFrequency,
+	DepositMethod,
+	DepositStatus,
+	DriverRole,
+	FinancingType,
+	FuelLevel,
+	IncidentType,
+	InspectionType,
+	InsuranceClaimStatus,
+	MaintenanceType,
+	PaymentMethod,
+	PaymentStatus,
+	PaymentType,
 	RateSource,
+	RentalChannel,
+	RentalContractStatus,
+	ResponsibleParty,
+	VehicleStatus,
+	VehicleType,
 } from "../src/generated/prisma/enums";
 import { readReportingCurrency, SETTINGS_ID } from "../src/settings";
 
@@ -54,137 +66,12 @@ const OWNERS = [
 	{ name: "Priya Raman", email: "priya@trycomp.ai" },
 ] as const;
 
-type SeedCompany = {
-	name: string;
-	domain: string;
-	industry: string;
-	city: string;
-	country: string;
-	countryCode: string;
-};
-
-const COMPANIES: readonly SeedCompany[] = [
-	{
-		name: "Stripe",
-		domain: "stripe.com",
-		industry: "Financial Services",
-		city: "San Francisco",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Linear",
-		domain: "linear.app",
-		industry: "Software",
-		city: "San Francisco",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Vercel",
-		domain: "vercel.com",
-		industry: "Software",
-		city: "San Francisco",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Ramp",
-		domain: "ramp.com",
-		industry: "Financial Services",
-		city: "New York",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Notion",
-		domain: "notion.so",
-		industry: "Software",
-		city: "San Francisco",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Monzo",
-		domain: "monzo.com",
-		industry: "Banking",
-		city: "London",
-		country: "United Kingdom",
-		countryCode: "GB",
-	},
-	{
-		name: "Wise",
-		domain: "wise.com",
-		industry: "Financial Services",
-		city: "London",
-		country: "United Kingdom",
-		countryCode: "GB",
-	},
-	{
-		name: "Personio",
-		domain: "personio.com",
-		industry: "Human Resources",
-		city: "Munich",
-		country: "Germany",
-		countryCode: "DE",
-	},
-	{
-		name: "Pennylane",
-		domain: "pennylane.com",
-		industry: "Accounting",
-		city: "Paris",
-		country: "France",
-		countryCode: "FR",
-	},
-	{
-		name: "Cal.com",
-		domain: "cal.com",
-		industry: "Software",
-		city: "San Francisco",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Supabase",
-		domain: "supabase.com",
-		industry: "Software",
-		city: "Singapore",
-		country: "Singapore",
-		countryCode: "SG",
-	},
-	{
-		name: "Retool",
-		domain: "retool.com",
-		industry: "Software",
-		city: "San Francisco",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Deel",
-		domain: "deel.com",
-		industry: "Human Resources",
-		city: "New York",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Mercury",
-		domain: "mercury.com",
-		industry: "Banking",
-		city: "San Francisco",
-		country: "United States",
-		countryCode: "US",
-	},
-	{
-		name: "Attio",
-		domain: "attio.com",
-		industry: "Software",
-		city: "London",
-		country: "United Kingdom",
-		countryCode: "GB",
-	},
-];
+const EMAIL_DOMAINS = [
+	"gmail.com",
+	"outlook.com",
+	"yahoo.com",
+	"orange.sn",
+] as const;
 
 const FIRST_NAMES = [
 	"Amara",
@@ -236,90 +123,45 @@ const LAST_NAMES = [
 	"Takahashi",
 ] as const;
 
-const TITLES = [
-	"Head of Security",
-	"CTO",
-	"VP Engineering",
-	"Compliance Manager",
-	"Head of Legal",
-	"Security Engineer",
-	"COO",
-	"IT Director",
-	"Head of Platform",
-	"Chief of Staff",
-] as const;
-
-const OPEN_STAGES = [
-	DealStage.DEMO_BOOKED,
-	DealStage.QUALIFIED_TO_BUY,
-	DealStage.DECISION_MAKER_BOUGHT_IN,
-	DealStage.CONTRACT_SENT,
-] as const;
-
-const CLOSED_STAGES = [
-	DealStage.CLOSED_WON,
-	DealStage.CLOSED_LOST,
-	DealStage.UNQUALIFIED_TO_BUY,
-] as const;
-
-const DEAL_DESCRIPTIONS = [
-	"Replacing a spreadsheet-and-Drive evidence process before their first SOC 2 audit. Security owns the decision, finance signs.",
-	"Expansion onto the platform team after the security org went live. Blocked on whether the current contract can be co-termed.",
-	"Inbound from a failed vendor renewal. They want automated evidence collection and one auditor-ready report.",
-	"Their enterprise deals keep stalling on security questionnaires. The buying trigger is the pipeline, not the audit.",
-	"Champion ran the evaluation themselves and wants the agent, not the checklist. Procurement is the long pole.",
-] as const;
-
-const LOST_REASONS = [
-	"Went with an incumbent vendor",
-	"No budget this cycle",
-	"Timeline slipped to next year",
-	"Not a fit — no compliance requirement yet",
-] as const;
-
 const NOTE_BODIES = [
-	"Ran through the SOC 2 timeline. They want evidence collection automated before the audit window opens.",
-	"Procurement wants a security questionnaire back before they will look at pricing.",
-	"Champion is keen, but the budget owner has not been in a call yet.",
-	"They are evaluating us against two others. Differentiator is the agent, not the checklist.",
-	"Asked for a reference in the same vertical. Following up with marketing.",
-	"Pushed the decision to after their board meeting.",
+	"Client called ahead to say they're running about an hour late for pickup.",
+	"Asked about extending the mileage allowance for a trip to Saint-Louis.",
+	"Client mentioned a faint noise from the front brakes — flagged for the return inspection.",
+	"Paid the deposit in two installments, cash then Wave — both confirmed.",
+	"Requested an extra day; the vehicle is already reserved right after this contract, declined.",
+	"Vehicle picked up on time, all documents in order.",
 ] as const;
 
 const CALL_SUBJECTS = [
-	"Discovery call",
-	"Technical deep dive",
-	"Pricing discussion",
-	"Follow-up call",
-	"Security review",
+	"Pickup confirmation call",
+	"Deposit reminder call",
+	"Late return follow-up",
+	"Damage discussion",
+	"Extension request",
 ] as const;
 
 const TASK_SUBJECTS = [
-	"Send the security questionnaire",
-	"Share pricing proposal",
-	"Book the technical deep dive",
-	"Chase procurement",
-	"Send SOC 2 report",
-	"Introduce the implementation team",
+	"Confirm pickup time with client",
+	"Chase outstanding deposit",
+	"Schedule vehicle inspection",
+	"Follow up on late return",
+	"Send contract for signature",
 ] as const;
 
 const MEETING_SUBJECTS = [
-	"Product demo",
-	"Onboarding walkthrough",
-	"Quarterly check-in",
-	"Stakeholder alignment",
+	"Vehicle hand-over",
+	"Vehicle return / état des lieux",
+	"Contract signing",
 ] as const;
 
 const EMAIL_SUBJECTS = [
-	"Re: next steps",
-	"Following up after the demo",
-	"Pricing and terms",
-	"Intro to your implementation lead",
+	"Your rental contract and receipt",
+	"Reminder: return your vehicle tomorrow",
+	"Deposit refund confirmation",
+	"Following up on the damage report",
 ] as const;
 
-type Transliterations = Record<string, string>;
-
-const TRANSLITERATIONS: Transliterations = {
+const TRANSLITERATIONS: Record<string, string> = {
 	ø: "o",
 	æ: "ae",
 	œ: "oe",
@@ -369,343 +211,44 @@ async function seedOwners(): Promise<string[]> {
 	return created.map((user) => user.id);
 }
 
-async function seedCompanies(
-	ownerIds: string[],
-): Promise<{ id: string; name: string; domain: string }[]> {
-	const companies = [];
+type SeededContact = { id: string };
 
-	for (const company of COMPANIES) {
-		const row = await db.company.upsert({
-			where: { domain: company.domain },
-			create: {
-				name: company.name,
-				domain: company.domain,
-				website: `https://${company.domain}`,
-				industry: company.industry,
-				city: company.city,
-				country: company.country,
-				countryCode: company.countryCode,
-				ownerId: pick(ownerIds),
-				createdAt: daysFromNow(-integer(30, 400), 12),
-			},
-			update: {},
-			select: { id: true, name: true, domain: true, iconUrl: true },
-		});
-		companies.push({ ...row, domain: row.domain ?? company.domain });
-	}
+const CONTACT_COUNT = 40;
 
-	await seedIcons(companies);
-
-	return companies.map(({ iconUrl: _, ...company }) => company);
-}
-
-async function seedIcons(
-	companies: { id: string; domain: string | null; iconUrl: string | null }[],
-): Promise<void> {
-	const missing = companies.filter(
-		(company) => company.iconUrl === null && company.domain,
-	);
-	if (missing.length === 0) return;
-
-	let resolved = 0;
-	for (const company of missing) {
-		const source = await resolveFavicon(company.domain);
-		if (!source) continue;
-
-		const iconUrl =
-			(await mirror(source, `companies/${company.id}/icon`)) ?? source;
-
-		await db.company.updateMany({
-			where: { id: company.id, iconUrl: null },
-			data: { iconUrl },
-		});
-		resolved += 1;
-	}
-
-	console.log(`Resolved ${resolved} of ${missing.length} company icons.`);
-}
-
-const ACCOUNT_TYPES = ["Prospect", "Customer", "Partner", "Churned"] as const;
-const SEGMENT_TIERS = ["Enterprise", "Mid-Market", "SMB"] as const;
-const TERRITORIES = ["AMER", "EMEA", "APAC"] as const;
-const LIFECYCLE_STAGES = [
-	"Lead",
-	"MQL",
-	"SQL",
-	"Opportunity",
-	"Customer",
-] as const;
-const LEAD_SOURCES = ["Inbound", "Outbound", "Event"] as const;
-
-type SeededField = {
-	id: string;
-	key: string;
-	options: { id: string; label: string }[];
-};
-
-type SeededFieldSet = {
-	accountType: SeededField;
-	segment: SeededField;
-	territory: SeededField;
-	lifecycleStage: SeededField;
-	leadSource: SeededField;
-	icpFitScore: SeededField;
-	bdrOwner: SeededField;
-};
-
-async function upsertField(
-	entity: FieldEntity,
-	label: string,
-	type: FieldType,
-	position: number,
-	options: readonly string[] = [],
-): Promise<SeededField> {
-	const key = fieldKeyFromLabel(label);
-	const definition = await db.fieldDefinition.upsert({
-		where: { entity_key: { entity, key } },
-		create: {
-			entity,
-			key,
-			label,
-			type,
-			showOnTable: false,
-			showOnFilter: false,
-			agentFilled: type !== "USER" && type !== "NUMBER",
-			position,
-			options: {
-				create: options.map((optionLabel, index) => ({
-					label: optionLabel,
-					position: index,
-				})),
-			},
-		},
-		update: {},
-		include: { options: true },
-	});
-
-	return {
-		id: definition.id,
-		key: definition.key,
-		options: definition.options,
-	};
-}
-
-async function seedCompanyFields(): Promise<SeededFieldSet> {
-	const [
-		accountType,
-		segment,
-		territory,
-		lifecycleStage,
-		leadSource,
-		icpFitScore,
-		bdrOwner,
-	] = await Promise.all([
-		upsertField("COMPANY", "Account type", FieldType.SELECT, 0, ACCOUNT_TYPES),
-		upsertField("COMPANY", "Segment", FieldType.SELECT, 1, SEGMENT_TIERS),
-		upsertField("COMPANY", "Territory", FieldType.SELECT, 2, TERRITORIES),
-		upsertField(
-			"COMPANY",
-			"Lifecycle stage",
-			FieldType.SELECT,
-			3,
-			LIFECYCLE_STAGES,
-		),
-		upsertField("COMPANY", "Lead source", FieldType.SELECT, 4, LEAD_SOURCES),
-		upsertField("COMPANY", "ICP fit score", FieldType.NUMBER, 5),
-		upsertField("COMPANY", "BDR owner", FieldType.USER, 6),
-	]);
-
-	return {
-		accountType,
-		segment,
-		territory,
-		lifecycleStage,
-		leadSource,
-		icpFitScore,
-		bdrOwner,
-	};
-}
-
-function optionIdFor(field: SeededField, label: string): string {
-	const option = field.options.find((entry) => entry.label === label);
-	if (!option)
-		throw new Error(`Seed field "${field.key}" has no "${label}" option.`);
-	return option.id;
-}
-
-async function seedCompanyFieldValues(
-	fields: SeededFieldSet,
-	companies: { id: string }[],
-	ownerIds: string[],
-): Promise<void> {
-	for (const company of companies) {
-		const accountType = pick(ACCOUNT_TYPES);
-
-		await Promise.all([
-			db.fieldValue.upsert({
-				where: {
-					fieldId_companyId: {
-						fieldId: fields.accountType.id,
-						companyId: company.id,
-					},
-				},
-				create: {
-					fieldId: fields.accountType.id,
-					companyId: company.id,
-					optionId: optionIdFor(fields.accountType, accountType),
-				},
-				update: {},
-			}),
-			db.fieldValue.upsert({
-				where: {
-					fieldId_companyId: {
-						fieldId: fields.segment.id,
-						companyId: company.id,
-					},
-				},
-				create: {
-					fieldId: fields.segment.id,
-					companyId: company.id,
-					optionId: optionIdFor(fields.segment, pick(SEGMENT_TIERS)),
-				},
-				update: {},
-			}),
-			db.fieldValue.upsert({
-				where: {
-					fieldId_companyId: {
-						fieldId: fields.territory.id,
-						companyId: company.id,
-					},
-				},
-				create: {
-					fieldId: fields.territory.id,
-					companyId: company.id,
-					optionId: optionIdFor(fields.territory, pick(TERRITORIES)),
-				},
-				update: {},
-			}),
-			db.fieldValue.upsert({
-				where: {
-					fieldId_companyId: {
-						fieldId: fields.lifecycleStage.id,
-						companyId: company.id,
-					},
-				},
-				create: {
-					fieldId: fields.lifecycleStage.id,
-					companyId: company.id,
-					optionId: optionIdFor(
-						fields.lifecycleStage,
-						accountType === "Customer" ? "Customer" : pick(LIFECYCLE_STAGES),
-					),
-				},
-				update: {},
-			}),
-			db.fieldValue.upsert({
-				where: {
-					fieldId_companyId: {
-						fieldId: fields.leadSource.id,
-						companyId: company.id,
-					},
-				},
-				create: {
-					fieldId: fields.leadSource.id,
-					companyId: company.id,
-					optionId: optionIdFor(fields.leadSource, pick(LEAD_SOURCES)),
-				},
-				update: {},
-			}),
-			db.fieldValue.upsert({
-				where: {
-					fieldId_companyId: {
-						fieldId: fields.icpFitScore.id,
-						companyId: company.id,
-					},
-				},
-				create: {
-					fieldId: fields.icpFitScore.id,
-					companyId: company.id,
-					number: integer(40, 95),
-				},
-				update: {},
-			}),
-			db.fieldValue.upsert({
-				where: {
-					fieldId_companyId: {
-						fieldId: fields.bdrOwner.id,
-						companyId: company.id,
-					},
-				},
-				create: {
-					fieldId: fields.bdrOwner.id,
-					companyId: company.id,
-					userId: pick(ownerIds),
-				},
-				update: {},
-			}),
-		]);
-	}
-}
-
-type SeededContact = { id: string; companyId: string };
-
-async function seedContacts(
-	companies: { id: string; domain: string }[],
-	ownerIds: string[],
-): Promise<SeededContact[]> {
+async function seedContacts(): Promise<SeededContact[]> {
 	const contacts: SeededContact[] = [];
 	const used = new Set<string>();
 
-	for (const company of companies) {
-		for (let index = 0; index < integer(2, 4); index++) {
-			const firstName = pick(FIRST_NAMES);
-			const lastName = pick(LAST_NAMES);
-			const email = `${slug(firstName)}.${slug(lastName)}@${company.domain}`;
-			if (used.has(email)) continue;
-			used.add(email);
+	while (contacts.length < CONTACT_COUNT) {
+		const firstName = pick(FIRST_NAMES);
+		const lastName = pick(LAST_NAMES);
+		const domain = pick(EMAIL_DOMAINS);
+		const email = `${slug(firstName)}.${slug(lastName)}${integer(1, 99)}@${domain}`;
+		if (used.has(email)) continue;
+		used.add(email);
 
-			const contact = await db.contact.upsert({
-				where: { email },
-				create: {
-					firstName,
-					lastName,
-					email,
-					title: pick(TITLES),
-					phone: chance(0.4) ? `+1 415 555 ${integer(1000, 9999)}` : null,
-					companyId: company.id,
-					ownerId: pick(ownerIds),
-					createdAt: daysFromNow(-integer(10, 300), 12),
-				},
-				update: {},
-				select: { id: true },
-			});
-
-			contacts.push({ id: contact.id, companyId: company.id });
-		}
-	}
-
-	for (const company of companies) {
-		const first = contacts.find((contact) => contact.companyId === company.id);
-		if (!first) continue;
-		await db.company.update({
-			where: { id: company.id },
-			data: { primaryContactId: first.id },
+		const contact = await db.contact.upsert({
+			where: { email },
+			create: {
+				firstName,
+				lastName,
+				email,
+				phone: chance(0.6)
+					? `+221 77 ${integer(100, 999)} ${integer(10, 99)} ${integer(10, 99)}`
+					: null,
+				createdAt: daysFromNow(-integer(10, 300), 12),
+			},
+			update: {},
+			select: { id: true },
 		});
+
+		contacts.push({ id: contact.id });
 	}
 
 	return contacts;
 }
 
-type SeededDeal = {
-	id: string;
-	companyId: string;
-	ownerId: string;
-	closed: boolean;
-};
-
-type SeedRates = Record<string, number>;
-
-const SEED_RATES: SeedRates = {
+const SEED_RATES: Record<string, number> = {
 	EUR: 1.09,
 	GBP: 1.27,
 	CAD: 0.73,
@@ -713,7 +256,7 @@ const SEED_RATES: SeedRates = {
 	JPY: 0.0067,
 };
 
-const DEAL_CURRENCIES = ["USD", "USD", "USD", "EUR", "GBP", "JPY", "CAD"];
+const RENTAL_CURRENCIES = ["USD", "USD", "USD", "EUR"];
 
 let seedBase = "USD";
 
@@ -735,7 +278,7 @@ async function seedRates(): Promise<number> {
 	if (seedBase !== "USD") {
 		console.log(
 			`Reporting currency is ${seedBase} — seeding a converted figure only for ` +
-				`deals already in ${seedBase}; the rates cron converts the rest.`,
+				`records already in ${seedBase}; the rates cron converts the rest.`,
 		);
 	}
 
@@ -784,98 +327,768 @@ function money(usdAmount: number, currency: string) {
 	};
 }
 
-async function seedDeals(
-	companies: { id: string; name: string }[],
+type SeedVehicleSpec = {
+	type: VehicleType;
+	make: string;
+	model: string;
+	year: number;
+	plateNumber: string;
+	color: string;
+	dailyRateUsd: number;
+	mileage: number;
+	status?: VehicleStatus;
+};
+
+const VEHICLES: readonly SeedVehicleSpec[] = [
+	{
+		type: VehicleType.CAR,
+		make: "Toyota",
+		model: "Corolla",
+		year: 2021,
+		plateNumber: "DK-1234-AA",
+		color: "White",
+		dailyRateUsd: 45,
+		mileage: 38000,
+	},
+	{
+		type: VehicleType.CAR,
+		make: "Toyota",
+		model: "Hilux",
+		year: 2022,
+		plateNumber: "DK-2201-AB",
+		color: "Grey",
+		dailyRateUsd: 70,
+		mileage: 21000,
+	},
+	{
+		type: VehicleType.CAR,
+		make: "Hyundai",
+		model: "Tucson",
+		year: 2020,
+		plateNumber: "DK-3120-AC",
+		color: "Black",
+		dailyRateUsd: 55,
+		mileage: 61000,
+	},
+	{
+		type: VehicleType.CAR,
+		make: "Toyota",
+		model: "Yaris",
+		year: 2019,
+		plateNumber: "DK-3388-AD",
+		color: "Blue",
+		dailyRateUsd: 38,
+		mileage: 84000,
+		status: VehicleStatus.OUT_OF_SERVICE,
+	},
+	{
+		type: VehicleType.MOTORCYCLE,
+		make: "Suzuki",
+		model: "Djakarta 125",
+		year: 2023,
+		plateNumber: "DK-4410-MB",
+		color: "Red",
+		dailyRateUsd: 12,
+		mileage: 9000,
+	},
+	{
+		type: VehicleType.MOTORCYCLE,
+		make: "Yamaha",
+		model: "XTZ 125",
+		year: 2022,
+		plateNumber: "DK-4521-MB",
+		color: "White",
+		dailyRateUsd: 14,
+		mileage: 15000,
+	},
+	{
+		type: VehicleType.SCOOTER,
+		make: "TVS",
+		model: "Wego",
+		year: 2023,
+		plateNumber: "DK-5502-SC",
+		color: "Yellow",
+		dailyRateUsd: 9,
+		mileage: 4200,
+	},
+	{
+		type: VehicleType.SCOOTER,
+		make: "Sanya",
+		model: "Elec 50",
+		year: 2024,
+		plateNumber: "DK-5610-SC",
+		color: "Green",
+		dailyRateUsd: 8,
+		mileage: 1800,
+	},
+	{
+		type: VehicleType.TRUCK,
+		make: "Renault",
+		model: "Master",
+		year: 2019,
+		plateNumber: "DK-6011-CT",
+		color: "White",
+		dailyRateUsd: 90,
+		mileage: 92000,
+		status: VehicleStatus.MAINTENANCE,
+	},
+	{
+		type: VehicleType.TRUCK,
+		make: "Isuzu",
+		model: "NPR",
+		year: 2020,
+		plateNumber: "DK-6120-CT",
+		color: "White",
+		dailyRateUsd: 110,
+		mileage: 74000,
+	},
+	{
+		type: VehicleType.MINIBUS,
+		make: "Mercedes-Benz",
+		model: "Sprinter",
+		year: 2021,
+		plateNumber: "DK-7002-TP",
+		color: "White",
+		dailyRateUsd: 130,
+		mileage: 55000,
+	},
+	{
+		type: VehicleType.MINIBUS,
+		make: "Toyota",
+		model: "Coaster",
+		year: 2018,
+		plateNumber: "DK-7110-TP",
+		color: "Blue",
+		dailyRateUsd: 140,
+		mileage: 103000,
+	},
+];
+
+type SeededVehicle = {
+	id: string;
+	plateNumber: string;
+	dailyRateUsd: number;
+	status: VehicleStatus;
+};
+
+async function seedVehicles(): Promise<SeededVehicle[]> {
+	const vehicles: SeededVehicle[] = [];
+
+	for (const spec of VEHICLES) {
+		const currency = pick(RENTAL_CURRENCIES);
+		const { amount, baseAmount, baseCurrency, fxRate } = money(
+			spec.dailyRateUsd,
+			currency,
+		);
+
+		const row = await db.vehicle.upsert({
+			where: { plateNumber: spec.plateNumber },
+			create: {
+				type: spec.type,
+				make: spec.make,
+				model: spec.model,
+				year: spec.year,
+				plateNumber: spec.plateNumber,
+				color: spec.color,
+				status: spec.status ?? VehicleStatus.AVAILABLE,
+				dailyRate: amount,
+				currency,
+				baseAmount,
+				baseCurrency,
+				fxRate,
+				fxRateAt: fxRate === null ? null : daysFromNow(-1),
+				mileage: spec.mileage,
+				insurancePolicyNumber: `POL-${integer(100000, 999999)}`,
+				insuranceExpiresAt: daysFromNow(integer(-30, 300)),
+				registrationExpiresAt: daysFromNow(integer(-10, 400)),
+				nextMaintenanceAtKm: spec.mileage + integer(1500, 5000),
+				createdAt: daysFromNow(-integer(30, 500), 12),
+			},
+			update: {},
+			select: { id: true, plateNumber: true, status: true },
+		});
+
+		vehicles.push({
+			id: row.id,
+			plateNumber: row.plateNumber,
+			dailyRateUsd: spec.dailyRateUsd,
+			status: row.status,
+		});
+	}
+
+	return vehicles;
+}
+
+type SeededContract = {
+	id: string;
+	vehicleId: string;
+	contactId: string;
+	ownerId: string;
+	status: RentalContractStatus;
+	pricePerDayUsd: number;
+	days: number;
+	currency: string;
+};
+
+async function seedRentalContracts(
+	vehicles: SeededVehicle[],
 	contacts: SeededContact[],
 	ownerIds: string[],
-): Promise<SeededDeal[]> {
-	const deals: SeededDeal[] = [];
+): Promise<SeededContract[]> {
+	const contracts: SeededContract[] = [];
 
-	for (const [index, company] of companies.entries()) {
-		const count = index % 2 === 0 ? 2 : 1;
+	const plan: {
+		status: RentalContractStatus;
+		startOffsetDays: number;
+		durationDays: number;
+		withAdditionalDriver?: boolean;
+		cancelled?: boolean;
+	}[] = [
+		{
+			status: RentalContractStatus.COMPLETED,
+			startOffsetDays: -20,
+			durationDays: 4,
+		},
+		{
+			status: RentalContractStatus.COMPLETED,
+			startOffsetDays: -12,
+			durationDays: 3,
+			withAdditionalDriver: true,
+		},
+		{
+			status: RentalContractStatus.COMPLETED,
+			startOffsetDays: -7,
+			durationDays: 2,
+		},
+		{
+			status: RentalContractStatus.ACTIVE,
+			startOffsetDays: -2,
+			durationDays: 5,
+		},
+		{
+			status: RentalContractStatus.ACTIVE,
+			startOffsetDays: -1,
+			durationDays: 3,
+		},
+		{
+			status: RentalContractStatus.RESERVED,
+			startOffsetDays: 3,
+			durationDays: 4,
+		},
+		{
+			status: RentalContractStatus.RESERVED,
+			startOffsetDays: 7,
+			durationDays: 2,
+		},
+		{
+			status: RentalContractStatus.DRAFT,
+			startOffsetDays: 10,
+			durationDays: 3,
+		},
+		{
+			status: RentalContractStatus.CANCELLED,
+			startOffsetDays: -5,
+			durationDays: 3,
+			cancelled: true,
+		},
+	];
 
-		for (let n = 0; n < count; n++) {
-			const id = `seed-deal-${slug(company.name)}-${n}`;
-			const closed = chance(0.35);
-			const stage = closed ? pick(CLOSED_STAGES) : pick(OPEN_STAGES);
-			const ownerId = pick(ownerIds);
-			const createdDaysAgo = integer(20, 210);
-			const createdAt = daysFromNow(-createdDaysAgo, 12);
-			const closedDaysAgo = closed
-				? integer(0, Math.max(createdDaysAgo - 14, 0))
-				: null;
-			const stageChangedAt = daysFromNow(
-				closedDaysAgo === null ? -integer(1, 20) : -closedDaysAgo,
-				12,
+	const availableVehicles = vehicles.filter(
+		(vehicle) => vehicle.status !== VehicleStatus.OUT_OF_SERVICE,
+	);
+
+	for (const [index, entry] of plan.entries()) {
+		const vehicle = availableVehicles[index % availableVehicles.length];
+		if (!vehicle) continue;
+
+		const renter = pick(contacts);
+		const ownerId = pick(ownerIds);
+		const startDate = daysFromNow(entry.startOffsetDays, 6);
+		const endDate = daysFromNow(entry.startOffsetDays + entry.durationDays, 6);
+		const currency = pick(RENTAL_CURRENCIES);
+		const totalUsd = vehicle.dailyRateUsd * entry.durationDays;
+		const {
+			amount: totalAmount,
+			baseAmount,
+			baseCurrency,
+			fxRate,
+		} = money(totalUsd, currency);
+		const { amount: pricePerDay } = money(vehicle.dailyRateUsd, currency);
+		const depositUsd = Math.round(vehicle.dailyRateUsd * 2);
+		const { amount: depositAmount } = money(depositUsd, currency);
+
+		const isCompleted = entry.status === RentalContractStatus.COMPLETED;
+		const isActive = entry.status === RentalContractStatus.ACTIVE;
+		const isCancelled = entry.cancelled === true;
+
+		const id = `seed-contract-${slug(vehicle.plateNumber)}-${index}`;
+
+		const contract = await db.rentalContract.upsert({
+			where: { id },
+			create: {
+				id,
+				vehicleId: vehicle.id,
+				contactId: renter.id,
+				ownerId,
+				status: entry.status,
+				channel: chance(0.3) ? RentalChannel.ONLINE : RentalChannel.AGENT,
+				startDate,
+				endDate,
+				actualPickupAt: isCompleted || isActive ? startDate : null,
+				actualReturnAt: isCompleted ? endDate : null,
+				pricePerDay,
+				currency,
+				totalAmount,
+				baseAmount,
+				baseCurrency,
+				fxRate,
+				fxRateAt: fxRate === null ? null : daysFromNow(-1),
+				mileageIncludedPerDay: 150,
+				extraMileageFeePerKm: money(0.3, currency).amount,
+				mileageAtPickup: isCompleted || isActive ? integer(1000, 90000) : null,
+				mileageAtReturn: isCompleted
+					? integer(1000, 90000) + integer(50, 600)
+					: null,
+				fuelLevelAtPickup: isCompleted || isActive ? FuelLevel.FULL : null,
+				fuelLevelAtReturn: isCompleted
+					? pick([FuelLevel.FULL, FuelLevel.THREE_QUARTER, FuelLevel.HALF])
+					: null,
+				depositAmount,
+				depositCurrency: currency,
+				depositMethod: pick([DepositMethod.CASH, DepositMethod.MOBILE_MONEY]),
+				depositStatus: isCompleted
+					? DepositStatus.RETURNED
+					: isCancelled
+						? DepositStatus.RETURNED
+						: DepositStatus.HELD,
+				depositReturnedAmount:
+					isCompleted || isCancelled ? depositAmount : null,
+				depositReturnedAt: isCompleted || isCancelled ? endDate : null,
+				cancelledAt: isCancelled
+					? daysFromNow(entry.startOffsetDays - 1)
+					: null,
+				cancelledReason: isCancelled
+					? "Client no-show, deposit refunded"
+					: null,
+				signedAt: isCompleted || isActive ? startDate : null,
+				createdAt: daysFromNow(entry.startOffsetDays - integer(1, 5), 12),
+			},
+			update: {},
+			select: { id: true },
+		});
+
+		if (entry.withAdditionalDriver) {
+			const secondDriver = pick(
+				contacts.filter((contact) => contact.id !== renter.id),
 			);
-
-			await db.deal.upsert({
-				where: { id },
+			await db.rentalContractDriver.upsert({
+				where: {
+					contractId_contactId: {
+						contractId: contract.id,
+						contactId: secondDriver.id,
+					},
+				},
 				create: {
-					id,
-					name:
-						n === 0
-							? `${company.name} — Comp AI`
-							: `${company.name} — expansion`,
-					description: pick(DEAL_DESCRIPTIONS),
-					companyId: company.id,
-					ownerId,
-					stage,
-					stageChangedAt,
-					...(() => {
-						const { amount, currency, baseAmount, baseCurrency, fxRate } =
-							money(integer(6, 90) * 1000, pick(DEAL_CURRENCIES));
-						return {
-							amount,
-							currency,
-							baseAmount,
-							baseCurrency,
-							fxRate,
-							fxRateAt: fxRate === null ? null : daysFromNow(-1),
-						};
-					})(),
-					expectedCloseDate: daysFromNow(
-						closedDaysAgo === null
-							? integer(-10, 75)
-							: -closedDaysAgo + integer(-4, 9),
-					),
-					closedAt: closed ? stageChangedAt : null,
-					closedReason:
-						stage === DealStage.CLOSED_LOST ||
-						stage === DealStage.UNQUALIFIED_TO_BUY
-							? pick(LOST_REASONS)
-							: null,
-					createdAt,
+					contractId: contract.id,
+					contactId: secondDriver.id,
+					role: DriverRole.ADDITIONAL,
 				},
 				update: {},
 			});
+		}
 
-			const companyContacts = contacts.filter(
-				(contact) => contact.companyId === company.id,
-			);
-			for (const contact of companyContacts.slice(0, integer(1, 2))) {
-				await db.dealContact.upsert({
-					where: { dealId_contactId: { dealId: id, contactId: contact.id } },
-					create: {
-						dealId: id,
-						contactId: contact.id,
-						role: chance(0.5) ? "Champion" : "Decision maker",
+		await db.rentalContractDriver.upsert({
+			where: {
+				contractId_contactId: { contractId: contract.id, contactId: renter.id },
+			},
+			create: {
+				contractId: contract.id,
+				contactId: renter.id,
+				role: DriverRole.PRIMARY,
+			},
+			update: {},
+		});
+
+		contracts.push({
+			id: contract.id,
+			vehicleId: vehicle.id,
+			contactId: renter.id,
+			ownerId,
+			status: entry.status,
+			pricePerDayUsd: vehicle.dailyRateUsd,
+			days: entry.durationDays,
+			currency,
+		});
+	}
+
+	return contracts;
+}
+
+async function seedPayments(contracts: SeededContract[]): Promise<number> {
+	let count = 0;
+
+	for (const [index, contract] of contracts.entries()) {
+		if (contract.status === RentalContractStatus.DRAFT) continue;
+
+		const totalUsd = contract.pricePerDayUsd * contract.days;
+		const depositUsd = Math.round(contract.pricePerDayUsd * 2);
+		const split = index === 0;
+
+		const rentalPayments = split
+			? [
+					{ shareUsd: totalUsd * 0.5, method: PaymentMethod.CASH },
+					{ shareUsd: totalUsd * 0.5, method: PaymentMethod.WAVE },
+				]
+			: [
+					{
+						shareUsd: totalUsd,
+						method: pick([
+							PaymentMethod.CASH,
+							PaymentMethod.WAVE,
+							PaymentMethod.ORANGE_MONEY,
+						]),
 					},
-					update: {},
-				});
-			}
+				];
 
-			deals.push({ id, companyId: company.id, ownerId, closed });
+		for (const [n, payment] of rentalPayments.entries()) {
+			const { amount, currency, baseAmount, baseCurrency, fxRate } = money(
+				payment.shareUsd,
+				contract.currency,
+			);
+			await db.payment.upsert({
+				where: { id: `seed-payment-${contract.id}-rental-${n}` },
+				create: {
+					id: `seed-payment-${contract.id}-rental-${n}`,
+					rentalContractId: contract.id,
+					type: PaymentType.RENTAL_FEE,
+					amount,
+					currency,
+					baseAmount,
+					baseCurrency,
+					fxRate,
+					fxRateAt: fxRate === null ? null : daysFromNow(-1),
+					method: payment.method,
+					status: PaymentStatus.COMPLETED,
+					reference:
+						payment.method === PaymentMethod.CASH
+							? null
+							: `${payment.method}-${integer(100000, 999999)}`,
+					paidAt: daysFromNow(-integer(1, 15)),
+					recordedById: contract.ownerId,
+				},
+				update: {},
+			});
+			count += 1;
+		}
+
+		const { amount, currency, baseAmount, baseCurrency, fxRate } = money(
+			depositUsd,
+			contract.currency,
+		);
+		await db.payment.upsert({
+			where: { id: `seed-payment-${contract.id}-deposit` },
+			create: {
+				id: `seed-payment-${contract.id}-deposit`,
+				rentalContractId: contract.id,
+				type: PaymentType.DEPOSIT,
+				amount,
+				currency,
+				baseAmount,
+				baseCurrency,
+				fxRate,
+				fxRateAt: fxRate === null ? null : daysFromNow(-1),
+				method: pick([PaymentMethod.CASH, PaymentMethod.WAVE]),
+				status: PaymentStatus.COMPLETED,
+				reference: null,
+				paidAt: daysFromNow(-integer(1, 15)),
+				recordedById: contract.ownerId,
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	return count;
+}
+
+async function seedIncidents(
+	vehicles: SeededVehicle[],
+	contracts: SeededContract[],
+	ownerIds: string[],
+): Promise<number> {
+	const completed = contracts.find(
+		(contract) => contract.status === RentalContractStatus.COMPLETED,
+	);
+	const spareVehicle = vehicles[vehicles.length - 1];
+
+	let count = 0;
+
+	if (completed) {
+		await db.incident.upsert({
+			where: { id: "seed-incident-damage" },
+			create: {
+				id: "seed-incident-damage",
+				vehicleId: completed.vehicleId,
+				rentalContractId: completed.id,
+				type: IncidentType.DAMAGE,
+				reportedAt: daysFromNow(-6),
+				reportedById: completed.ownerId,
+				description: "Scratch on the rear bumper noticed at check-in.",
+				responsibleParty: ResponsibleParty.CLIENT,
+				insuranceClaimNumber: `CLM-${integer(10000, 99999)}`,
+				insuranceStatus: InsuranceClaimStatus.PAID,
+				estimatedCost: 120,
+				actualCost: 95,
+				currency: "USD",
+				resolvedAt: daysFromNow(-2),
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	if (spareVehicle) {
+		await db.incident.upsert({
+			where: { id: "seed-incident-breakdown" },
+			create: {
+				id: "seed-incident-breakdown",
+				vehicleId: spareVehicle.id,
+				type: IncidentType.BREAKDOWN,
+				reportedAt: daysFromNow(-1),
+				reportedById: pick(ownerIds),
+				description: "Won't start — suspected battery, at the depot.",
+				responsibleParty: ResponsibleParty.AGENCY,
+				insuranceStatus: InsuranceClaimStatus.NOT_FILED,
+				estimatedCost: 60,
+				currency: "USD",
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	return count;
+}
+
+async function seedMaintenanceRecords(
+	vehicles: SeededVehicle[],
+): Promise<number> {
+	if (vehicles.length < 2) return 0;
+	let count = 0;
+
+	const serviced = vehicles[0];
+	if (serviced) {
+		await db.maintenanceRecord.upsert({
+			where: { id: "seed-maintenance-oil-change" },
+			create: {
+				id: "seed-maintenance-oil-change",
+				vehicleId: serviced.id,
+				type: MaintenanceType.SCHEDULED,
+				description: "Oil and filter change",
+				completedAt: daysFromNow(-15),
+				odometerAtService: integer(30000, 40000),
+				mechanic: "Garage Diallo",
+				cost: 45,
+				currency: "USD",
+				invoiceReference: "INV-2211",
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	const upcoming = vehicles[1];
+	if (upcoming) {
+		await db.maintenanceRecord.upsert({
+			where: { id: "seed-maintenance-upcoming-service" },
+			create: {
+				id: "seed-maintenance-upcoming-service",
+				vehicleId: upcoming.id,
+				type: MaintenanceType.SCHEDULED,
+				description: "40,000 km service",
+				scheduledAtKm: 40000,
+				scheduledAtDate: daysFromNow(10),
+				blocksAvailability: false,
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	return count;
+}
+
+async function seedInspections(contracts: SeededContract[]): Promise<number> {
+	let count = 0;
+
+	for (const contract of contracts) {
+		if (
+			contract.status !== RentalContractStatus.COMPLETED &&
+			contract.status !== RentalContractStatus.ACTIVE
+		) {
+			continue;
+		}
+
+		await db.vehicleInspection.upsert({
+			where: { id: `seed-inspection-${contract.id}-out` },
+			create: {
+				id: `seed-inspection-${contract.id}-out`,
+				rentalContractId: contract.id,
+				type: InspectionType.CHECK_OUT,
+				odometer: integer(1000, 90000),
+				fuelLevel: FuelLevel.FULL,
+				inspectedById: contract.ownerId,
+				inspectedAt: daysFromNow(-integer(1, 20)),
+			},
+			update: {},
+		});
+		count += 1;
+
+		if (contract.status === RentalContractStatus.COMPLETED) {
+			await db.vehicleInspection.upsert({
+				where: { id: `seed-inspection-${contract.id}-in` },
+				create: {
+					id: `seed-inspection-${contract.id}-in`,
+					rentalContractId: contract.id,
+					type: InspectionType.CHECK_IN,
+					odometer: integer(1000, 90000),
+					fuelLevel: pick([
+						FuelLevel.FULL,
+						FuelLevel.THREE_QUARTER,
+						FuelLevel.HALF,
+					]),
+					damageNotes: chance(0.3) ? "Minor scuff on rear bumper." : null,
+					inspectedById: contract.ownerId,
+					inspectedAt: daysFromNow(-integer(1, 10)),
+				},
+				update: {},
+			});
+			count += 1;
 		}
 	}
 
-	return deals;
+	return count;
+}
+
+async function seedVehicleFinancing(
+	vehicles: SeededVehicle[],
+): Promise<number> {
+	let count = 0;
+
+	const financed = vehicles[0];
+	if (financed) {
+		const {
+			amount: monthlyPayment,
+			baseAmount,
+			baseCurrency,
+			fxRate,
+		} = money(350, "USD");
+		await db.vehicleFinancing.upsert({
+			where: { vehicleId: financed.id },
+			create: {
+				vehicleId: financed.id,
+				type: FinancingType.LOAN,
+				principalAmount: 18000,
+				monthlyPayment,
+				currency: "USD",
+				baseAmount,
+				baseCurrency,
+				fxRate,
+				fxRateAt: fxRate === null ? null : daysFromNow(-1),
+				interestRate: 7.5,
+				termMonths: 48,
+				startDate: daysFromNow(-200),
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	const leased = vehicles[1];
+	if (leased) {
+		const {
+			amount: monthlyPayment,
+			baseAmount,
+			baseCurrency,
+			fxRate,
+		} = money(300, "USD");
+		await db.vehicleFinancing.upsert({
+			where: { vehicleId: leased.id },
+			create: {
+				vehicleId: leased.id,
+				type: FinancingType.LEASING,
+				monthlyPayment,
+				currency: "USD",
+				baseAmount,
+				baseCurrency,
+				fxRate,
+				fxRateAt: fxRate === null ? null : daysFromNow(-1),
+				termMonths: 36,
+				startDate: daysFromNow(-90),
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	return count;
+}
+
+async function seedVehicleCharges(vehicles: SeededVehicle[]): Promise<number> {
+	let count = 0;
+
+	const insured = vehicles[2];
+	if (insured) {
+		const { amount, baseAmount, baseCurrency, fxRate } = money(40, "USD");
+		await db.vehicleCharge.upsert({
+			where: { id: "seed-charge-insurance" },
+			create: {
+				id: "seed-charge-insurance",
+				vehicleId: insured.id,
+				label: "Assurance mensuelle",
+				amount,
+				currency: "USD",
+				baseAmount,
+				baseCurrency,
+				fxRate,
+				fxRateAt: fxRate === null ? null : daysFromNow(-1),
+				frequency: ChargeFrequency.MONTHLY,
+				startDate: daysFromNow(-150),
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	const taxed = vehicles[3];
+	if (taxed) {
+		const { amount, baseAmount, baseCurrency, fxRate } = money(80, "USD");
+		await db.vehicleCharge.upsert({
+			where: { id: "seed-charge-tax" },
+			create: {
+				id: "seed-charge-tax",
+				vehicleId: taxed.id,
+				label: "Vignette annuelle",
+				amount,
+				currency: "USD",
+				baseAmount,
+				baseCurrency,
+				fxRate,
+				fxRateAt: fxRate === null ? null : daysFromNow(-1),
+				frequency: ChargeFrequency.ONE_TIME,
+				startDate: daysFromNow(-60),
+			},
+			update: {},
+		});
+		count += 1;
+	}
+
+	return count;
 }
 
 async function seedActivities(
-	companies: { id: string }[],
-	contacts: SeededContact[],
-	deals: SeededDeal[],
+	vehicles: SeededVehicle[],
+	contracts: SeededContract[],
 	ownerIds: string[],
 ): Promise<number> {
 	const existing = await db.activity.count();
@@ -891,20 +1104,19 @@ async function seedActivities(
 		occurredAt: Date | null;
 		dueAt: Date | null;
 		completedAt: Date | null;
-		companyId: string | null;
 		contactId: string | null;
-		dealId: string | null;
+		vehicleId: string | null;
+		rentalContractId: string | null;
 		createdById: string;
 		createdAt: Date;
-		meta?: { from: DealStage; to: DealStage };
 	};
 
 	const rows: ActivityRow[] = [];
 
-	const base = (companyId: string, createdById: string, createdAt: Date) => ({
-		companyId,
+	const base = (createdById: string, createdAt: Date) => ({
 		contactId: null,
-		dealId: null,
+		vehicleId: null,
+		rentalContractId: null,
 		occurredAt: null,
 		dueAt: null,
 		completedAt: null,
@@ -914,11 +1126,11 @@ async function seedActivities(
 		createdAt,
 	});
 
-	for (const deal of deals) {
-		const dealContacts = contacts.filter((c) => c.companyId === deal.companyId);
+	for (const contract of contracts) {
+		if (contract.status === RentalContractStatus.DRAFT) continue;
 
-		for (let n = 0; n < integer(3, 6); n++) {
-			const at = daysFromNow(-integer(2, 120), 18);
+		for (let n = 0; n < integer(2, 4); n++) {
+			const at = daysFromNow(-integer(1, 20), 18);
 			const type = pick([
 				ActivityType.NOTE,
 				ActivityType.CALL,
@@ -927,10 +1139,11 @@ async function seedActivities(
 			]);
 
 			rows.push({
-				...base(deal.companyId, deal.ownerId, at),
+				...base(contract.ownerId, at),
 				type,
-				dealId: deal.id,
-				contactId: dealContacts.length > 0 ? pick(dealContacts).id : null,
+				rentalContractId: contract.id,
+				vehicleId: contract.vehicleId,
+				contactId: contract.contactId,
 				subject:
 					type === ActivityType.CALL
 						? pick(CALL_SUBJECTS)
@@ -944,45 +1157,36 @@ async function seedActivities(
 			});
 		}
 
-		rows.push({
-			...base(deal.companyId, deal.ownerId, daysFromNow(-integer(1, 20), 12)),
-			type: ActivityType.STAGE_CHANGE,
-			dealId: deal.id,
-			subject: "Stage changed",
-			meta: {
-				from: DealStage.DEMO_BOOKED,
-				to: deal.closed ? DealStage.CLOSED_WON : DealStage.QUALIFIED_TO_BUY,
-			},
-		});
-	}
-
-	for (const deal of deals) {
-		if (deal.closed) continue;
-
-		for (let n = 0; n < integer(1, 3); n++) {
+		if (
+			contract.status === RentalContractStatus.RESERVED ||
+			contract.status === RentalContractStatus.ACTIVE
+		) {
 			const roll = random();
 			const overdue = roll < 0.3;
-			const done = roll >= 0.3 && roll < 0.6;
+			const done = roll >= 0.3 && roll < 0.55;
 			const dueAt = overdue
-				? daysFromNow(-integer(1, 14), 6)
-				: daysFromNow(integer(1, 21), 6);
+				? daysFromNow(-integer(1, 5), 6)
+				: daysFromNow(integer(1, 10), 6);
 
 			rows.push({
-				...base(deal.companyId, deal.ownerId, daysFromNow(-integer(1, 30), 12)),
+				...base(contract.ownerId, daysFromNow(-integer(1, 8), 12)),
 				type: ActivityType.TASK,
-				dealId: deal.id,
+				rentalContractId: contract.id,
+				vehicleId: contract.vehicleId,
+				contactId: contract.contactId,
 				subject: pick(TASK_SUBJECTS),
-				dueAt: done ? daysFromNow(-integer(1, 20), 6) : dueAt,
-				completedAt: done ? daysFromNow(-integer(1, 10), 6) : null,
+				dueAt: done ? daysFromNow(-integer(1, 5), 6) : dueAt,
+				completedAt: done ? daysFromNow(-integer(1, 3), 6) : null,
 			});
 		}
 	}
 
-	for (const company of companies) {
-		if (!chance(0.6)) continue;
+	for (const vehicle of vehicles) {
+		if (!chance(0.3)) continue;
 		rows.push({
-			...base(company.id, pick(ownerIds), daysFromNow(-integer(5, 200), 12)),
+			...base(pick(ownerIds), daysFromNow(-integer(1, 60), 12)),
 			type: ActivityType.NOTE,
+			vehicleId: vehicle.id,
 			body: pick(NOTE_BODIES),
 		});
 	}
@@ -994,17 +1198,23 @@ async function seedActivities(
 async function main() {
 	const rates = await seedRates();
 	const ownerIds = await seedOwners();
-	const companies = await seedCompanies(ownerIds);
-	const contacts = await seedContacts(companies, ownerIds);
-	const deals = await seedDeals(companies, contacts, ownerIds);
-	const activities = await seedActivities(companies, contacts, deals, ownerIds);
-	const companyFields = await seedCompanyFields();
-	await seedCompanyFieldValues(companyFields, companies, ownerIds);
+	const contacts = await seedContacts();
+	const vehicles = await seedVehicles();
+	const contracts = await seedRentalContracts(vehicles, contacts, ownerIds);
+	const payments = await seedPayments(contracts);
+	const incidents = await seedIncidents(vehicles, contracts, ownerIds);
+	const maintenanceRecords = await seedMaintenanceRecords(vehicles);
+	const inspections = await seedInspections(contracts);
+	const financing = await seedVehicleFinancing(vehicles);
+	const charges = await seedVehicleCharges(vehicles);
+	const activities = await seedActivities(vehicles, contracts, ownerIds);
 
 	console.log(
-		`Seeded ${companies.length} companies, ${contacts.length} contacts, ` +
-			`${deals.length} deals, ${activities} activities, ${rates} exchange rates, ` +
-			"7 company fields.",
+		`Seeded ${contacts.length} contacts, ${vehicles.length} vehicles, ` +
+			`${contracts.length} rental contracts, ${payments} payments, ` +
+			`${incidents} incidents, ${maintenanceRecords} maintenance records, ` +
+			`${inspections} inspections, ${financing} financing plans, ${charges} ` +
+			`charges, ${activities} activities, ${rates} exchange rates.`,
 	);
 }
 

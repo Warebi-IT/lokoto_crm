@@ -6,7 +6,6 @@ import { AgentQueueService } from "./agent-queue.service";
 import { AgentRunsService } from "./agent-runs.service";
 import { AgentTriggerService } from "./agent-trigger.service";
 import { AgentsRouter } from "./agents.router";
-import { DispatchHeartbeatService } from "./dispatch-heartbeat.service";
 import { ResearchKeyService } from "./research-key.service";
 
 @Module({
@@ -18,14 +17,8 @@ import { ResearchKeyService } from "./research-key.service";
 		AgentRunsService,
 		AgentTriggerService,
 		AgentsRouter,
-		DispatchHeartbeatService,
 		ResearchKeyService,
 	],
-	exports: [
-		AgentAccessService,
-		AgentTriggerService,
-		AgentQueueService,
-		ResearchKeyService,
-	],
+	exports: [AgentTriggerService, AgentQueueService, ResearchKeyService],
 })
 export class AgentModule {}

@@ -1,15 +1,18 @@
 "use client";
 
-import Building from "@carbon/icons-react/es/Building";
+import Calendar from "@carbon/icons-react/es/Calendar";
+import type { CarbonIconType } from "@carbon/icons-react/es/CarbonIcon";
+import CarFront from "@carbon/icons-react/es/CarFront";
+import Chat from "@carbon/icons-react/es/Chat";
 import Close from "@carbon/icons-react/es/Close";
+import Currency from "@carbon/icons-react/es/Currency";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
-import Partnership from "@carbon/icons-react/es/Partnership";
+import DocumentSigned from "@carbon/icons-react/es/DocumentSigned";
 import Settings from "@carbon/icons-react/es/Settings";
+import Timeline from "@carbon/icons-react/es/Timeline";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import { Button } from "@crm/ui/components/button";
-import type { CarbonIcon } from "@crm/ui/components/icon";
 import { Icon } from "@crm/ui/components/icon";
-import Bot from "@crm/ui/components/icons/bot";
 import {
 	Sheet,
 	SheetContent,
@@ -33,30 +36,51 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 type RailItem = {
 	title: string;
 	href: string;
-	icon: CarbonIcon;
-	iconClassName?: string;
+	icon: CarbonIconType;
 	match: "exact" | "prefix";
 	related?: string[];
 };
 
 const ITEMS: RailItem[] = [
-	{ title: "Overview", href: "/", icon: Dashboard, match: "exact" },
+	{ title: "Vue d’ensemble", href: "/", icon: Dashboard, match: "exact" },
 	{
 		title: "Chat",
 		href: "/chat",
-		icon: Bot,
-		iconClassName: "size-5",
+		icon: Chat,
 		match: "prefix",
 		related: ["/agents"],
 	},
-	{ title: "Companies", href: "/companies", icon: Building, match: "prefix" },
 	{
-		title: "Contacts",
+		title: "Clients",
 		href: "/contacts",
 		icon: UserMultiple,
 		match: "prefix",
 	},
-	{ title: "Deals", href: "/deals", icon: Partnership, match: "prefix" },
+	{ title: "Véhicules", href: "/vehicles", icon: CarFront, match: "prefix" },
+	{
+		title: "Planning",
+		href: "/planning",
+		icon: Timeline,
+		match: "prefix",
+	},
+	{
+		title: "Availability",
+		href: "/availability",
+		icon: Calendar,
+		match: "prefix",
+	},
+	{
+		title: "Contrats de location",
+		href: "/rental-contracts",
+		icon: DocumentSigned,
+		match: "prefix",
+	},
+	{
+		title: "Finance",
+		href: "/finance",
+		icon: Currency,
+		match: "prefix",
+	},
 	{ title: "Settings", href: "/settings", icon: Settings, match: "prefix" },
 ];
 
@@ -85,9 +109,9 @@ function RailLink({
 					variant="ghost"
 					size="icon"
 					className={cn(
-						"text-muted-foreground",
+						"text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-foreground",
 						active &&
-							"bg-muted text-foreground hover:bg-muted hover:text-foreground",
+							"bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
 					)}
 				>
 					<Link
@@ -98,7 +122,7 @@ function RailLink({
 						aria-current={active ? "page" : undefined}
 						transitionTypes={["nav-lateral"]}
 					>
-						<Icon icon={item.icon} className={item.iconClassName} />
+						<Icon icon={item.icon} />
 						<span className="sr-only">{item.title}</span>
 					</Link>
 				</Button>
@@ -140,7 +164,7 @@ function MobileRailLink({
 					item.title === "Chat" ? "nav-forward" : "nav-lateral",
 				]}
 			>
-				<Icon icon={item.icon} className={item.iconClassName} />
+				<Icon icon={item.icon} />
 				<span>{item.title}</span>
 			</Link>
 		</Button>
@@ -177,7 +201,7 @@ function MobileRailIconLink({
 				aria-current={active ? "page" : undefined}
 				onClick={onNavigate}
 			>
-				<Icon icon={item.icon} className={item.iconClassName} />
+				<Icon icon={item.icon} />
 				<span className="sr-only">{item.title}</span>
 			</Link>
 		</Button>
@@ -189,7 +213,7 @@ export function AppIconRailFallback() {
 		<nav
 			aria-label="Primary"
 			aria-busy="true"
-			className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
+			className="hidden w-14 shrink-0 flex-col items-center gap-1 rail-surface border-sidebar-border border-r py-3 md:flex [view-transition-name:app-rail]"
 		>
 			{ITEMS.map((item) => (
 				<Button
@@ -197,9 +221,9 @@ export function AppIconRailFallback() {
 					variant="ghost"
 					size="icon"
 					disabled
-					className="text-muted-foreground"
+					className="text-sidebar-foreground/40"
 				>
-					<Icon icon={item.icon} className={item.iconClassName} />
+					<Icon icon={item.icon} />
 					<span className="sr-only">{item.title}</span>
 				</Button>
 			))}
@@ -231,7 +255,7 @@ export function AppIconRail() {
 		<>
 			<nav
 				aria-label="Primary"
-				className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
+				className="hidden w-14 shrink-0 flex-col items-center gap-1 rail-surface border-sidebar-border border-r py-3 md:flex [view-transition-name:app-rail]"
 			>
 				{items.map((item) => (
 					<RailLink

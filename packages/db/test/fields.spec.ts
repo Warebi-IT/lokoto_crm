@@ -17,7 +17,7 @@ function definition(
 ): FieldDefinitionWithOptions {
 	return {
 		id: "def-1",
-		entity: "COMPANY",
+		entity: "CONTACT",
 		key: "runs_on",
 		label: "Runs on",
 		type: "TEXT",
@@ -39,9 +39,9 @@ function value(over: Partial<FieldValueModel> = {}): FieldValueModel {
 	return {
 		id: "val-1",
 		fieldId: "def-1",
-		companyId: "company-1",
-		contactId: null,
-		dealId: null,
+		contactId: "contact-1",
+		vehicleId: null,
+		rentalContractId: null,
 		text: null,
 		number: null,
 		date: null,
@@ -89,9 +89,9 @@ describe("columnFor", () => {
 
 describe("recordColumn", () => {
 	it("maps an entity to its foreign key", () => {
-		expect(recordColumn("COMPANY")).toBe("companyId");
 		expect(recordColumn("CONTACT")).toBe("contactId");
-		expect(recordColumn("DEAL")).toBe("dealId");
+		expect(recordColumn("VEHICLE")).toBe("vehicleId");
+		expect(recordColumn("RENTAL_CONTRACT")).toBe("rentalContractId");
 	});
 });
 

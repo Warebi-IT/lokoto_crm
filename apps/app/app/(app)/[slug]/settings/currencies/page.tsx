@@ -23,7 +23,7 @@ export default function CurrenciesSettingsPage() {
 		<PageShell>
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Currencies</PageShellTitle>
+					<PageShellTitle>Devises</PageShellTitle>
 					<PageShellDescription>
 						What your numbers are reported in, and how the other currencies get
 						there.

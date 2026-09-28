@@ -68,11 +68,9 @@ export function AgentClarificationComposer({
 					: { requestId: question.requestId, text: value }
 			) satisfies ClarificationResponse;
 			await onSubmit(response);
-		} catch (error) {
+		} catch {
 			setTransportError(
-				error instanceof Error && error.message.trim()
-					? error.message
-					: "Unable to submit. Check your connection and try again.",
+				"Unable to submit. Check your connection and try again.",
 			);
 		}
 	};

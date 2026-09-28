@@ -75,9 +75,9 @@ export function WorkspaceForm() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Workspace</CardTitle>
+				<CardTitle>Espace de travail</CardTitle>
 				<CardDescription>
-					The name and website of the company using this CRM.
+					Le nom et le site web de votre agence.
 				</CardDescription>
 
 				<CardAction>
@@ -93,7 +93,7 @@ export function WorkspaceForm() {
 						}
 					>
 						{save.isPending ? <Spinner data-icon="inline-start" /> : null}
-						Save
+						Enregistrer
 					</Button>
 				</CardAction>
 			</CardHeader>
@@ -111,7 +111,7 @@ export function WorkspaceForm() {
 				>
 					<FieldGroup>
 						<Field>
-							<FieldLabel htmlFor={nameId}>Name</FieldLabel>
+							<FieldLabel htmlFor={nameId}>Nom</FieldLabel>
 							<Input
 								id={nameId}
 								value={values.name}
@@ -122,12 +122,12 @@ export function WorkspaceForm() {
 								required
 							/>
 							<FieldDescription>
-								Shown wherever the CRM refers to your own company.
+								Affiché lorsque le CRM fait référence à votre agence.
 							</FieldDescription>
 						</Field>
 
 						<Field>
-							<FieldLabel htmlFor={websiteId}>Website</FieldLabel>
+							<FieldLabel htmlFor={websiteId}>Site web</FieldLabel>
 							<InputGroup>
 								<InputGroupAddon>
 									<InputGroupText>https://</InputGroupText>
@@ -145,7 +145,7 @@ export function WorkspaceForm() {
 									disabled={!canRename || save.isPending}
 								/>
 							</InputGroup>
-							<FieldDescription>Your own company's website.</FieldDescription>
+							<FieldDescription>Le site web de votre agence.</FieldDescription>
 						</Field>
 					</FieldGroup>
 				</form>

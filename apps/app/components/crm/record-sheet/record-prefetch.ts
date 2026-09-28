@@ -12,18 +12,20 @@ export function usePrefetchRecord() {
 	return useCallback(
 		({ kind, id }: RecordRef) => {
 			switch (kind) {
-				case "company":
-					void queryClient.prefetchQuery(
-						trpc.companies.byId.queryOptions({ id }),
-					);
-					return;
 				case "contact":
 					void queryClient.prefetchQuery(
 						trpc.contacts.byId.queryOptions({ id }),
 					);
 					return;
-				case "deal":
-					void queryClient.prefetchQuery(trpc.deals.byId.queryOptions({ id }));
+				case "vehicle":
+					void queryClient.prefetchQuery(
+						trpc.vehicles.byId.queryOptions({ id }),
+					);
+					return;
+				case "rentalContract":
+					void queryClient.prefetchQuery(
+						trpc.rentalContracts.byId.queryOptions({ id }),
+					);
 					return;
 			}
 		},

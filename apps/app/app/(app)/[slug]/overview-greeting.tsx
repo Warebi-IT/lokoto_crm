@@ -2,13 +2,12 @@
 
 import { useQueryState } from "nuqs";
 import { PageShellDescription, PageShellTitle } from "@/components/page-shell";
-import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { overviewParsers } from "./overview-search-params";
 
 export function OverviewGreetingFallback() {
 	return (
 		<>
-			<PageShellTitle>Welcome back</PageShellTitle>
+			<PageShellTitle>Bon retour</PageShellTitle>
 			<PageShellDescription>
 				What you have closed, what is still in play, and what needs you today.
 			</PageShellDescription>
@@ -17,14 +16,11 @@ export function OverviewGreetingFallback() {
 }
 
 export function OverviewGreeting() {
-	const [scope] = useQueryState(
-		SEARCH_PARAM.overview.scope,
-		overviewParsers[SEARCH_PARAM.overview.scope],
-	);
+	const [scope] = useQueryState("scope", overviewParsers.scope);
 
 	return (
 		<>
-			<PageShellTitle>Welcome back</PageShellTitle>
+			<PageShellTitle>Bon retour</PageShellTitle>
 			<PageShellDescription>
 				{scope === "me"
 					? "What you have closed, what is still in play, and what needs you today."

@@ -1,6 +1,5 @@
 import { db } from "@crm/db";
 import { blobEnabled, isMirrored, mirror } from "@crm/db/blob";
-import { CONTEXT_DEV_PEOPLE, enabled } from "./capabilities";
 import { findPortrait, type PortraitSource } from "./portrait-sources";
 
 export type PortraitResult = {
@@ -114,7 +113,6 @@ export async function runPortrait({
 			imageUrl: true,
 			linkedinUrl: true,
 			githubUrl: true,
-			company: { select: { name: true, domain: true } },
 		},
 	});
 
@@ -137,11 +135,8 @@ export async function runPortrait({
 				[contact.firstName, contact.lastName].filter(Boolean).join(" ") || null,
 			linkedinUrl: contact.linkedinUrl,
 			githubUrl: contact.githubUrl,
-			companyName: contact.company?.name ?? null,
-			companyDomain: contact.company?.domain ?? null,
 		},
 		spend,
-		await enabled(CONTEXT_DEV_PEOPLE),
 	);
 
 	if (!found.found) {
@@ -152,7 +147,7 @@ export async function runPortrait({
 				found.reason ??
 				(found.tried.length > 0
 					? `No picture found. Tried: ${found.tried.join("; ")}.`
-					: "Nothing on this contact points at a picture — no LinkedIn or GitHub profile, and no company website."),
+					: "Nothing on this contact points at a picture — no LinkedIn or GitHub profile."),
 		};
 	}
 

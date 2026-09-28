@@ -375,17 +375,17 @@ function Failure({ message }: { message: string }) {
 	);
 }
 
-const TONE_ICONS = {
+const TONE_ICONS: Record<Tone, CarbonIcon> = {
 	neutral: CircleDash,
 	success: Checkmark,
 	warning: Warning,
-} satisfies Record<Tone, CarbonIcon>;
+};
 
-const SOURCE_ICONS = {
+const SOURCE_ICONS: Record<Source["network"], CarbonIcon> = {
 	linkedin: LogoLinkedin,
 	github: LogoGithub,
 	web: Document,
-} satisfies Record<Source["network"], CarbonIcon>;
+};
 
 function Item({ item }: { item: TranscriptItem }) {
 	if (item.kind === "said") {
@@ -414,7 +414,7 @@ function Item({ item }: { item: TranscriptItem }) {
 	if (item.kind === "asked") {
 		return (
 			<div className="w-full max-w-sm border-ring/50 border-l-2 bg-muted/40 px-3 py-2.5">
-				<p className="font-medium text-xs">Follow-up</p>
+				<p className="font-medium text-xs">Suivi</p>
 				<Markdown className="mt-1.5 wrap-break-word text-sm leading-5">
 					{item.question.prompt}
 				</Markdown>
@@ -478,7 +478,11 @@ function useSavedConversation({
 	session,
 	messages,
 }: {
-	record: { contactId?: string; companyId?: string; dealId?: string };
+	record: {
+		contactId?: string;
+		vehicleId?: string;
+		rentalContractId?: string;
+	};
 	conversation: Conversation | null;
 	opening: React.RefObject<string | null>;
 	session: {
@@ -495,7 +499,7 @@ function useSavedConversation({
 	const sessionId = session?.sessionId ?? null;
 	const token = session?.continuationToken ?? null;
 	const streamIndex = session?.streamIndex ?? 0;
-	const { contactId, companyId, dealId } = record;
+	const { contactId, vehicleId, rentalContractId } = record;
 
 	const isNew = conversation === null || conversation.sessionId !== sessionId;
 
@@ -503,14 +507,14 @@ function useSavedConversation({
 	const persist = useEffectEvent(() => {
 		save.mutate(
 			{
-				contactId: contactId || undefined,
-				companyId: companyId || undefined,
-				dealId: dealId || undefined,
+				...(contactId ? { contactId } : {}),
+				...(vehicleId ? { vehicleId } : {}),
+				...(rentalContractId ? { rentalContractId } : {}),
 				sessionId: sessionId ?? "",
 				continuationToken: token,
 				streamIndex,
 				messageCount: messages,
-				title: isNew ? (opening.current ?? undefined) : undefined,
+				...(isNew ? { title: opening.current ?? undefined } : {}),
 			},
 			{
 				onSuccess: () => {

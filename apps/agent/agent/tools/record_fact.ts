@@ -8,7 +8,7 @@ import { assertResearchPurpose } from "../lib/session-purpose";
 
 export default defineTool({
 	description:
-		"Record one claim about a contact — title, employer, a profile URL, seniority — together with the evidence for it. The evidence decides whether it is written to the record or offered to a rep as a suggestion. Never invent evidence you did not observe.",
+		"Record one claim about a contact — title, a profile URL, seniority — together with the evidence for it. The evidence decides whether it is written to the record or offered to a rep as a suggestion. Never invent evidence you did not observe.",
 	inputSchema: z.object({
 		contactId: z.string(),
 		field: z
@@ -64,7 +64,7 @@ export default defineTool({
 			band: result.band,
 			score: Number(result.score.toFixed(2)),
 			rationale: result.rationale,
-			reason: result.reason || undefined,
+			...(result.reason ? { reason: result.reason } : {}),
 		};
 	},
 });

@@ -46,17 +46,14 @@
 	--severity-low: var(--muted-foreground);
 	--severity-info: oklch(0.71 0.01 286);
 	--severity-unknown: oklch(0.75 0 0);
-	--code-foreground: #2b2b2b;
-	--code-accent: #b0402c;
-	--code-string: var(--primary);
-	--sidebar: #fafafa;
-	--sidebar-foreground: #171717;
-	--sidebar-primary: #006b4f;
+	--sidebar: #0b2e22;
+	--sidebar-foreground: #f2f5f1;
+	--sidebar-primary: #17b37e;
 	--sidebar-primary-foreground: #ffffff;
-	--sidebar-accent: #f4f4f4;
-	--sidebar-accent-foreground: #171717;
-	--sidebar-border: #e2e2e2;
-	--sidebar-ring: #006b4f;
+	--sidebar-accent: #14392b;
+	--sidebar-accent-foreground: #ffffff;
+	--sidebar-border: #1c4433;
+	--sidebar-ring: #40be96;
 	--font-sans: var(--font-geist-sans, "Geist", sans-serif);
 	--font-mono: var(--font-geist-mono, "Geist Mono", monospace);
 	--radius: 5px;
@@ -67,13 +64,13 @@
 	--shadow-opacity: 0.08;
 	--shadow-color: hsl(0 0% 0%);
 	--shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.04);
-	--shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.04);
-	--shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.06);
-	--shadow: 0px 1px 2px 0px hsl(0 0% 0% / 0.06);
-	--shadow-md: 0px 2px 4px -1px hsl(0 0% 0% / 0.08);
-	--shadow-lg: 0px 4px 8px -2px hsl(0 0% 0% / 0.08);
-	--shadow-xl: 0px 8px 16px -4px hsl(0 0% 0% / 0.08);
-	--shadow-2xl: 0px 16px 32px -8px hsl(0 0% 0% / 0.12);
+	--shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.05);
+	--shadow-sm: 0px 1px 3px 0px hsl(0 0% 0% / 0.08);
+	--shadow: 0px 1px 3px 0px hsl(0 0% 0% / 0.08);
+	--shadow-md: 0px 4px 8px -2px hsl(0 0% 0% / 0.1);
+	--shadow-lg: 0px 8px 16px -4px hsl(0 0% 0% / 0.1);
+	--shadow-xl: 0px 12px 24px -6px hsl(0 0% 0% / 0.12);
+	--shadow-2xl: 0px 20px 40px -10px hsl(0 0% 0% / 0.14);
 	--tracking-normal: 0em;
 	--spacing: 0.25rem;
 }
@@ -118,16 +115,13 @@
 	--severity-low: var(--muted-foreground);
 	--severity-info: oklch(0.71 0.01 286);
 	--severity-unknown: oklch(0.5 0 0);
-	--code-foreground: #e3e3e3;
-	--code-accent: #e5735b;
-	--code-string: #40be96;
-	--sidebar: #171717;
-	--sidebar-foreground: #f5f5f5;
-	--sidebar-primary: #006b4f;
+	--sidebar: #0b2e22;
+	--sidebar-foreground: #f2f5f1;
+	--sidebar-primary: #17b37e;
 	--sidebar-primary-foreground: #ffffff;
-	--sidebar-accent: #292929;
-	--sidebar-accent-foreground: #f5f5f5;
-	--sidebar-border: #2a2a2a;
+	--sidebar-accent: #14392b;
+	--sidebar-accent-foreground: #ffffff;
+	--sidebar-border: #1c4433;
 	--sidebar-ring: #40be96;
 	--font-sans: var(--font-geist-sans, "Geist", sans-serif);
 	--font-mono: var(--font-geist-mono, "Geist Mono", monospace);
@@ -136,34 +130,19 @@
 	--shadow-y: 1px;
 	--shadow-blur: 2px;
 	--shadow-spread: 0px;
-	--shadow-opacity: 0.08;
+	--shadow-opacity: 0.16;
 	--shadow-color: hsl(0 0% 0%);
-	--shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.04);
-	--shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.04);
-	--shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.06);
-	--shadow: 0px 1px 2px 0px hsl(0 0% 0% / 0.06);
-	--shadow-md: 0px 2px 4px -1px hsl(0 0% 0% / 0.08);
-	--shadow-lg: 0px 4px 8px -2px hsl(0 0% 0% / 0.08);
-	--shadow-xl: 0px 8px 16px -4px hsl(0 0% 0% / 0.08);
-	--shadow-2xl: 0px 16px 32px -8px hsl(0 0% 0% / 0.12);
+	--shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.2);
+	--shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.24);
+	--shadow-sm: 0px 1px 3px 0px hsl(0 0% 0% / 0.3);
+	--shadow: 0px 1px 3px 0px hsl(0 0% 0% / 0.3);
+	--shadow-md: 0px 4px 8px -2px hsl(0 0% 0% / 0.32);
+	--shadow-lg: 0px 8px 16px -4px hsl(0 0% 0% / 0.34);
+	--shadow-xl: 0px 12px 24px -6px hsl(0 0% 0% / 0.36);
+	--shadow-2xl: 0px 20px 40px -10px hsl(0 0% 0% / 0.4);
 }
 
 @theme inline {
-	--spacing-page-top: 40px;
-	--spacing-page-bottom: 40px;
-	--spacing-page-inline: 24px;
-	--spacing-page-gap: 24px;
-	--spacing-block-inline: 20px;
-	--container-page: 820px;
-	--container-page-wide: 1120px;
-	--container-narrow: 560px;
-	--container-sheet: 640px;
-	--color-dark-card: #171717;
-	--color-dark-border: #2a2a2a;
-	--color-dark-ring: #40be96;
-	--color-dark-code-foreground: #e3e3e3;
-	--color-dark-code-gutter: #5a5a5a;
-	--color-dark-code-string: #40be96;
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -203,9 +182,6 @@
 	--color-severity-low: var(--severity-low);
 	--color-severity-info: var(--severity-info);
 	--color-severity-unknown: var(--severity-unknown);
-	--color-code-foreground: var(--code-foreground);
-	--color-code-accent: var(--code-accent);
-	--color-code-string: var(--code-string);
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
 	--color-sidebar-primary: var(--sidebar-primary);
@@ -282,6 +258,14 @@
 		box-shadow:
 			0 0 4px var(--bloom-color, currentColor),
 			0 0 10px var(--bloom-color, currentColor);
+	}
+	.rail-surface {
+		background: linear-gradient(
+			180deg,
+			color-mix(in oklch, var(--sidebar), white 4%),
+			var(--sidebar) 40%,
+			color-mix(in oklch, var(--sidebar), black 12%)
+		);
 	}
 }
 

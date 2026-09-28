@@ -10,18 +10,12 @@ import {
 import type { z } from "zod";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
-import { restMeta } from "../trpc/openapi";
 import {
 	activityCreateInput,
-	activityCreateOutput,
 	completeInput,
-	completeOutput,
 	myTasksInput,
-	myTasksOutput,
 	timelineCountsInput,
-	timelineCountsOutput,
 	timelineInput,
-	timelineOutput,
 } from "./activities.contracts";
 import { ActivitiesService } from "./activities.service";
 
@@ -32,29 +26,17 @@ export class ActivitiesRouter {
 		@Inject(ActivitiesService) private readonly activities: ActivitiesService,
 	) {}
 
-	@Query({
-		input: timelineInput,
-		output: timelineOutput,
-		meta: restMeta("GET", "/activities", ["Activities"]),
-	})
+	@Query({ input: timelineInput })
 	async timeline(@Input() input: z.infer<typeof timelineInput>) {
 		return this.activities.timeline(input);
 	}
 
-	@Query({
-		input: timelineCountsInput,
-		output: timelineCountsOutput,
-		meta: restMeta("GET", "/activities/counts", ["Activities"]),
-	})
+	@Query({ input: timelineCountsInput })
 	async timelineCounts(@Input() input: z.infer<typeof timelineCountsInput>) {
 		return this.activities.timelineCounts(input);
 	}
 
-	@Query({
-		input: myTasksInput,
-		output: myTasksOutput,
-		meta: restMeta("GET", "/activities/my-tasks", ["Activities"]),
-	})
+	@Query({ input: myTasksInput })
 	async myTasks(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof myTasksInput>,
@@ -62,11 +44,7 @@ export class ActivitiesRouter {
 		return this.activities.myTasks(input, ctx.user.id);
 	}
 
-	@Mutation({
-		input: activityCreateInput,
-		output: activityCreateOutput,
-		meta: restMeta("POST", "/activities", ["Activities"]),
-	})
+	@Mutation({ input: activityCreateInput })
 	async create(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof activityCreateInput>,
@@ -74,11 +52,7 @@ export class ActivitiesRouter {
 		return this.activities.create(input, ctx.user.id);
 	}
 
-	@Mutation({
-		input: completeInput,
-		output: completeOutput,
-		meta: restMeta("PATCH", "/activities/{id}/complete", ["Activities"]),
-	})
+	@Mutation({ input: completeInput })
 	async complete(@Input() input: z.infer<typeof completeInput>) {
 		return this.activities.complete(input.id, input.completed);
 	}

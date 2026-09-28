@@ -1,10 +1,5 @@
 import { WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
-import { readAgentManifestSummary } from "@crm/validation/agent-manifest";
-import {
-	type BuilderQuestion,
-	builderQuestion,
-} from "@crm/validation/builder-question";
 import {
 	BadRequestException,
 	Injectable,
@@ -22,17 +17,39 @@ import { conversationShareTokenHash } from "./conversation-share-token";
 import type {
 	BuilderConversationCreateInput,
 	BuilderConversationSubmitInput,
-	BuilderConversationSummary,
 	BuilderQuestionResponseInput,
 	ConversationEventsInput,
 	ConversationListInput,
 	ConversationSaveInput,
-	ConversationSummary,
 } from "./conversations.contracts";
 
-type ReplayedRequest = {
+export interface ConversationSummary {
 	id: string;
-};
+	sessionId: string;
+	continuationToken: string | null;
+	streamIndex: number;
+	title: string | null;
+	messageCount: number;
+	lastMessageAt: string;
+}
+
+export interface BuilderConversationSummary {
+	id: string;
+	sessionId: string | null;
+	continuationToken: string | null;
+	streamIndex: number;
+	title: string | null;
+	messageCount: number;
+	lastMessageAt: string;
+	lastAssistantAt: string | null;
+	unread: boolean;
+	state: "working" | "unread" | "deployed" | "idle";
+	agent: {
+		id: string;
+		name: string;
+		status: string;
+	} | null;
+}
 
 type ExistingBuilderRequest = {
 	id: string;
@@ -60,9 +77,11 @@ export class ConversationsService {
 		const rows = await this.db.agentConversation.findMany({
 			where: {
 				userId,
-				contactId: input.contactId ?? undefined,
-				companyId: input.companyId ?? undefined,
-				dealId: input.dealId ?? undefined,
+				...(input.contactId ? { contactId: input.contactId } : {}),
+				...(input.vehicleId ? { vehicleId: input.vehicleId } : {}),
+				...(input.rentalContractId
+					? { rentalContractId: input.rentalContractId }
+					: {}),
 			},
 			orderBy: { lastMessageAt: "desc" },
 			take: 20,
@@ -162,13 +181,7 @@ export class ConversationsService {
 			? { contains: search, mode: "insensitive" as const }
 			: undefined;
 
-		const [companies, contacts, deals, slackAccount] = await Promise.all([
-			this.db.company.findMany({
-				where: contains ? { name: contains } : undefined,
-				orderBy: { lastActivityAt: { sort: "desc", nulls: "last" } },
-				take: 6,
-				select: { id: true, name: true, domain: true, logoUrl: true },
-			}),
+		const [contacts, vehicles, rentalContracts] = await Promise.all([
 			this.db.contact.findMany({
 				where: contains
 					? {
@@ -187,57 +200,64 @@ export class ConversationsService {
 					lastName: true,
 					email: true,
 					imageUrl: true,
-					company: { select: { name: true } },
 				},
 			}),
-			this.db.deal.findMany({
-				where: contains ? { name: contains } : undefined,
+			this.db.vehicle.findMany({
+				where: contains
+					? {
+							OR: [
+								{ plateNumber: contains },
+								{ make: contains },
+								{ model: contains },
+							],
+						}
+					: undefined,
+				orderBy: { lastActivityAt: { sort: "desc", nulls: "last" } },
+				take: 6,
+				select: { id: true, plateNumber: true, make: true, model: true },
+			}),
+			this.db.rentalContract.findMany({
+				where: contains
+					? {
+							contact: {
+								OR: [{ firstName: contains }, { lastName: contains }],
+							},
+						}
+					: undefined,
 				orderBy: { lastActivityAt: { sort: "desc", nulls: "last" } },
 				take: 6,
 				select: {
 					id: true,
-					name: true,
-					company: { select: { name: true, logoUrl: true } },
+					contact: { select: { firstName: true, lastName: true } },
+					vehicle: { select: { plateNumber: true } },
 				},
-			}),
-			this.db.account.findFirst({
-				where: { providerId: "slack", accessToken: { not: null } },
-				select: { id: true },
 			}),
 		]);
 
 		return [
-			...(slackAccount && (!search || "slack".includes(search.toLowerCase()))
-				? [
-						{
-							kind: "integration" as const,
-							id: "slack:workspace",
-							label: "Slack",
-							detail: "Connected workspace",
-							imageUrl: null,
-						},
-					]
-				: []),
-			...companies.map((company) => ({
-				kind: "company" as const,
-				id: company.id,
-				label: company.name,
-				detail: company.domain,
-				imageUrl: company.logoUrl,
-			})),
 			...contacts.map((contact) => ({
 				kind: "contact" as const,
 				id: contact.id,
 				label: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
-				detail: contact.company?.name ?? contact.email,
+				detail: contact.email,
 				imageUrl: contact.imageUrl,
 			})),
-			...deals.map((deal) => ({
-				kind: "deal" as const,
-				id: deal.id,
-				label: deal.name,
-				detail: deal.company.name,
-				imageUrl: deal.company.logoUrl,
+			...vehicles.map((vehicle) => ({
+				kind: "vehicle" as const,
+				id: vehicle.id,
+				label: `${vehicle.make} ${vehicle.model}`,
+				detail: vehicle.plateNumber,
+				imageUrl: null,
+			})),
+			...rentalContracts.map((contract) => ({
+				kind: "rentalContract" as const,
+				id: contract.id,
+				label:
+					[contract.contact.firstName, contract.contact.lastName]
+						.filter(Boolean)
+						.join(" ") || contract.vehicle.plateNumber,
+				detail: contract.vehicle.plateNumber,
+				imageUrl: null,
 			})),
 		];
 	}
@@ -250,7 +270,6 @@ export class ConversationsService {
 				id: true,
 				sessionId: true,
 				continuationToken: true,
-				pendingInputRequest: true,
 				streamIndex: true,
 				title: true,
 				messageCount: true,
@@ -353,11 +372,8 @@ export class ConversationsService {
 			throw new NotFoundException(`No builder conversation with id ${id}.`);
 		}
 
-		const { pendingInputRequest, ...conversation } = row;
-
 		return {
-			...conversation,
-			pendingQuestion: pendingBuilderQuestionOf(pendingInputRequest),
+			...row,
 			lastMessageAt: row.lastMessageAt.toISOString(),
 			lastAssistantAt: row.lastAssistantAt?.toISOString() ?? null,
 			lastReadAt: row.lastReadAt?.toISOString() ?? null,
@@ -379,7 +395,6 @@ export class ConversationsService {
 				: null,
 			createdVersions: row.createdVersions.map((version) => ({
 				...version,
-				manifest: readAgentManifestSummary(version.manifest),
 				createdAt: version.createdAt.toISOString(),
 			})),
 			builderArtifacts: row.builderArtifacts.map((artifact) => ({
@@ -514,12 +529,7 @@ export class ConversationsService {
 
 		const conversation = await this.db.agentConversation.findFirst({
 			where: { id: input.id, userId, kind: "BUILDER" },
-			select: {
-				id: true,
-				sessionId: true,
-				continuationToken: true,
-				pendingInputRequest: true,
-			},
+			select: { id: true, sessionId: true, continuationToken: true },
 		});
 
 		if (!conversation) {
@@ -534,19 +544,42 @@ export class ConversationsService {
 			);
 		}
 
-		const question = pendingBuilderQuestionOf(conversation.pendingInputRequest);
-		if (!question) {
+		const boundary = await this.db.agentEvent.findFirst({
+			where: {
+				sessionId: conversation.sessionId,
+				type: {
+					in: [
+						"input.requested",
+						"message.received",
+						"turn.cancelled",
+						"session.completed",
+						"session.failed",
+					],
+				},
+			},
+			orderBy: [{ emittedAt: "desc" }, { id: "desc" }],
+			select: { type: true, data: true },
+		});
+
+		if (boundary?.type !== "input.requested") {
 			throw new BadRequestException(
 				"The agent is no longer waiting for that answer.",
 			);
 		}
-		if (question.requestId !== input.requestId) {
+
+		const requests = arrayOf(recordOf(boundary.data).requests).map(recordOf);
+		const question = requests.find(
+			(request) =>
+				request.kind === "question" && request.requestId === input.requestId,
+		);
+
+		if (!question) {
 			throw new BadRequestException(
 				"That follow-up question is no longer active.",
 			);
 		}
 
-		const options = question.options;
+		const options = arrayOf(question.options).map(recordOf);
 		const selected = input.optionId
 			? options.find((option) => option.id === input.optionId)
 			: null;
@@ -557,7 +590,10 @@ export class ConversationsService {
 			);
 		}
 
-		const acceptsText = question.allowFreeform || question.display === "text";
+		const acceptsText =
+			question.allowFreeform === true ||
+			question.display === "text" ||
+			options.length === 0;
 		if (input.text && !acceptsText) {
 			throw new BadRequestException(
 				"Choose one of the available answers for this question.",
@@ -569,10 +605,8 @@ export class ConversationsService {
 			throw new BadRequestException("Choose an answer before submitting.");
 		}
 
-		const displayText = selected?.label ?? answer;
-		const inputResponse = input.optionId
-			? { requestId: input.requestId, optionId: input.optionId }
-			: { requestId: input.requestId, text: input.text };
+		const displayText =
+			typeof selected?.label === "string" ? selected.label : answer;
 		try {
 			const submission = await this.db.$transaction(async (tx) => {
 				const created = await tx.agentConversationSubmission.create({
@@ -581,12 +615,12 @@ export class ConversationsService {
 						submittedById: userId,
 						clientRequestId: input.clientRequestId,
 						inputRequestId: input.requestId,
-						commandType: "CREATE_AGENT",
+						commandType: "CHAT",
 						message: {
 							text: displayText,
 							resources: [],
 							attachments: [],
-							inputResponse,
+							inputResponse: { requestId: input.requestId, answer },
 						},
 					},
 					select: { id: true },
@@ -749,8 +783,8 @@ export class ConversationsService {
 			kind: string;
 			userId: string;
 			contactId: string | null;
-			companyId: string | null;
-			dealId: string | null;
+			vehicleId: string | null;
+			rentalContractId: string | null;
 		}) => {
 			if (existing.userId !== userId || existing.kind !== "RECORD") {
 				throw new NotFoundException(
@@ -759,7 +793,7 @@ export class ConversationsService {
 			}
 
 			const existingRecordId =
-				existing.contactId ?? existing.companyId ?? existing.dealId;
+				existing.contactId ?? existing.vehicleId ?? existing.rentalContractId;
 			if (existingRecordId !== recordId) {
 				throw new BadRequestException(
 					"A conversation cannot be moved to another CRM record.",
@@ -772,8 +806,8 @@ export class ConversationsService {
 					kind: "RECORD",
 					userId,
 					contactId: input.contactId ?? null,
-					companyId: input.companyId ?? null,
-					dealId: input.dealId ?? null,
+					vehicleId: input.vehicleId ?? null,
+					rentalContractId: input.rentalContractId ?? null,
 				},
 				data: {
 					continuationToken: input.continuationToken ?? null,
@@ -799,8 +833,8 @@ export class ConversationsService {
 				kind: true,
 				userId: true,
 				contactId: true,
-				companyId: true,
-				dealId: true,
+				vehicleId: true,
+				rentalContractId: true,
 			},
 		});
 		let conversation: { id: string };
@@ -818,8 +852,8 @@ export class ConversationsService {
 						messageCount: input.messageCount ?? 0,
 						userId,
 						contactId: input.contactId ?? null,
-						companyId: input.companyId ?? null,
-						dealId: input.dealId ?? null,
+						vehicleId: input.vehicleId ?? null,
+						rentalContractId: input.rentalContractId ?? null,
 					},
 					select: { id: true },
 				});
@@ -832,8 +866,8 @@ export class ConversationsService {
 						kind: true,
 						userId: true,
 						contactId: true,
-						companyId: true,
-						dealId: true,
+						vehicleId: true,
+						rentalContractId: true,
 					},
 				});
 				if (!winner) throw error;
@@ -857,22 +891,10 @@ export class ConversationsService {
 			await this.assertWorkspaceMember(userId);
 		}
 
-		const eventWhere: Prisma.AgentEventWhereInput =
-			conversation.kind === "BUILDER"
-				? {
-						OR: [
-							{ conversationId: input.id },
-							...(conversation.sessionId
-								? [{ sessionId: conversation.sessionId }]
-								: []),
-						],
-					}
-				: conversation.sessionId
-					? { sessionId: conversation.sessionId }
-					: { id: { in: [] } };
+		if (!conversation.sessionId) return [];
 
 		const events = await this.db.agentEvent.findMany({
-			where: eventWhere,
+			where: { sessionId: conversation.sessionId },
 			orderBy: [{ emittedAt: "desc" }, { id: "desc" }],
 			take: input.limit,
 			select: { id: true, type: true, data: true, emittedAt: true },
@@ -907,16 +929,11 @@ export class ConversationsService {
 			await tx.agentBuilderArtifact.deleteMany({
 				where: { conversationId: id, versionId: null },
 			});
-			await tx.agentEvent.deleteMany({
-				where: {
-					OR: [
-						{ conversationId: id },
-						...(conversation.sessionId
-							? [{ sessionId: conversation.sessionId }]
-							: []),
-					],
-				},
-			});
+			if (conversation.sessionId) {
+				await tx.agentEvent.deleteMany({
+					where: { sessionId: conversation.sessionId },
+				});
+			}
 
 			await tx.agentConversation.delete({ where: { id } });
 		});
@@ -928,17 +945,19 @@ export class ConversationsService {
 
 	private recordId(input: {
 		contactId?: string;
-		companyId?: string;
-		dealId?: string;
+		vehicleId?: string;
+		rentalContractId?: string;
 	}): string {
-		const recordIds = [input.contactId, input.companyId, input.dealId].filter(
-			(recordId): recordId is string => Boolean(recordId),
-		);
+		const recordIds = [
+			input.contactId,
+			input.vehicleId,
+			input.rentalContractId,
+		].filter((recordId): recordId is string => Boolean(recordId));
 		const [recordId] = recordIds;
 
 		if (!recordId || recordIds.length !== 1) {
 			throw new BadRequestException(
-				"Choose exactly one contact, company or deal.",
+				"Choose exactly one contact, vehicle or rental contract.",
 			);
 		}
 
@@ -1065,7 +1084,7 @@ export class ConversationsService {
 	private replayBuilderCreation(
 		existing: ExistingBuilderRequest,
 		userId: string,
-	): ReplayedRequest {
+	): { id: string } {
 		if (
 			existing.conversation.userId !== userId ||
 			existing.conversation.kind !== "BUILDER"
@@ -1080,7 +1099,7 @@ export class ConversationsService {
 		existing: ExistingBuilderRequest,
 		conversationId: string,
 		userId: string,
-	): ReplayedRequest {
+	): { id: string } {
 		if (
 			existing.conversationId !== conversationId ||
 			existing.submittedById !== userId
@@ -1092,15 +1111,19 @@ export class ConversationsService {
 	}
 }
 
-function isUniqueConstraint(cause: unknown): boolean {
+function isUniqueConstraint(error: unknown): boolean {
 	return (
-		cause instanceof PrismaNamespace.PrismaClientKnownRequestError &&
-		cause.code === "P2002"
+		error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
+		error.code === "P2002"
 	);
 }
 
-function pendingBuilderQuestionOf(
-	value: Prisma.JsonValue,
-): BuilderQuestion | null {
-	return builderQuestion.parse(value);
+function recordOf(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
+}
+
+function arrayOf(value: unknown): unknown[] {
+	return Array.isArray(value) ? value : [];
 }

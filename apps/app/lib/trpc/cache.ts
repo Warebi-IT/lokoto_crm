@@ -9,25 +9,18 @@ type Options = {
 	settle?: Settle;
 };
 
-type RecordKind = "company" | "contact" | "deal";
-
-const ENTITY_FOR = {
-	company: "COMPANY",
-	contact: "CONTACT",
-	deal: "DEAL",
-} as const satisfies Record<RecordKind, string>;
+type RecordKind = "contact" | "vehicle" | "rentalContract";
 
 type RemovedRecord = { kind: RecordKind; id: string };
 
 type RemovedRecords = { kind: RecordKind; ids: string[] };
 
 export type CrmCache = {
-	company(id?: string, options?: Options): Promise<void>;
 	contact(id?: string, options?: Options): Promise<void>;
-	deal(id?: string, options?: Options): Promise<void>;
+	vehicle(id?: string, options?: Options): Promise<void>;
+	rentalContract(id?: string, options?: Options): Promise<void>;
 	fields(entity?: RecordKind, options?: Options): Promise<void>;
 	fieldCoverage(id?: string, options?: Options): Promise<void>;
-	savedViews(entity?: RecordKind, options?: Options): Promise<void>;
 	removed(record: RemovedRecord): Promise<void>;
 	removedMany(records: RemovedRecords): Promise<void>;
 	conversationRemoved(id: string): Promise<void>;
@@ -37,10 +30,7 @@ export type CrmCache = {
 	settings(options?: Options): Promise<void>;
 	currency(options?: Options): Promise<void>;
 	workspace(options?: Options): Promise<void>;
-	slack(options?: Options): Promise<void>;
 	sso(options?: Options): Promise<void>;
-	apiKeys(options?: Options): Promise<void>;
-	tracking(options?: Options): Promise<void>;
 	everything(): Promise<void>;
 };
 
@@ -72,25 +62,25 @@ export function useCrmCache(): CrmCache {
 	];
 
 	const listKeys = () => [
-		trpc.companies.list.queryKey(),
 		trpc.contacts.list.queryKey(),
-		trpc.deals.list.queryKey(),
+		trpc.vehicles.list.queryKey(),
+		trpc.rentalContracts.list.queryKey(),
 		trpc.search.quick.queryKey(),
 	];
 
 	const removeRecords = (kind: RecordKind, ids: string[]): Promise<void> => {
 		const byId = {
-			company: trpc.companies.byId,
 			contact: trpc.contacts.byId,
-			deal: trpc.deals.byId,
+			vehicle: trpc.vehicles.byId,
+			rentalContract: trpc.rentalContracts.byId,
 		}[kind];
 		const goneKeys = ids.map((id) => byId.queryKey({ id }));
 		const gone = new Set(goneKeys.map((key) => JSON.stringify(key)));
 
 		for (const record of [
-			trpc.companies.byId,
 			trpc.contacts.byId,
-			trpc.deals.byId,
+			trpc.vehicles.byId,
+			trpc.rentalContracts.byId,
 		]) {
 			void queryClient.invalidateQueries({
 				queryKey: record.queryKey(),
@@ -107,32 +97,32 @@ export function useCrmCache(): CrmCache {
 		}
 
 		return run(
-			[...listKeys(), ...activityKeys(), trpc.dashboard.summary.queryKey()],
+			[
+				...listKeys(),
+				...activityKeys(),
+				trpc.dashboard.summary.queryKey(),
+				trpc.profitability.summary.queryKey(),
+			],
 			[],
 		);
 	};
 
 	const RECORD_BY_ID = {
-		company: () => trpc.companies.byId.queryKey(),
 		contact: () => trpc.contacts.byId.queryKey(),
-		deal: () => trpc.deals.byId.queryKey(),
+		vehicle: () => trpc.vehicles.byId.queryKey(),
+		rentalContract: () => trpc.rentalContracts.byId.queryKey(),
 	} as const;
 
 	const RECORD_LIST = {
-		company: () => trpc.companies.list.queryKey(),
 		contact: () => trpc.contacts.list.queryKey(),
-		deal: () => trpc.deals.list.queryKey(),
+		vehicle: () => trpc.vehicles.list.queryKey(),
+		rentalContract: () => trpc.rentalContracts.list.queryKey(),
 	} as const;
 
 	return {
 		fields: (entity, options) =>
 			run(
-				[
-					trpc.fields.list.queryKey(),
-					entity
-						? trpc.fields.filters.queryKey({ entity: ENTITY_FOR[entity] })
-						: trpc.fields.filters.queryKey(),
-				],
+				[trpc.fields.list.queryKey()],
 				entity
 					? [RECORD_BY_ID[entity](), RECORD_LIST[entity]()]
 					: [...Object.values(RECORD_BY_ID).map((key) => key()), ...listKeys()],
@@ -150,36 +140,6 @@ export function useCrmCache(): CrmCache {
 				options,
 			),
 
-		savedViews: (entity, options) =>
-			run(
-				[
-					entity
-						? trpc.savedViews.list.queryKey({
-								entity: ENTITY_FOR[entity],
-							})
-						: trpc.savedViews.list.queryKey(),
-				],
-				[],
-				options,
-			),
-
-		company: (id, options) =>
-			run(
-				[
-					id
-						? trpc.companies.byId.queryKey({ id })
-						: trpc.companies.byId.queryKey(),
-				],
-				[
-					...listKeys(),
-					...activityKeys(),
-					trpc.contacts.byId.queryKey(),
-					trpc.deals.byId.queryKey(),
-					trpc.dashboard.summary.queryKey(),
-				],
-				options,
-			),
-
 		contact: (id, options) =>
 			run(
 				[
@@ -189,22 +149,50 @@ export function useCrmCache(): CrmCache {
 				],
 				[
 					...listKeys(),
-					...activityKeys(),
-					trpc.companies.byId.queryKey(),
-					trpc.deals.byId.queryKey(),
-					trpc.deals.contactOptions.queryKey(),
+					trpc.rentalContracts.byId.queryKey(),
+					trpc.rentalContracts.driverOptions.queryKey(),
 				],
 				options,
 			),
 
-		deal: (id, options) =>
+		vehicle: (id, options) =>
 			run(
-				[id ? trpc.deals.byId.queryKey({ id }) : trpc.deals.byId.queryKey()],
+				[
+					id
+						? trpc.vehicles.byId.queryKey({ id })
+						: trpc.vehicles.byId.queryKey(),
+				],
 				[
 					...listKeys(),
-					trpc.deals.contactOptions.queryKey(),
-					trpc.companies.byId.queryKey(),
+					trpc.rentalContracts.byId.queryKey(),
+					trpc.vehicleCharges.listByVehicle.queryKey(),
+					trpc.profitability.summary.queryKey(),
+					trpc.profitability.byVehicle.queryKey(),
+					...activityKeys(),
+					trpc.dashboard.summary.queryKey(),
+					trpc.currency.settings.queryKey(),
+				],
+				options,
+			),
+
+		rentalContract: (id, options) =>
+			run(
+				[
+					id
+						? trpc.rentalContracts.byId.queryKey({ id })
+						: trpc.rentalContracts.byId.queryKey(),
+				],
+				[
+					...listKeys(),
+					trpc.vehicles.byId.queryKey(),
 					trpc.contacts.byId.queryKey(),
+					trpc.rentalContracts.driverOptions.queryKey(),
+					trpc.payments.listByContract.queryKey(),
+					trpc.incidents.listByVehicle.queryKey(),
+					trpc.incidents.listByContract.queryKey(),
+					trpc.vehicleInspections.listByContract.queryKey(),
+					trpc.profitability.summary.queryKey(),
+					trpc.profitability.byVehicle.queryKey(),
 					...activityKeys(),
 					trpc.dashboard.summary.queryKey(),
 					trpc.currency.settings.queryKey(),
@@ -237,9 +225,9 @@ export function useCrmCache(): CrmCache {
 				activityKeys(),
 				[
 					...listKeys(),
-					trpc.companies.byId.queryKey(),
 					trpc.contacts.byId.queryKey(),
-					trpc.deals.byId.queryKey(),
+					trpc.vehicles.byId.queryKey(),
+					trpc.rentalContracts.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
 				],
 				options,
@@ -251,7 +239,6 @@ export function useCrmCache(): CrmCache {
 				[
 					...activityKeys(),
 					...listKeys(),
-					trpc.companies.byId.queryKey(),
 					trpc.contacts.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
 				],
@@ -264,7 +251,6 @@ export function useCrmCache(): CrmCache {
 				[
 					...activityKeys(),
 					...listKeys(),
-					trpc.companies.byId.queryKey(),
 					trpc.contacts.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
 				],
@@ -276,7 +262,6 @@ export function useCrmCache(): CrmCache {
 				[
 					trpc.settings.agentModel.queryKey(),
 					trpc.settings.researchKey.queryKey(),
-					trpc.settings.archiveRetention.queryKey(),
 				],
 				[],
 				options,
@@ -287,9 +272,10 @@ export function useCrmCache(): CrmCache {
 				[trpc.currency.settings.queryKey()],
 				[
 					...listKeys(),
-					trpc.deals.byId.queryKey(),
-					trpc.companies.byId.queryKey(),
+					trpc.vehicles.byId.queryKey(),
+					trpc.rentalContracts.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
+					trpc.profitability.summary.queryKey(),
 				],
 				options,
 			),
@@ -301,26 +287,10 @@ export function useCrmCache(): CrmCache {
 				options,
 			),
 
-		slack: (options) =>
-			run(
-				[trpc.slack.status.queryKey(), trpc.slack.matches.queryKey()],
-				[],
-				options,
-			),
-
 		sso: (options) =>
 			run(
 				[trpc.sso.list.pathKey()],
 				[trpc.sso.settings.queryKey(), trpc.sso.signInOptions.queryKey()],
-				options,
-			),
-
-		apiKeys: (options) => run([trpc.apiKeys.list.pathKey()], [], options),
-
-		tracking: (options) =>
-			run(
-				[trpc.tracking.settings.queryKey()],
-				[trpc.tracking.sources.queryKey()],
 				options,
 			),
 

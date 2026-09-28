@@ -61,7 +61,7 @@ export function InlineField({
 	onSave: (next: string) => void;
 	saving?: boolean;
 	placeholder?: string;
-	type?: "text" | "url" | "email" | "tel";
+	type?: "text" | "url" | "email" | "tel" | "time";
 	render?: (value: string) => React.ReactNode;
 	provenance?: React.ReactNode;
 	suggestion?: React.ReactNode;

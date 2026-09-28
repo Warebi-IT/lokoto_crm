@@ -24,7 +24,9 @@ export function PersonAvatar({
 	return (
 		<Avatar size={size} {...props}>
 			{url ? <AvatarImage src={url} alt="" /> : null}
-			<AvatarFallback>{initialsFromName(label)}</AvatarFallback>
+			<AvatarFallback className="bg-primary/10 text-primary">
+				{initialsFromName(label)}
+			</AvatarFallback>
 		</Avatar>
 	);
 }

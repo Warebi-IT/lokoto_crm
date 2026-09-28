@@ -1,0 +1,1 @@
+ALTER TABLE "incident" ADD COLUMN "damageAreas" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

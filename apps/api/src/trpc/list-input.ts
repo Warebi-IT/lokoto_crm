@@ -10,9 +10,7 @@ export const listInput = z.object({
 
 export type ListInput = z.infer<typeof listInput>;
 
-export type FacetCount = Record<string, number>;
-
-type FacetCounts = Record<string, FacetCount>;
+type FacetCounts = Record<string, Record<string, number>>;
 
 export type ListResult<TRow> = {
 	rows: TRow[];
@@ -20,27 +18,19 @@ export type ListResult<TRow> = {
 	facetCounts: FacetCounts;
 };
 
-export type Page = {
+export function paginate(input: Pick<ListInput, "page" | "pageSize">): {
 	skip: number;
 	take: number;
-};
-
-export function paginate(input: Pick<ListInput, "page" | "pageSize">): Page {
+} {
 	return {
 		skip: (input.page - 1) * input.pageSize,
 		take: input.pageSize,
 	};
 }
 
-export type SortDirection = ListInput["dir"];
-
-export interface OrderByColumns<TOrderBy> {
-	[column: string]: (dir: SortDirection) => TOrderBy;
-}
-
 export function resolveOrderBy<TOrderBy>(
 	input: Pick<ListInput, "sort" | "dir">,
-	columns: OrderByColumns<TOrderBy>,
+	columns: Record<string, (dir: "asc" | "desc") => TOrderBy>,
 	fallback: TOrderBy,
 ): TOrderBy {
 	const column = columns[input.sort];
@@ -52,8 +42,8 @@ export function countsByKey<
 	TGroup extends { _count: { _all: number } } & {
 		[K in TKey]?: string | null;
 	},
->(groups: TGroup[], key: TKey, nullKey?: string): FacetCount {
-	const counts: FacetCount = {};
+>(groups: TGroup[], key: TKey, nullKey?: string): Record<string, number> {
+	const counts: Record<string, number> = {};
 
 	for (const group of groups) {
 		const value = group[key] ?? nullKey;
@@ -68,62 +58,9 @@ export const FACET_ALL = "all";
 
 export const FACET_UNASSIGNED = "unassigned";
 
-export function splitSentinel(values: string[], sentinel: string) {
-	const ids = values.filter((value) => value !== sentinel);
-	return { ids, includesSentinel: ids.length !== values.length };
-}
-
-export function ownerFilter<
-	TWhere =
-		| { ownerId: { in: string[] } }
-		| { ownerId: null }
-		| { OR: unknown[] },
->(values: string[]): TWhere | undefined {
-	if (values.length === 0) return undefined;
-
-	const { ids, includesSentinel } = splitSentinel(values, FACET_UNASSIGNED);
-	if (includesSentinel && ids.length === 0) return { ownerId: null } as TWhere;
-	if (!includesSentinel) return { ownerId: { in: ids } } as TWhere;
-	return { OR: [{ ownerId: { in: ids } }, { ownerId: null }] } as TWhere;
-}
-
-export function archivedFilter(archived: boolean) {
-	return { archivedAt: archived ? { not: null } : null };
-}
-
-export const ACTIVITY_WINDOWS = ["7", "30", "90"] as const;
-
-export type ActivityWindow = (typeof ACTIVITY_WINDOWS)[number];
-
-const activityWindowSet: ReadonlySet<string> = new Set(ACTIVITY_WINDOWS);
-
-export const activityFacetInput = z
-	.array(z.string())
-	.refine((values) => values.every((value) => activityWindowSet.has(value)), {
-		message: `Activity must be one of: ${ACTIVITY_WINDOWS.join(", ")}.`,
-	});
-
-function activityCutoff(days: number): Date {
-	return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-}
-
-export function activityFilter(
-	values: string[],
-): { lastActivityAt: { gte: Date } } | undefined {
-	if (values.length === 0) return undefined;
-	const days = values.reduce((max, value) => Math.max(max, Number(value)), 0);
-	return { lastActivityAt: { gte: activityCutoff(days) } };
-}
-
-export async function activityFacetCounts(
-	countWhere: (where: { lastActivityAt: { gte: Date } }) => Promise<number>,
-): Promise<FacetCount> {
-	const counts = await Promise.all(
-		ACTIVITY_WINDOWS.map((days) =>
-			countWhere({ lastActivityAt: { gte: activityCutoff(Number(days)) } }),
-		),
-	);
-	return Object.fromEntries(
-		ACTIVITY_WINDOWS.map((days, index) => [days, counts[index]]),
-	) as FacetCount;
+export function ownerFilter(
+	value: string,
+): { ownerId: string | null } | undefined {
+	if (value === FACET_ALL) return undefined;
+	return { ownerId: value === FACET_UNASSIGNED ? null : value };
 }

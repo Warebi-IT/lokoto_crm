@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import { z } from "zod";
 import { API_URL } from "@/lib/env";
 
 export const ONBOARDING_PATH = "/onboarding";
@@ -10,23 +9,10 @@ const GATE_TIMEOUT_MS = 2_000;
 
 export type Gate = "settled" | "required" | "unknown";
 
-const procedureResult = z
-	.object({ result: z.object({ data: z.json() }).catch({ data: null }) })
-	.catch({ result: { data: null } });
-
-const workspaceAnswer = z
-	.object({
-		onboarded: z.boolean().nullable().catch(null),
-		canRename: z.boolean().nullable().catch(null),
-		slug: z.string().min(1).nullable().catch(null),
-	})
-	.catch({ onboarded: null, canRename: null, slug: null });
-
-const researchKeyAnswer = z
-	.object({ configured: z.boolean().nullable().catch(null) })
-	.catch({ configured: null });
-
-async function read(request: NextRequest, procedure: string) {
+async function read<T>(
+	request: NextRequest,
+	procedure: string,
+): Promise<T | null> {
 	const cookie = request.headers.get("cookie");
 
 	if (!cookie) return null;
@@ -40,7 +26,9 @@ async function read(request: NextRequest, procedure: string) {
 
 		if (!response.ok) return null;
 
-		return procedureResult.parse(await response.json()).result.data;
+		const body = (await response.json()) as { result?: { data?: T } };
+
+		return body.result?.data ?? null;
 	} catch {
 		return null;
 	}
@@ -51,29 +39,31 @@ export type WorkspaceGate = { gate: Gate; slug: string | null };
 export async function readWorkspaceGate(
 	request: NextRequest,
 ): Promise<WorkspaceGate> {
-	const workspace = workspaceAnswer.parse(await read(request, "workspace.get"));
+	const workspace = await read<{
+		onboarded?: boolean;
+		canRename?: boolean;
+		slug?: string;
+	}>(request, "workspace.get");
 
-	const slug = workspace.slug;
+	const slug = workspace?.slug ? workspace.slug : null;
 
-	if (workspace.onboarded === null) {
+	if (typeof workspace?.onboarded !== "boolean") {
 		return { gate: "unknown", slug };
 	}
 
 	return {
-		gate:
-			workspace.onboarded || workspace.canRename !== true
-				? "settled"
-				: "required",
+		gate: workspace.onboarded || !workspace.canRename ? "settled" : "required",
 		slug,
 	};
 }
 
 export async function readResearchGate(request: NextRequest): Promise<Gate> {
-	const { configured } = researchKeyAnswer.parse(
-		await read(request, "settings.researchKey"),
+	const key = await read<{ configured?: boolean }>(
+		request,
+		"settings.researchKey",
 	);
 
-	if (configured === null) return "unknown";
+	if (typeof key?.configured !== "boolean") return "unknown";
 
-	return configured ? "settled" : "required";
+	return key.configured ? "settled" : "required";
 }

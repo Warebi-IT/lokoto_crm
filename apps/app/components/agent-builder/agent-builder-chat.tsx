@@ -3,10 +3,10 @@
 import Add from "@carbon/icons-react/es/Add";
 import Application from "@carbon/icons-react/es/Application";
 import ArrowRight from "@carbon/icons-react/es/ArrowRight";
-import Building from "@carbon/icons-react/es/Building";
+import CarFront from "@carbon/icons-react/es/CarFront";
 import Checkmark from "@carbon/icons-react/es/Checkmark";
 import Copy from "@carbon/icons-react/es/Copy";
-import Partnership from "@carbon/icons-react/es/Partnership";
+import DocumentSigned from "@carbon/icons-react/es/DocumentSigned";
 import Play from "@carbon/icons-react/es/Play";
 import Renew from "@carbon/icons-react/es/Renew";
 import Reply from "@carbon/icons-react/es/Reply";
@@ -32,17 +32,14 @@ import {
 	MessageScrollerViewport,
 } from "@crm/ui/components/message-scroller";
 import { Reasoning } from "@crm/ui/components/reasoning";
-import { ThinkingIndicator } from "@crm/ui/components/thinking-indicator";
 import { useMountEffect } from "@crm/ui/hooks/use-mount-effect";
 import { cn } from "@crm/ui/lib/utils";
-import type { AgentManifestSummary } from "@crm/validation/agent-manifest";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Client, type MessageStreamEvent } from "eve/client";
 import type { EveMessage, EveMessageInputRequest } from "eve/react";
 import Link from "next/link";
 import { Fragment, type ReactNode, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 import {
 	AgentClarificationComposer,
 	type ClarificationResponse,
@@ -53,9 +50,7 @@ import {
 	hasCreateAgentCommand,
 } from "@/lib/agent-builder";
 import {
-	agentBuilderCallIsActive,
 	builderConversationIsWorking,
-	builderSessionStreamKey,
 	completedBuilderSteps,
 	displayedArtifactVersionId,
 	latestCompletedArtifactVersionId,
@@ -68,6 +63,7 @@ import {
 	eventStreamSettled,
 	latestTurnFailure,
 	messagesFromEvents,
+	pendingQuestion,
 	splitMarkdownTable,
 	type TranscriptItem,
 	toTranscript,
@@ -102,87 +98,19 @@ const BUILDER_STEP_ARTIFACTS = [
 	"agent/manifest.json",
 	"agent/README.md",
 ] as const;
-const submissionResource = z.object({
-	kind: z.enum(["integration", "company", "contact", "deal"]),
-	id: z.string().min(1),
-	label: z.string().min(1),
-	detail: z.string().nullable().optional().catch(null),
-	imageUrl: z.string().nullable().optional().catch(null),
-});
+type DraftVersion = {
+	id: string;
+	status: string;
+	manifest: unknown;
+};
 
-const storedAttachment = z.object({
-	id: z.string().min(1),
-	name: z.string().min(1),
-	type: z.string().min(1),
-	size: z.number(),
-	previewUrl: z.string().nullable().optional().catch(null),
-});
-
-const uploadAttachment = z.object({
-	name: z.string().min(1),
-	type: z.string().min(1),
-	size: z.number(),
-	contentBase64: z.string().min(1),
-	previewUrl: z.string().nullable().optional().catch(null),
-});
-
-const builderMessage = z
-	.object({
-		text: z.string().nullable().catch(null),
-		resources: z.array(submissionResource).catch([]),
-		attachments: z
-			.array(z.union([storedAttachment, uploadAttachment]))
-			.catch([]),
-		inputResponse: z
-			.object({ requestId: z.string().min(1) })
-			.nullable()
-			.catch(null),
-	})
-	.catch({
-		text: null,
-		resources: [],
-		attachments: [],
-		inputResponse: null,
-	});
-
-type BuilderMessage = z.infer<typeof builderMessage>;
-
-const builderSubmissions = z.array(
-	z.object({
-		id: z.string(),
-		createdAt: z.string(),
-		clientRequestId: z.string().nullable().catch(null),
-		commandType: z.enum(["CHAT", "CREATE_AGENT"]),
-		message: builderMessage,
-		status: z.string(),
-		errorMessage: z.string().nullable().catch(null),
-	}),
-);
-
-type BuilderSubmission = z.infer<typeof builderSubmissions>[number];
-
-const streamEventShape = z.object({
-	type: z.string().min(1),
-	meta: z.object({ id: z.string().min(1), at: z.string().min(1) }),
-});
-
-const streamEvents = z
-	.array(
-		z
-			.custom<MessageStreamEvent>(
-				(value) => streamEventShape.safeParse(value).success,
-			)
-			.nullable()
-			.catch(null),
-	)
-	.catch([])
-	.transform((events) => events.filter((event) => event !== null));
-
-type PendingSubmission = {
-	clientRequestId: string;
+type BuilderSubmission = {
+	id: string;
 	createdAt: string;
 	commandType: "CHAT" | "CREATE_AGENT";
-	message: BuilderMessage;
+	message: unknown;
+	status: string;
+	errorMessage: string | null;
 };
 
 export function AgentBuilderChat({
@@ -199,7 +127,6 @@ export function AgentBuilderChat({
 		key: string;
 		events: readonly MessageStreamEvent[];
 	} | null>(null);
-	const [sending, setSending] = useState<PendingSubmission[]>([]);
 	const conversation = useQuery({
 		...trpc.conversations.builderById.queryOptions({ id: conversationId }),
 		enabled: !sharedChat,
@@ -294,20 +221,13 @@ export function AgentBuilderChat({
 	}
 
 	const data = conversation.data ?? (initialData as Conversation);
-	const submissions = builderSubmissions.parse(data.submissions);
-	const confirmedRequestIds = new Set(
-		submissions
-			.map((submission) => submission.clientRequestId)
-			.filter((id): id is string => Boolean(id)),
-	);
-	const pendingSubmissions = sending.filter(
-		(item) => !confirmedRequestIds.has(item.clientRequestId),
-	);
-	const persistedEvents = streamEvents.parse(events.data ?? []);
-	const streamKey = builderSessionStreamKey(
-		data.sessionId,
-		submissions.at(-1)?.id ?? null,
-	);
+	const submissions = data.submissions as BuilderSubmission[];
+	const persistedEvents = (events.data ??
+		[]) as unknown as MessageStreamEvent[];
+	const streamKey =
+		data.sessionId && builderConversationIsWorking(data)
+			? `${data.sessionId}:${submissions.at(-1)?.id ?? "initial"}`
+			: null;
 	const transcriptEvents =
 		streamKey && liveStream?.key === streamKey
 			? liveStream.events
@@ -319,7 +239,7 @@ export function AgentBuilderChat({
 		agentMessages,
 	);
 	const answeredQuestionIds = questionResponseIds(submissions);
-	const waitingQuestion = data.pendingQuestion;
+	const waitingQuestion = pendingQuestion(agentMessages);
 	const question =
 		waitingQuestion &&
 		!hasQueuedQuestionResponse(submissions, waitingQuestion.requestId)
@@ -328,9 +248,6 @@ export function AgentBuilderChat({
 	const failure = latestTurnFailure(transcriptEvents);
 	const creatingAgent = hasCreateAgentCommand(submissions);
 	const working = builderConversationIsWorking(data) && !failure;
-	const builderCallActive = agentBuilderCallIsActive(transcriptEvents);
-	const currentSubmissionCreatesAgent =
-		submissions.at(-1)?.commandType === "CREATE_AGENT";
 	const reviewVersion = reviewVersionId(data);
 	const artifactVersion = displayedArtifactVersionId(data, working);
 	const retryPrompt = retryPromptOf(submissions.at(-1));
@@ -338,32 +255,11 @@ export function AgentBuilderChat({
 		prompt: BuilderPrompt,
 		clientRequestId = crypto.randomUUID(),
 	) => {
-		setSending((current) => [
-			...current,
-			{
-				clientRequestId,
-				createdAt: new Date().toISOString(),
-				commandType: prompt.commandType ?? "CHAT",
-				message: {
-					text: prompt.message,
-					resources: prompt.resources,
-					attachments: prompt.attachments,
-					inputResponse: null,
-				},
-			},
-		]);
-
-		try {
-			await submit.mutateAsync({
-				id: conversationId,
-				clientRequestId,
-				...prompt,
-			});
-		} finally {
-			setSending((current) =>
-				current.filter((item) => item.clientRequestId !== clientRequestId),
-			);
-		}
+		await submit.mutateAsync({
+			id: conversationId,
+			clientRequestId,
+			...prompt,
+		});
 	};
 
 	return (
@@ -439,37 +335,7 @@ export function AgentBuilderChat({
 								</MessageScrollerItem>
 							))}
 
-							{pendingSubmissions.map((item) => (
-								<MessageScrollerItem
-									key={item.clientRequestId}
-									messageId={`sending:${item.clientRequestId}`}
-									scrollAnchor
-								>
-									<UserSubmission
-										submission={{
-											id: item.clientRequestId,
-											createdAt: item.createdAt,
-											clientRequestId: item.clientRequestId,
-											commandType: item.commandType,
-											message: item.message,
-											status: "PENDING",
-											errorMessage: null,
-										}}
-										failed={false}
-										error={null}
-										sending
-									/>
-								</MessageScrollerItem>
-							))}
-
-							{pendingSubmissions.length > 0 ||
-							(working && !builderCallActive) ? (
-								<MessageScrollerItem messageId={`thinking:${conversationId}`}>
-									<ThinkingIndicator />
-								</MessageScrollerItem>
-							) : null}
-
-							{working && builderCallActive ? (
+							{working && creatingAgent ? (
 								<MessageScrollerItem
 									messageId={`building-agent:${conversationId}`}
 								>
@@ -494,13 +360,30 @@ export function AgentBuilderChat({
 								</MessageScrollerItem>
 							) : null}
 
-							{!working && failure ? (
+							{!working &&
+							failure &&
+							creatingAgent &&
+							!reviewVersion &&
+							data.agent?.status !== "LIVE" ? (
 								<MessageScrollerItem
 									messageId={`builder-failure:${conversationId}`}
 								>
 									<BuilderFailureCard
 										failure={failure}
-										creatingAgent={currentSubmissionCreatesAgent}
+										creatingAgent
+										retrying={submit.isPending}
+										onRetry={retryPrompt ? () => send(retryPrompt) : null}
+									/>
+								</MessageScrollerItem>
+							) : null}
+
+							{!working && failure && !creatingAgent ? (
+								<MessageScrollerItem
+									messageId={`builder-failure:${conversationId}`}
+								>
+									<BuilderFailureCard
+										failure={failure}
+										creatingAgent={false}
 										retrying={submit.isPending}
 										onRetry={retryPrompt ? () => send(retryPrompt) : null}
 									/>
@@ -528,7 +411,7 @@ export function AgentBuilderChat({
 										conversation={data}
 										onFollowUp={(message) =>
 											send({
-												commandType: "CREATE_AGENT",
+												commandType: "CHAT",
 												message,
 												resources: [],
 												attachments: [],
@@ -602,15 +485,13 @@ function BuilderEventFollower({
 			}
 		};
 
-		void (async () => {
-			try {
-				await follow();
-			} catch (error) {
+		void follow()
+			.catch((error: unknown) => {
 				if (!controller.signal.aborted) console.error(error);
-			} finally {
+			})
+			.finally(() => {
 				if (!controller.signal.aborted) onEnded();
-			}
-		})();
+			});
 
 		return () => controller.abort();
 	});
@@ -666,8 +547,9 @@ function SharedAgentChat({
 }: {
 	conversation: SharedConversation;
 }) {
-	const submissions = builderSubmissions.parse(conversation.submissions);
-	const events = streamEvents.parse(conversation.events);
+	const submissions =
+		conversation.submissions as unknown as BuilderSubmission[];
+	const events = conversation.events as unknown as MessageStreamEvent[];
 	const messages = messagesFromEvents(events);
 	const timeline = conversationTimeline(submissions, events, messages);
 	const answeredQuestionIds = questionResponseIds(submissions);
@@ -682,7 +564,7 @@ function SharedAgentChat({
 				<h1 className="min-w-0 flex-1 truncate font-medium text-sm">
 					{conversation.agent?.name ?? conversation.title ?? "Agent builder"}
 				</h1>
-				<span className="text-muted-foreground text-xs">Read-only</span>
+				<span className="text-muted-foreground text-xs">Lecture seule</span>
 			</header>
 
 			<MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor">
@@ -775,7 +657,7 @@ function ChatHeader({
 							className="size-3.5 animate-spin text-ring"
 							motion="none"
 						/>
-						<span className="sr-only">Working in background</span>
+						<span className="sr-only">Traitement en arrière-plan</span>
 						<span aria-hidden="true" className="hidden sm:inline">
 							Working in background
 						</span>
@@ -802,29 +684,21 @@ function UserSubmission({
 	submission,
 	failed,
 	error,
-	sending = false,
 }: {
 	submission: BuilderSubmission;
 	failed: boolean;
 	error: string | null;
-	sending?: boolean;
 }) {
-	const message = submission.message;
-	const messageText = message.text ?? "Message unavailable";
+	const message = builderMessageOf(submission.message);
 	const command =
 		submission.commandType === "CREATE_AGENT"
-			? consumeBuilderCommand(messageText)
+			? consumeBuilderCommand(message.text)
 			: null;
-	const text = command?.body ?? messageText;
-	const response = message.inputResponse;
+	const text = command?.body ?? message.text;
+	const response = inputResponseOf(submission.message);
 
 	return (
-		<div
-			className={cn(
-				"flex min-w-0 w-full justify-end transition-opacity",
-				sending && "opacity-60",
-			)}
-		>
+		<div className="flex min-w-0 w-full justify-end">
 			<div
 				className={cn(
 					"flex w-fit min-w-0 max-w-full flex-col gap-2 rounded-md bg-muted px-3 py-2.5 text-sm leading-5 sm:max-w-[620px] sm:px-3.5 sm:py-3",
@@ -835,7 +709,7 @@ function UserSubmission({
 				{response ? (
 					<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
 						<Icon icon={Reply} className="size-3.5" />
-						<span>Answer to follow-up</span>
+						<span>Répondre au suivi</span>
 					</div>
 				) : null}
 				{submission.commandType === "CREATE_AGENT" ? (
@@ -964,7 +838,7 @@ function FollowUpTranscriptItem({
 	return (
 		<div className="w-full max-w-sm border-ring/50 border-l-2 bg-muted/40 px-3 py-2.5">
 			<div className="flex items-center justify-between gap-3 text-xs">
-				<span className="font-medium">Follow-up</span>
+				<span className="font-medium">Suivi</span>
 				<span className="text-muted-foreground">
 					{answered ? "Answered" : "Waiting for your answer"}
 				</span>
@@ -1253,11 +1127,11 @@ function ReviewAgentCard({
 	const workspaceUrl = useWorkspaceUrl();
 	const version = conversation.createdVersions.find(
 		(candidate) => candidate.id === versionId,
-	);
+	) as DraftVersion | undefined;
 	const agent = conversation.agent;
+	const manifest = manifestOf(version?.manifest);
 
 	if (!version || !agent) return null;
-	const manifest = manifestOf(version.manifest);
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -1381,11 +1255,7 @@ function DeployedAgentCard({
 	});
 
 	if (!agent) return null;
-	const enabledTriggers = agent.triggers.filter((trigger) => trigger.enabled);
-	const nextRun =
-		enabledTriggers.length === 1 ? enabledTriggers[0]?.nextRunAt : null;
-	const triggerSummary =
-		enabledTriggers.map((trigger) => trigger.name).join(" · ") || "Manual only";
+	const nextRun = agent.triggers.find((trigger) => trigger.enabled)?.nextRunAt;
 
 	return (
 		<div className="flex flex-col gap-[18px]">
@@ -1393,13 +1263,13 @@ function DeployedAgentCard({
 				<p className="text-sm leading-5">{agent.name} is live.</p>
 				<p className="text-muted-foreground text-sm leading-5">
 					I created the Eve agent, applied its bounded CRM and integration
-					access, and made it live for the team.
+					access, and scheduled its first run.
 				</p>
 			</div>
 			<AgentCardShell name={agent.name} status="Live">
 				<div className="flex flex-col gap-2 p-4">
 					<ReviewRow
-						label="Trigger"
+						label="Next run"
 						value={
 							nextRun ? (
 								<LocalDateTime
@@ -1412,7 +1282,7 @@ function DeployedAgentCard({
 									}}
 								/>
 							) : (
-								triggerSummary
+								"Manual only"
 							)
 						}
 					/>
@@ -1452,19 +1322,24 @@ function DeployedAgentCard({
 				<p className="flex h-7 items-center text-muted-foreground text-sm">
 					Suggested follow-ups
 				</p>
-				{["Add another teammate to the notification"].map((suggestion) => (
-					<button
-						key={suggestion}
-						type="button"
-						onClick={() => void onFollowUp(suggestion)}
-						className="flex w-full items-center gap-3 border-t py-2.5 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
-					>
-						<span className="min-w-0 flex-1 wrap-break-word text-sm">
-							{suggestion}
-						</span>
-						<Icon icon={ArrowRight} className="size-4 text-muted-foreground" />
-					</button>
-				))}
+				{["Run it once now", "Add another teammate to the notification"].map(
+					(suggestion) => (
+						<button
+							key={suggestion}
+							type="button"
+							onClick={() => void onFollowUp(suggestion)}
+							className="flex w-full items-center gap-3 border-t py-2.5 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
+						>
+							<span className="min-w-0 flex-1 wrap-break-word text-sm">
+								{suggestion}
+							</span>
+							<Icon
+								icon={ArrowRight}
+								className="size-4 text-muted-foreground"
+							/>
+						</button>
+					),
+				)}
 			</div>
 		</div>
 	);
@@ -1476,12 +1351,12 @@ function ChatUnavailable() {
 	return (
 		<main className="flex flex-1 items-center justify-center p-8">
 			<div className="max-w-md text-center">
-				<h1 className="font-medium text-lg">Chat unavailable</h1>
+				<h1 className="font-medium text-lg">Conversation indisponible</h1>
 				<p className="mt-2 text-muted-foreground text-sm">
 					This chat does not exist or you do not have access to it.
 				</p>
 				<Button asChild variant="outline" className="mt-5">
-					<Link href={workspaceUrl("/chat")}>Start a new chat</Link>
+					<Link href={workspaceUrl("/chat")}>Démarrer une conversation</Link>
 				</Button>
 			</div>
 		</main>
@@ -1490,10 +1365,23 @@ function ChatUnavailable() {
 
 const RESOURCE_ICONS = {
 	integration: Application,
-	company: Building,
 	contact: User,
-	deal: Partnership,
+	vehicle: CarFront,
+	rentalContract: DocumentSigned,
 } as const;
+
+function builderMessageOf(message: unknown) {
+	const row = recordOf(message);
+	return {
+		text: typeof row.text === "string" ? row.text : "Message unavailable",
+		resources: Array.isArray(row.resources)
+			? (row.resources as BuilderPrompt["resources"])
+			: [],
+		attachments: Array.isArray(row.attachments)
+			? (row.attachments as BuilderPrompt["attachments"])
+			: [],
+	};
+}
 
 function hasQueuedQuestionResponse(
 	submissions: BuilderSubmission[],
@@ -1504,7 +1392,7 @@ function hasQueuedQuestionResponse(
 			return false;
 		}
 
-		return submission.message.inputResponse?.requestId === requestId;
+		return inputResponseOf(submission.message)?.requestId === requestId;
 	});
 }
 
@@ -1517,25 +1405,36 @@ function questionResponseIds(
 				return [];
 			}
 
-			const response = submission.message.inputResponse;
+			const response = inputResponseOf(submission.message);
 			return response ? [response.requestId] : [];
 		}),
 	);
+}
+
+function inputResponseOf(message: unknown): { requestId: string } | null {
+	const response = recordOf(recordOf(message).inputResponse);
+	return typeof response.requestId === "string" && response.requestId
+		? { requestId: response.requestId }
+		: null;
 }
 
 function retryPromptOf(
 	submission: BuilderSubmission | undefined,
 ): BuilderPrompt | null {
 	if (!submission) return null;
-	const { message } = submission;
-	if (message.inputResponse) return null;
-	if (!message.text?.trim()) return null;
+	const row = recordOf(submission.message);
+	if (Object.keys(recordOf(row.inputResponse)).length > 0) return null;
+	if (typeof row.text !== "string" || !row.text.trim()) return null;
 
 	return {
 		commandType: submission.commandType,
-		message: message.text,
-		resources: message.resources,
-		attachments: message.attachments,
+		message: row.text,
+		resources: Array.isArray(row.resources)
+			? (row.resources as BuilderPrompt["resources"])
+			: [],
+		attachments: Array.isArray(row.attachments)
+			? (row.attachments as BuilderPrompt["attachments"])
+			: [],
 	};
 }
 
@@ -1551,36 +1450,49 @@ function sharedConversationNeedsPolling(
 	return !eventStreamSettled(conversation.events);
 }
 
-function manifestOf(manifest: AgentManifestSummary) {
+function manifestOf(value: unknown) {
+	const manifest = recordOf(value);
+	const trigger = recordOf(manifest.trigger);
+	const dataScope = recordOf(manifest.dataScope);
+	const actions = Array.isArray(manifest.actions)
+		? manifest.actions.map(recordOf)
+		: [];
+	const access = Array.isArray(manifest.access)
+		? manifest.access.filter((item): item is string => typeof item === "string")
+		: [];
+
 	return {
-		name: manifest.name?.trim() || null,
+		name:
+			typeof manifest.name === "string" && manifest.name.trim()
+				? manifest.name.trim()
+				: null,
+		description:
+			typeof manifest.description === "string" && manifest.description.trim()
+				? manifest.description.trim()
+				: null,
 		trigger:
-			manifest.triggers
-				.map((trigger) =>
-					trigger.type === "MANUAL"
-						? "On demand"
-						: compactSummary(
-								trigger.summary,
-								trigger.type === "EVENT" ? "On CRM event" : "On schedule",
-							),
-				)
-				.join(" · ") || "On demand",
-		looksAt: textOf(
-			manifest.dataScope.summary,
-			"CRM records in the approved scope",
-		),
+			trigger.type === "MANUAL"
+				? "On demand"
+				: compactSummary(trigger.summary, "On schedule"),
+		looksAt: textOf(dataScope.summary, "CRM records in the approved scope"),
 		action: compactSummary(
-			manifest.actions[0]?.summary,
+			actions[0]?.summary,
 			"Perform the requested team action",
 		),
-		access: manifest.access,
+		access,
 	};
 }
 
-function compactSummary(value: string | undefined, fallback: string): string {
+function compactSummary(value: unknown, fallback: string): string {
 	return textOf(value, fallback).replace(/\s+\([^()]+\)\s*\.?$/, "");
 }
 
-function textOf(value: string | undefined, fallback: string): string {
-	return value?.trim() ? value : fallback;
+function recordOf(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
+}
+
+function textOf(value: unknown, fallback: string): string {
+	return typeof value === "string" && value.trim() ? value : fallback;
 }

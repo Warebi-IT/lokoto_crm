@@ -52,10 +52,10 @@ export function ResearchKey() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Company research</CardTitle>
+				<CardTitle>Contact research</CardTitle>
 				<CardDescription>
-					Enter your Context API key so our agents can research every company in
-					the CRM.
+					Enter your Context API key so our agents can research contacts in the
+					CRM.
 				</CardDescription>
 
 				<CardAction>

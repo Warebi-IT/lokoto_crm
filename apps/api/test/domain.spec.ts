@@ -3,7 +3,7 @@ import {
 	domainFromEmail,
 	isMachineDomain,
 	normalizeDomain,
-} from "../src/companies/domain";
+} from "../src/crm/domain";
 
 describe("normalizeDomain", () => {
 	it("reduces anything a human might type to the bare host", () => {

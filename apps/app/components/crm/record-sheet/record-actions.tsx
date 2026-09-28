@@ -1,9 +1,7 @@
 "use client";
 
-import Archive from "@carbon/icons-react/es/Archive";
 import OverflowMenuVertical from "@carbon/icons-react/es/OverflowMenuVertical";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
-import Undo from "@carbon/icons-react/es/Undo";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -33,146 +31,100 @@ import {
 	useRecordStack,
 } from "./record-stack";
 
-const NOUN = {
-	company: "company",
+const NOUN: Record<RecordKind, string> = {
 	contact: "contact",
-	deal: "deal",
-} satisfies Record<RecordKind, string>;
+	vehicle: "vehicle",
+	rentalContract: "rental contract",
+};
 
-const RECORD_PROCEDURES = {
-	company: "companies",
-	contact: "contacts",
-	deal: "deals",
-} satisfies Record<RecordKind, "companies" | "contacts" | "deals">;
-
-function useArchiveRecord(record: RecordRef) {
-	const trpc = useTRPC();
-	const cache = useCrmCache();
-
-	const handlers = {
-		onSuccess: (archived: { name: string }) => {
-			toast.success(
-				`${archived.name || `The ${NOUN[record.kind]}`} was archived.`,
-			);
-			void cache[record.kind](record.id);
-		},
-		onError: (error: { message: string }) => toast.error(error.message),
-	};
-
-	return useMutation(
-		trpc[RECORD_PROCEDURES[record.kind]].archive.mutationOptions(handlers),
-	);
-}
-
-function useRestoreRecord(record: RecordRef) {
-	const trpc = useTRPC();
-	const cache = useCrmCache();
-
-	const handlers = {
-		onSuccess: (restored: { name: string }) => {
-			toast.success(
-				`${restored.name || `The ${NOUN[record.kind]}`} was restored.`,
-			);
-			void cache[record.kind](record.id);
-		},
-		onError: (error: { message: string }) => toast.error(error.message),
-	};
-
-	return useMutation(
-		trpc[RECORD_PROCEDURES[record.kind]].restore.mutationOptions(handlers),
-	);
-}
-
-function usePurgeRecord(record: RecordRef) {
+function useDeleteRecord(record: RecordRef) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const { close } = useRecordStack();
 
-	const handlers = {
-		onSuccess: (purged: { name: string }) => {
-			toast.success(
-				`${purged.name || `The ${NOUN[record.kind]}`} was deleted forever.`,
-			);
-			void cache.removed(record);
-			close();
-		},
-		onError: (error: { message: string }) => toast.error(error.message),
+	const announce = (label: string | undefined) => {
+		toast.success(`${label || `The ${NOUN[record.kind]}`} was deleted.`);
+		void cache.removed(record);
+		close();
 	};
 
-	return useMutation(
-		trpc[RECORD_PROCEDURES[record.kind]].purge.mutationOptions(handlers),
+	const onError = (error: { message: string }) => toast.error(error.message);
+
+	const deleteContact = useMutation(
+		trpc.contacts.delete.mutationOptions({
+			onSuccess: (deleted) => announce(deleted.name),
+			onError,
+		}),
 	);
+	const deleteVehicle = useMutation(
+		trpc.vehicles.delete.mutationOptions({
+			onSuccess: (deleted) => announce(deleted.plateNumber),
+			onError,
+		}),
+	);
+	const deleteRentalContract = useMutation(
+		trpc.rentalContracts.delete.mutationOptions({
+			onSuccess: () => announce(undefined),
+			onError,
+		}),
+	);
+
+	switch (record.kind) {
+		case "contact":
+			return deleteContact;
+		case "vehicle":
+			return deleteVehicle;
+		case "rentalContract":
+			return deleteRentalContract;
+	}
 }
 
 export function RecordActions({
 	record,
 	name,
 	consequence,
-	archivedAt,
 }: {
 	record: RecordRef;
 	name: string;
 	consequence: string;
-	archivedAt: string | null;
 }) {
 	const [confirming, setConfirming] = useState(false);
-	const archive = useArchiveRecord(record);
-	const restore = useRestoreRecord(record);
-	const purge = usePurgeRecord(record);
-
-	const pending = archive.isPending || restore.isPending || purge.isPending;
+	const remove = useDeleteRecord(record);
 
 	return (
 		<>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-					<Button variant="ghost" size="icon-sm" disabled={pending}>
+					<Button variant="ghost" size="icon-sm" disabled={remove.isPending}>
 						<Icon icon={OverflowMenuVertical} />
-						<span className="sr-only">More actions</span>
+						<span className="sr-only">Plus d’actions</span>
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="min-w-44">
-					{archivedAt ? (
-						<>
-							<DropdownMenuItem
-								onSelect={() => restore.mutate({ id: record.id })}
-							>
-								<Icon icon={Undo} />
-								Restore {NOUN[record.kind]}
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								variant="destructive"
-								onSelect={() => setConfirming(true)}
-							>
-								<Icon icon={TrashCan} />
-								Delete {NOUN[record.kind]} forever
-							</DropdownMenuItem>
-						</>
-					) : (
-						<DropdownMenuItem
-							onSelect={() => archive.mutate({ id: record.id })}
-						>
-							<Icon icon={Archive} />
-							Archive {NOUN[record.kind]}
-						</DropdownMenuItem>
-					)}
+					<DropdownMenuItem
+						variant="destructive"
+						onSelect={() => setConfirming(true)}
+					>
+						<Icon icon={TrashCan} />
+						Delete {NOUN[record.kind]}
+					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
 
 			<AlertDialog open={confirming} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete {name} forever?</AlertDialogTitle>
+						<AlertDialogTitle>Delete {name}?</AlertDialogTitle>
 						<AlertDialogDescription>{consequence}</AlertDialogDescription>
 					</AlertDialogHeader>
 
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>Annuler</AlertDialogCancel>
 						<AlertDialogAction
 							variant="destructive"
-							onClick={() => purge.mutate({ id: record.id })}
+							onClick={() => remove.mutate({ id: record.id })}
 						>
-							Delete forever
+							Delete
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

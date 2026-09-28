@@ -15,10 +15,10 @@ async function bootstrap() {
 	});
 }
 
-void bootstrap().catch((cause: unknown) => {
+void bootstrap().catch((error: unknown) => {
 	new Logger("Bootstrap").fatal(
 		{ message: "API failed to start" },
-		cause instanceof Error ? cause.stack : String(cause),
+		error instanceof Error ? error.stack : String(error),
 	);
 	process.exit(1);
 });

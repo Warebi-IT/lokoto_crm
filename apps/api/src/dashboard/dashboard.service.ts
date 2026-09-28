@@ -1,11 +1,16 @@
-import { ActivityType, type Db, DealStage } from "@crm/db";
-import { OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
-import { activityMeta } from "@crm/validation/activity-meta";
+import {
+	ActivityType,
+	type Db,
+	PaymentStatus,
+	RentalContractStatus,
+	VehicleStatus,
+} from "@crm/db";
 import { Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
 import { InjectDatabase } from "../database/database.constants";
 import type { DashboardSummaryInput } from "./dashboard.contracts";
+import { MONTH_LABEL, monthKey, monthStart } from "./month-bucket";
 
 const OWNER_SELECT = {
 	id: true,
@@ -14,21 +19,17 @@ const OWNER_SELECT = {
 	image: true,
 } as const;
 
+const OPEN_STATUSES = [
+	RentalContractStatus.DRAFT,
+	RentalContractStatus.RESERVED,
+	RentalContractStatus.ACTIVE,
+] as const;
+
 const TREND_MONTHS = 6;
 
 const RATE_WINDOW_DAYS = 90;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-const MONTH_LABEL = new Intl.DateTimeFormat("en-US", { month: "short" });
-
-function monthStart(from: Date, offset: number): Date {
-	return new Date(from.getFullYear(), from.getMonth() + offset, 1);
-}
-
-function monthKey(date: Date): number {
-	return date.getFullYear() * 12 + date.getMonth();
-}
 
 @Injectable()
 export class DashboardService {
@@ -45,6 +46,16 @@ export class DashboardService {
 		const startOfMonth = monthStart(now, 0);
 		const startOfNextMonth = monthStart(now, 1);
 		const startOfPrevMonth = monthStart(now, -1);
+		const startOfToday = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate(),
+		);
+		const startOfTomorrow = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate() + 1,
+		);
 		const trendStart = monthStart(now, -(TREND_MONTHS - 1));
 		const rateStart = new Date(now.getTime() - RATE_WINDOW_DAYS * DAY_MS);
 
@@ -52,50 +63,124 @@ export class DashboardService {
 		const counted = this.conversion.countedWhere(base);
 
 		const [
-			openByStage,
-			openValueByStage,
-			recentDeals,
-			closingThisMonthTotals,
-			biggestOpen,
+			openByStatus,
+			openValueByStatus,
+			recentContracts,
+			vehiclesRentedToday,
+			rentalsInProgress,
+			returnsDueToday,
+			valueInProgressToday,
+			paymentsToday,
+			availableVehicles,
+			dueBackThisMonth,
+			topActiveContracts,
 			overdueTasks,
 			recentActivity,
 			unconverted,
 		] = await Promise.all([
-			this.db.deal.groupBy({
-				by: ["stage"],
-				where: { ...owned, stage: { in: [...OPEN_DEAL_STAGES] } },
+			this.db.rentalContract.groupBy({
+				by: ["status"],
+				where: { ...owned, status: { in: [...OPEN_STATUSES] } },
 				_count: { _all: true },
 			}),
-			this.db.deal.groupBy({
-				by: ["stage"],
+			this.db.rentalContract.groupBy({
+				by: ["status"],
 				where: {
-					AND: [{ ...owned, stage: { in: [...OPEN_DEAL_STAGES] } }, counted],
+					AND: [{ ...owned, status: { in: [...OPEN_STATUSES] } }, counted],
 				},
 				_sum: { baseAmount: true },
 			}),
-			this.db.deal.findMany({
+			this.db.rentalContract.findMany({
 				where: {
 					...owned,
 					OR: [
 						{ createdAt: { gte: trendStart } },
-						{ closedAt: { gte: trendStart } },
+						{ actualReturnAt: { gte: trendStart } },
+						{ cancelledAt: { gte: trendStart } },
 					],
 				},
 				select: {
 					baseAmount: true,
 					baseCurrency: true,
-					stage: true,
+					status: true,
 					createdAt: true,
-					closedAt: true,
+					actualReturnAt: true,
+					cancelledAt: true,
 				},
 			}),
-			this.db.deal.aggregate({
+			this.db.rentalContract.groupBy({
+				by: ["vehicleId"],
+				where: {
+					...owned,
+					status: {
+						in: [RentalContractStatus.RESERVED, RentalContractStatus.ACTIVE],
+					},
+					startDate: { lt: startOfTomorrow },
+					endDate: { gte: startOfToday },
+				},
+			}),
+			this.db.rentalContract.count({
+				where: {
+					...owned,
+					status: RentalContractStatus.ACTIVE,
+				},
+			}),
+			this.db.rentalContract.count({
+				where: {
+					...owned,
+					status: {
+						in: [RentalContractStatus.RESERVED, RentalContractStatus.ACTIVE],
+					},
+					endDate: { gte: startOfToday, lt: startOfTomorrow },
+				},
+			}),
+			this.db.rentalContract.aggregate({
 				where: {
 					AND: [
 						{
 							...owned,
-							stage: { in: [...OPEN_DEAL_STAGES] },
-							expectedCloseDate: { gte: startOfMonth, lt: startOfNextMonth },
+							status: {
+								in: [
+									RentalContractStatus.RESERVED,
+									RentalContractStatus.ACTIVE,
+								],
+							},
+							startDate: { lt: startOfTomorrow },
+							endDate: { gte: startOfToday },
+						},
+						counted,
+					],
+				},
+				_sum: { baseAmount: true },
+			}),
+			this.db.payment.aggregate({
+				where: {
+					AND: [
+						{
+							status: PaymentStatus.COMPLETED,
+							paidAt: { gte: startOfToday, lt: startOfTomorrow },
+							...(mine ? { rentalContract: { ownerId: actingUserId } } : {}),
+						},
+						counted,
+					],
+				},
+				_sum: { baseAmount: true },
+			}),
+			this.db.vehicle.count({
+				where: { status: VehicleStatus.AVAILABLE },
+			}),
+			this.db.rentalContract.aggregate({
+				where: {
+					AND: [
+						{
+							...owned,
+							status: {
+								in: [
+									RentalContractStatus.RESERVED,
+									RentalContractStatus.ACTIVE,
+								],
+							},
+							endDate: { gte: startOfMonth, lt: startOfNextMonth },
 						},
 						counted,
 					],
@@ -103,32 +188,31 @@ export class DashboardService {
 				_count: { _all: true },
 				_sum: { baseAmount: true },
 			}),
-			this.db.deal.findMany({
-				where: { ...owned, stage: { in: [...OPEN_DEAL_STAGES] } },
+			this.db.rentalContract.findMany({
+				where: {
+					...owned,
+					status: {
+						in: [RentalContractStatus.RESERVED, RentalContractStatus.ACTIVE],
+					},
+				},
 				orderBy: [
 					{ baseAmount: { sort: "desc", nulls: "last" } },
-					{ expectedCloseDate: "asc" },
+					{ endDate: "asc" },
 				],
 				take: 6,
 				select: {
 					id: true,
-					name: true,
-					stage: true,
-					amount: true,
+					status: true,
+					totalAmount: true,
 					currency: true,
 					baseAmount: true,
 					baseCurrency: true,
-					expectedCloseDate: true,
-					stageChangedAt: true,
-					company: {
-						select: {
-							id: true,
-							name: true,
-							iconUrl: true,
-							iconDarkUrl: true,
-							iconTone: true,
-						},
+					startDate: true,
+					endDate: true,
+					vehicle: {
+						select: { id: true, plateNumber: true, make: true, model: true },
 					},
+					contact: { select: { id: true, firstName: true, lastName: true } },
 					owner: { select: OWNER_SELECT },
 				},
 			}),
@@ -145,8 +229,12 @@ export class DashboardService {
 					id: true,
 					subject: true,
 					dueAt: true,
-					company: { select: { id: true, name: true } },
-					deal: { select: { id: true, name: true } },
+					rentalContract: {
+						select: {
+							id: true,
+							vehicle: { select: { plateNumber: true } },
+						},
+					},
 				},
 			}),
 			this.db.activity.findMany({
@@ -161,18 +249,22 @@ export class DashboardService {
 					createdAt: true,
 					meta: true,
 					createdBy: { select: OWNER_SELECT },
-					company: { select: { id: true, name: true } },
-					deal: { select: { id: true, name: true } },
+					rentalContract: {
+						select: {
+							id: true,
+							vehicle: { select: { plateNumber: true } },
+						},
+					},
 				},
 			}),
-			this.conversion.unconverted(owned),
+			this.conversion.unconverted("rentalContract", owned),
 		]);
 
-		const stages = OPEN_DEAL_STAGES.map((stage) => {
-			const group = openByStage.find((row) => row.stage === stage);
-			const value = openValueByStage.find((row) => row.stage === stage);
+		const statuses = OPEN_STATUSES.map((status) => {
+			const group = openByStatus.find((row) => row.status === status);
+			const value = openValueByStatus.find((row) => row.status === status);
 			return {
-				stage: stage as DealStage,
+				status,
 				count: group?._count._all ?? 0,
 				valueCents: toCents(value?._sum.baseAmount ?? null) ?? 0,
 			};
@@ -181,98 +273,113 @@ export class DashboardService {
 		const firstBucket = monthKey(trendStart);
 		const trend = Array.from({ length: TREND_MONTHS }, (_, index) => ({
 			month: MONTH_LABEL.format(monthStart(trendStart, index)),
-			won: 0,
+			completed: 0,
 			created: 0,
 		}));
 
-		const wonThisMonth = { count: 0, valueCents: 0 };
-		const wonPrevMonth = { count: 0, valueCents: 0 };
-		let wins = 0;
-		let losses = 0;
-		let valuedWins = 0;
-		let wonCents = 0;
-		let cycleDays = 0;
+		const completedThisMonth = { count: 0, valueCents: 0 };
+		const completedPrevMonth = { count: 0, valueCents: 0 };
+		let completedCount = 0;
+		let cancelledCount = 0;
+		let valuedCompletions = 0;
+		let completedCents = 0;
+		let durationDays = 0;
 
-		for (const deal of recentDeals) {
+		for (const contract of recentContracts) {
 			const valued =
-				deal.baseCurrency === base ? toCents(deal.baseAmount) : null;
+				contract.baseCurrency === base ? toCents(contract.baseAmount) : null;
 			const cents = valued ?? 0;
 
-			const created = trend[monthKey(deal.createdAt) - firstBucket];
+			const created = trend[monthKey(contract.createdAt) - firstBucket];
 			if (created) created.created += cents;
 
-			const { closedAt, stage } = deal;
+			const closedAt = contract.actualReturnAt ?? contract.cancelledAt;
 			if (!closedAt) continue;
-			const won = stage === DealStage.CLOSED_WON;
+			const completed = contract.status === RentalContractStatus.COMPLETED;
 
-			if (won) {
+			if (completed) {
 				const closed = trend[monthKey(closedAt) - firstBucket];
-				if (closed) closed.won += cents;
+				if (closed) closed.completed += cents;
 
 				if (closedAt >= startOfMonth && closedAt < startOfNextMonth) {
-					wonThisMonth.count += 1;
-					wonThisMonth.valueCents += cents;
+					completedThisMonth.count += 1;
+					completedThisMonth.valueCents += cents;
 				} else if (closedAt >= startOfPrevMonth && closedAt < startOfMonth) {
-					wonPrevMonth.count += 1;
-					wonPrevMonth.valueCents += cents;
+					completedPrevMonth.count += 1;
+					completedPrevMonth.valueCents += cents;
 				}
 			}
 
 			if (closedAt < rateStart) continue;
-			if (won) {
-				wins += 1;
+			if (completed) {
+				completedCount += 1;
 				if (valued !== null) {
-					valuedWins += 1;
-					wonCents += cents;
+					valuedCompletions += 1;
+					completedCents += cents;
 				}
-				cycleDays += (closedAt.getTime() - deal.createdAt.getTime()) / DAY_MS;
-			} else if (stage === DealStage.CLOSED_LOST) {
-				losses += 1;
+				durationDays +=
+					(closedAt.getTime() - contract.createdAt.getTime()) / DAY_MS;
+			} else if (contract.status === RentalContractStatus.CANCELLED) {
+				cancelledCount += 1;
 			}
 		}
 
-		const decided = wins + losses;
+		const decided = completedCount + cancelledCount;
 
 		return {
 			scope: input.scope,
 			reportingCurrency: base,
 			unconverted,
-			pipeline: {
-				stages,
-				totalCents: stages.reduce((total, s) => total + s.valueCents, 0),
-				totalDeals: stages.reduce((total, s) => total + s.count, 0),
+			fleet: {
+				statuses,
+				totalCents: statuses.reduce((total, s) => total + s.valueCents, 0),
+				totalContracts: statuses.reduce((total, s) => total + s.count, 0),
 			},
-			wonThisMonth,
-			wonPrevMonth,
+			today: {
+				vehiclesRented: vehiclesRentedToday.length,
+				rentalsInProgress,
+				returnsDue: returnsDueToday,
+				valueInProgressCents:
+					toCents(valueInProgressToday._sum.baseAmount) ?? 0,
+				paymentsCents: toCents(paymentsToday._sum.baseAmount) ?? 0,
+				availableVehicles,
+			},
+			completedThisMonth,
+			completedPrevMonth,
 			performance: {
 				windowDays: RATE_WINDOW_DAYS,
-				wins,
-				losses,
-				winRate: decided === 0 ? null : wins / decided,
-				avgDealCents:
-					valuedWins === 0 ? null : Math.round(wonCents / valuedWins),
-				avgCycleDays: wins === 0 ? null : Math.round(cycleDays / wins),
+				completedCount,
+				cancelledCount,
+				completionRate: decided === 0 ? null : completedCount / decided,
+				avgContractCents:
+					valuedCompletions === 0
+						? null
+						: Math.round(completedCents / valuedCompletions),
+				avgDurationDays:
+					completedCount === 0
+						? null
+						: Math.round(durationDays / completedCount),
 			},
 			trend,
-			closingThisMonthTotal: {
-				count: closingThisMonthTotals._count._all,
-				valueCents: toCents(closingThisMonthTotals._sum.baseAmount) ?? 0,
+			dueBackThisMonth: {
+				count: dueBackThisMonth._count._all,
+				valueCents: toCents(dueBackThisMonth._sum.baseAmount) ?? 0,
 			},
-			biggestOpen: biggestOpen
+			topActiveContracts: topActiveContracts
 				.map(
 					({
-						amount,
+						totalAmount,
 						baseAmount,
 						baseCurrency,
-						expectedCloseDate,
-						stageChangedAt,
-						...deal
+						startDate,
+						endDate,
+						...contract
 					}) => ({
-						...deal,
-						amountCents: toCents(amount),
+						...contract,
+						totalAmountCents: toCents(totalAmount),
 						baseAmountCents: baseCurrency === base ? toCents(baseAmount) : null,
-						expectedCloseDate: expectedCloseDate?.toISOString() ?? null,
-						stageChangedAt: stageChangedAt.toISOString(),
+						startDate: startDate.toISOString(),
+						endDate: endDate.toISOString(),
 					}),
 				)
 				.sort((a, b) => (b.baseAmountCents ?? -1) - (a.baseAmountCents ?? -1)),
@@ -283,7 +390,7 @@ export class DashboardService {
 			recentActivity: recentActivity.map(({ createdAt, meta, ...entry }) => ({
 				...entry,
 				createdAt: createdAt.toISOString(),
-				meta: activityMeta.parse(meta),
+				meta: meta as Record<string, unknown> | null,
 			})),
 		};
 	}

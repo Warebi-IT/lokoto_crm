@@ -40,25 +40,20 @@ export default function AppLayout({
 	);
 }
 
-async function loadWorkspace() {
-	try {
-		return await getServerQueryClient().fetchQuery(
-			getServerTrpc().workspace.get.queryOptions(),
-		);
-	} catch (error) {
-		unstable_rethrow(error);
-		return null;
-	}
-}
-
 async function WorkspaceHeader({
 	params,
 }: Pick<LayoutProps<"/[slug]">, "params">) {
 	await connection();
+	const workspacePromise = getServerQueryClient()
+		.fetchQuery(getServerTrpc().workspace.get.queryOptions())
+		.catch((error: unknown) => {
+			unstable_rethrow(error);
+			return null;
+		});
 	const [{ user }, { slug }, workspace] = await Promise.all([
 		requireMailboxAccess(),
 		params,
-		loadWorkspace(),
+		workspacePromise,
 	]);
 
 	if (workspace && workspace.slug !== slug) notFound();

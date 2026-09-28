@@ -18,25 +18,21 @@ import { useQuery } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
-import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useTRPC } from "@/lib/trpc/client";
 
 const GROUP_LABEL = {
-	company: "Companies",
-	contact: "Contacts",
-	deal: "Deals",
+	contact: "Clients",
+	vehicle: "Véhicules",
+	rentalContract: "Contrats de location",
 } as const;
 
-const KINDS = ["company", "contact", "deal"] as const;
+const KINDS = ["contact", "vehicle", "rentalContract"] as const;
 
 export function QuickSwitcher() {
 	const openRecord = useOpenRecord();
 	const trpc = useTRPC();
 
-	const [open, setOpen] = useQueryState(
-		SEARCH_PARAM.dialog.switcher,
-		parseAsBoolean.withDefault(false),
-	);
+	const [open, setOpen] = useQueryState("k", parseAsBoolean.withDefault(false));
 	const [query, setQuery] = useState("");
 
 	useEffect(() => {
@@ -69,20 +65,20 @@ export function QuickSwitcher() {
 		<CommandDialog
 			open={open}
 			onOpenChange={(next) => setOpen(next || null)}
-			title="Search"
-			description="Jump to a company, contact or deal"
+			title="Rechercher"
+			description="Accéder à un client, un véhicule ou un contrat de location"
 		>
 			<Command shouldFilter={false}>
 				<CommandInput
-					placeholder="Search companies, contacts and deals…"
+					placeholder="Rechercher des clients, véhicules et contrats…"
 					value={query}
 					onValueChange={setQuery}
 				/>
 				<CommandList>
 					<CommandEmpty>
 						{query.trim().length < 2
-							? "Type at least two characters."
-							: "Nothing matches."}
+							? "Saisissez au moins deux caractères."
+							: "Aucun résultat."}
 					</CommandEmpty>
 
 					{KINDS.map((kind) => {

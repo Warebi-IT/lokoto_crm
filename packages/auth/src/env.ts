@@ -42,10 +42,6 @@ const microsoftCredentials = ():
 	};
 };
 
-const slackCredentials = ():
-	| { clientId: string; clientSecret: string }
-	| undefined => pair("SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET");
-
 const apiUrl =
 	optional("API_URL") ?? optional("BETTER_AUTH_URL") ?? DEFAULT_API_URL;
 
@@ -61,7 +57,6 @@ export const env = {
 	appUrl,
 	google: googleCredentials(),
 	microsoft: microsoftCredentials(),
-	slack: slackCredentials(),
 	cookieDomain: optional("AUTH_COOKIE_DOMAIN"),
 	trustedOrigins: [...new Set([...appUrls, apiUrl])],
 	isProduction: process.env.NODE_ENV === "production",
@@ -73,10 +68,6 @@ export function isGoogleConfigured(): boolean {
 
 export function isMicrosoftConfigured(): boolean {
 	return env.microsoft !== undefined;
-}
-
-export function isSlackConfigured(): boolean {
-	return env.slack !== undefined;
 }
 
 export { apiUrl, appUrl };

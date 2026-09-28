@@ -18,7 +18,7 @@ import { ContactsTable } from "./contacts-table";
 import { CreateContactSheet } from "./create-contact-sheet";
 
 export const metadata: Metadata = {
-	title: "Contacts",
+	title: "Clients",
 };
 
 export default function ContactsPage({
@@ -28,8 +28,8 @@ export default function ContactsPage({
 		<PageShell className="min-h-0">
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Contacts</PageShellTitle>
-					<PageShellDescription>Everyone in the pipeline.</PageShellDescription>
+					<PageShellTitle>Clients</PageShellTitle>
+					<PageShellDescription>Liste de clients</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
 					<CreateContactSheet />
@@ -59,8 +59,6 @@ async function Contacts({
 		queryClient.prefetchQuery(
 			trpc.contacts.list.queryOptions(contactsSearchParams.toInput(values)),
 		),
-		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
-		queryClient.prefetchQuery(trpc.companies.options.queryOptions({ q: "" })),
 	]);
 
 	return (

@@ -1,12 +1,7 @@
 import { Button } from "@crm/ui/components/button";
 import type { CarbonIcon } from "@crm/ui/components/icon";
 import { Icon } from "@crm/ui/components/icon";
-import {
-	type CompanyLinks,
-	type ContactLinks,
-	companySocialLinks,
-	contactSocialLinks,
-} from "@/lib/social-links";
+import { type ContactLinks, contactSocialLinks } from "@/lib/social-links";
 
 function SocialLinks({
 	rows,
@@ -32,10 +27,6 @@ function SocialLinks({
 			))}
 		</div>
 	);
-}
-
-export function CompanySocials({ company }: { company: CompanyLinks }) {
-	return <SocialLinks rows={companySocialLinks(company)} />;
 }
 
 export function ContactSocials({ contact }: { contact: ContactLinks }) {

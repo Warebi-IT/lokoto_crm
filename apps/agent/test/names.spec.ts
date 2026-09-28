@@ -1,11 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-	looksLikeSameCompany,
-	nameMatchesLocalPart,
-	sameDomain,
-	searchTerms,
-} from "../agent/lib/names";
+import { nameMatchesLocalPart, searchTerms } from "../agent/lib/names";
 
 describe("searchTerms", () => {
 	it("strips the initial off a run-together handle", () => {
@@ -26,24 +21,6 @@ describe("searchTerms", () => {
 	it("never emits a fragment too short to search usefully", () => {
 		expect(searchTerms("abc").every((term) => term.length >= 3)).toBe(true);
 		expect(searchTerms("jo")).toEqual([]);
-	});
-});
-
-describe("looksLikeSameCompany", () => {
-	it("matches an employer to the shorter name the CRM holds", () => {
-		expect(
-			looksLikeSameCompany("Northwind Bank", "Northwind", "northwind.com"),
-		).toBe(true);
-		expect(looksLikeSameCompany("Fernhill", "Fernhill", "fernhill.com")).toBe(
-			true,
-		);
-	});
-
-	it("rejects an unrelated employer", () => {
-		expect(
-			looksLikeSameCompany("Brightwater Group", "Fernhill", "fernhill.com"),
-		).toBe(false);
-		expect(looksLikeSameCompany("", "Fernhill", "fernhill.com")).toBe(false);
 	});
 });
 
@@ -80,30 +57,5 @@ describe("nameMatchesLocalPart", () => {
 		expect(
 			nameMatchesLocalPart({ firstName: null, lastName: null }, "pmarchetti"),
 		).toBe(false);
-	});
-});
-
-describe("sameDomain", () => {
-	it("keeps two hyphenated domains apart", () => {
-		expect(sameDomain("foo-bar.com", "foobar.com")).toBe(false);
-		expect(sameDomain("the-hub.io", "thehub.io")).toBe(false);
-	});
-
-	it("matches the same host however it is written", () => {
-		expect(sameDomain("https://www.Fernhill.com/careers", "fernhill.com")).toBe(
-			true,
-		);
-		expect(sameDomain("fernhill.com.", "FERNHILL.COM")).toBe(true);
-	});
-
-	it("keeps different companies apart", () => {
-		expect(sameDomain("fernhill.com", "brightwater.example")).toBe(false);
-		expect(sameDomain("mail.fernhill.com", "fernhill.com")).toBe(false);
-	});
-
-	it("refuses an empty or missing domain", () => {
-		expect(sameDomain(null, "fernhill.com")).toBe(false);
-		expect(sameDomain("", "fernhill.com")).toBe(false);
-		expect(sameDomain("fernhill.com", "")).toBe(false);
 	});
 });

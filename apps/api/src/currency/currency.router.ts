@@ -10,9 +10,7 @@ import {
 import type { z } from "zod";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
-import { restMeta } from "../trpc/openapi";
 import {
-	currencySettingsOutput,
 	removeManualRateInput,
 	setManualRateInput,
 	setReportingCurrencyInput,
@@ -26,19 +24,12 @@ export class CurrencyRouter {
 		@Inject(CurrencyService) private readonly currency: CurrencyService,
 	) {}
 
-	@Query({
-		output: currencySettingsOutput,
-		meta: restMeta("GET", "/currency/settings", ["Currency"]),
-	})
+	@Query()
 	async settings(@Ctx() ctx: AuthedTrpcContext) {
 		return this.currency.settings(ctx.user.id);
 	}
 
-	@Mutation({
-		input: setReportingCurrencyInput,
-		output: currencySettingsOutput,
-		meta: restMeta("PATCH", "/currency/reporting-currency", ["Currency"]),
-	})
+	@Mutation({ input: setReportingCurrencyInput })
 	async setReportingCurrency(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setReportingCurrencyInput>,
@@ -46,11 +37,7 @@ export class CurrencyRouter {
 		return this.currency.setReportingCurrency(ctx.user.id, input.currency);
 	}
 
-	@Mutation({
-		input: setManualRateInput,
-		output: currencySettingsOutput,
-		meta: restMeta("PUT", "/currency/rates/{currency}", ["Currency"]),
-	})
+	@Mutation({ input: setManualRateInput })
 	async setManualRate(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setManualRateInput>,
@@ -58,11 +45,7 @@ export class CurrencyRouter {
 		return this.currency.setManualRate(ctx.user.id, input.currency, input.rate);
 	}
 
-	@Mutation({
-		input: removeManualRateInput,
-		output: currencySettingsOutput,
-		meta: restMeta("DELETE", "/currency/rates/{currency}", ["Currency"]),
-	})
+	@Mutation({ input: removeManualRateInput })
 	async removeManualRate(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof removeManualRateInput>,
@@ -70,10 +53,7 @@ export class CurrencyRouter {
 		return this.currency.removeManualRate(ctx.user.id, input.currency);
 	}
 
-	@Mutation({
-		output: currencySettingsOutput,
-		meta: restMeta("POST", "/currency/rates/refresh", ["Currency"]),
-	})
+	@Mutation()
 	async refreshRates(@Ctx() ctx: AuthedTrpcContext) {
 		return this.currency.refresh(ctx.user.id);
 	}
