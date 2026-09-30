@@ -67,6 +67,8 @@ afterAll(clean);
 async function makeVehicle(plateSuffix: string): Promise<string> {
 	const vehicle = await vehicles.create({
 		type: "CAR",
+		fuelType: "GASOLINE",
+		seats: 5,
 		make: "Bulk",
 		model: "Test",
 		plateNumber: `${platePrefix}-${plateSuffix}`,

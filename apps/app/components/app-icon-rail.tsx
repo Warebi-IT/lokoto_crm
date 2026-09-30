@@ -9,7 +9,6 @@ import Currency from "@carbon/icons-react/es/Currency";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
 import DocumentSigned from "@carbon/icons-react/es/DocumentSigned";
 import Settings from "@carbon/icons-react/es/Settings";
-import Timeline from "@carbon/icons-react/es/Timeline";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
@@ -43,13 +42,7 @@ type RailItem = {
 
 const ITEMS: RailItem[] = [
 	{ title: "Vue d’ensemble", href: "/", icon: Dashboard, match: "exact" },
-	{
-		title: "Chat",
-		href: "/chat",
-		icon: Chat,
-		match: "prefix",
-		related: ["/agents"],
-	},
+	{ title: "Finance", href: "/finance", icon: Currency, match: "prefix" },
 	{
 		title: "Clients",
 		href: "/contacts",
@@ -60,7 +53,7 @@ const ITEMS: RailItem[] = [
 	{
 		title: "Planning",
 		href: "/planning",
-		icon: Timeline,
+		icon: Calendar,
 		match: "prefix",
 	},
 	{
@@ -76,10 +69,11 @@ const ITEMS: RailItem[] = [
 		match: "prefix",
 	},
 	{
-		title: "Finance",
-		href: "/finance",
-		icon: Currency,
+		title: "Chat",
+		href: "/chat",
+		icon: Chat,
 		match: "prefix",
+		related: ["/agents"],
 	},
 	{ title: "Settings", href: "/settings", icon: Settings, match: "prefix" },
 ];

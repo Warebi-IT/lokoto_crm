@@ -6,6 +6,7 @@ import Currency from "@carbon/icons-react/es/Currency";
 import Renew from "@carbon/icons-react/es/Renew";
 import Time from "@carbon/icons-react/es/Time";
 import Wallet from "@carbon/icons-react/es/Wallet";
+import Warning from "@carbon/icons-react/es/Warning";
 import { Button } from "@crm/ui/components/button";
 import type { ChartConfig } from "@crm/ui/components/chart";
 import {
@@ -24,7 +25,8 @@ import {
 } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { AreaTrend, DonutStat } from "@/components/dashboard-charts";
+import { useState } from "react";
+import { AreaTrend, BarTrend, DonutStat } from "@/components/dashboard-charts";
 import { rentalStatusLabel } from "@/lib/rental-status";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -36,6 +38,29 @@ const TREND_CONFIG: ChartConfig = {
 	completed: { label: "Terminées", color: "var(--success)" },
 	created: { label: "Nouvelles réservations", color: "var(--chart-1)" },
 };
+
+const CASHFLOW_CONFIG: ChartConfig = {
+	revenueCents: { label: "Revenus", color: "var(--success)" },
+	expenseCents: { label: "Dépenses", color: "var(--destructive)" },
+};
+
+type CashflowScale = "day" | "month";
+
+const CASHFLOW_DAY_LABEL = new Intl.DateTimeFormat("fr-FR", {
+	day: "numeric",
+	month: "short",
+});
+const CASHFLOW_MONTH_LABEL = new Intl.DateTimeFormat("fr-FR", {
+	month: "short",
+});
+
+function formatCashflowPeriod(period: string, scale: CashflowScale): string {
+	const [year = 0, month = 1, day = 1] = period.split("-").map(Number);
+	if (scale === "month") {
+		return CASHFLOW_MONTH_LABEL.format(new Date(year, month - 1, 1));
+	}
+	return CASHFLOW_DAY_LABEL.format(new Date(year, month - 1, day));
+}
 
 const STATUS_COLOR: Record<string, string> = {
 	DRAFT: "var(--chart-5)",
@@ -60,8 +85,14 @@ function changeDelta(
 export function FleetDashboardOverview({ summary }: { summary: Summary }) {
 	const workspaceUrl = useWorkspaceUrl();
 
-	const { fleet, today, dueBackThisMonth, reportingCurrency, unconverted } =
-		summary;
+	const {
+		fleet,
+		today,
+		dueBackThisMonth,
+		incidentsThisMonth,
+		reportingCurrency,
+		unconverted,
+	} = summary;
 
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 	const exact = (value: unknown) =>
@@ -86,74 +117,108 @@ export function FleetDashboardOverview({ summary }: { summary: Summary }) {
 
 	return (
 		<div className="flex flex-col gap-6">
-			<ChartCard
-				className="min-w-0"
-				title="Valeur des contrats ouverts"
-				description={
-					fleet.totalContracts > 0
-						? `${formatCount(fleet.totalContracts, "contrat")} en cours · ${money(dueBackThisMonth.valueCents)} à récupérer ce mois-ci`
-						: "Réservations et locations actuellement en cours"
-				}
-				action={
-					<Button asChild variant="contrast" size="sm">
-						<Link href={workspaceUrl("/rental-contracts")}>
-							Voir les contrats
-						</Link>
-					</Button>
-				}
+			<DashboardSection
+				title="Indicateurs clés"
+				description="La situation à surveiller dès l’ouverture"
 			>
-				{statusSlices.length > 0 ? (
-					<div className="flex flex-1 flex-col gap-4 pt-4 lg:flex-row lg:items-center lg:gap-10 lg:px-5 lg:pt-0 md:lg:px-6">
-						<DonutStat
-							data={statusSlices}
-							height={200}
-							centerValue={money(fleet.totalCents)}
-							centerLabel="ouverts"
-							formatValue={exact}
-							className="lg:shrink-0"
-						/>
-						<ul className="flex min-w-0 flex-1 flex-col px-5 pb-1 md:px-6 lg:px-0 lg:pb-0">
-							{statusSlices.map((slice) => (
-								<li key={slice.key} className="border-t first:border-t-0">
-									<Link
-										href={`${workspaceUrl("/rental-contracts")}?status=${slice.key}`}
-										className="flex items-center gap-2.5 py-2.5 text-sm hover:underline"
-									>
-										<span
-											aria-hidden
-											className="size-1.5 shrink-0"
-											style={{ backgroundColor: slice.color }}
-										/>
-										<span className="min-w-0 flex-1 truncate">
-											{slice.label}
-										</span>
-										<span className="shrink-0 text-muted-foreground tabular-nums">
-											{slice.count}
-										</span>
-										<span className="w-16 shrink-0 text-right font-medium tabular-nums">
-											{money(slice.value)}
-										</span>
-									</Link>
-								</li>
-							))}
-						</ul>
-					</div>
-				) : (
-					<EmptyChart label="Aucun contrat actif" />
-				)}
-			</ChartCard>
+				<StatGroup>
+					<StatCard
+						icon={<Icon icon={CheckmarkOutline} />}
+						label="Véhicules disponibles"
+						value={formatCount(today.availableVehicles, "véhicule")}
+						description="Prêts à être attribués"
+					/>
+					<StatCard
+						icon={<Icon icon={Time} />}
+						label="Locations en cours"
+						value={formatCount(today.rentalsInProgress, "location")}
+						description="Contrats actuellement actifs"
+					/>
+					<StatCard
+						icon={<Icon icon={Renew} />}
+						label="Retours ce mois-ci"
+						value={formatCount(dueBackThisMonth.count, "retour")}
+						description="Retours planifiés sur le mois"
+					/>
+					<StatCard
+						icon={<Icon icon={Warning} />}
+						label="Incidents ce mois-ci"
+						value={formatCount(incidentsThisMonth, "incident")}
+						description="Incidents signalés depuis le début du mois"
+					/>
+				</StatGroup>
+			</DashboardSection>
+
+			<DashboardRow split="hero-reverse">
+				<ChartCard
+					className="min-w-0"
+					title="Valeur des contrats ouverts"
+					description={
+						fleet.totalContracts > 0
+							? `${formatCount(fleet.totalContracts, "contrat")} en cours · ${money(dueBackThisMonth.valueCents)} à récupérer ce mois-ci`
+							: "Réservations et locations actuellement en cours"
+					}
+					action={
+						<Button asChild variant="contrast" size="sm">
+							<Link href={workspaceUrl("/rental-contracts")}>
+								Voir les contrats
+							</Link>
+						</Button>
+					}
+				>
+					{statusSlices.length > 0 ? (
+						<div className="flex flex-1 flex-col gap-4 pt-4 lg:flex-row lg:items-center lg:gap-10 lg:px-5 lg:pt-0 md:lg:px-6">
+							<DonutStat
+								data={statusSlices}
+								height={200}
+								centerValue={money(fleet.totalCents)}
+								centerLabel="ouverts"
+								formatValue={exact}
+								className="lg:shrink-0"
+							/>
+							<ul className="flex min-w-0 flex-1 flex-col px-5 pb-1 md:px-6 lg:px-0 lg:pb-0">
+								{statusSlices.map((slice) => (
+									<li key={slice.key} className="border-t first:border-t-0">
+										<Link
+											href={`${workspaceUrl("/rental-contracts")}?status=${slice.key}`}
+											className="flex items-center gap-2.5 py-2.5 text-sm hover:underline"
+										>
+											<span
+												aria-hidden
+												className="size-1.5 shrink-0"
+												style={{ backgroundColor: slice.color }}
+											/>
+											<span className="min-w-0 flex-1 truncate">
+												{slice.label}
+											</span>
+											<span className="shrink-0 text-muted-foreground tabular-nums">
+												{slice.count}
+											</span>
+											<span className="w-16 shrink-0 text-right font-medium tabular-nums">
+												{money(slice.value)}
+											</span>
+										</Link>
+									</li>
+								))}
+							</ul>
+						</div>
+					) : (
+						<EmptyChart label="Aucun contrat actif" />
+					)}
+				</ChartCard>
+
+				<CashflowChart
+					daily={summary.cashflowDaily}
+					monthly={summary.cashflowMonthly}
+					formatValue={exact}
+				/>
+			</DashboardRow>
 
 			<DashboardSection
 				title="Aujourd’hui"
 				description="La situation opérationnelle et financière de la flotte aujourd’hui"
 			>
 				<StatGroup>
-					<StatCard
-						icon={<Icon icon={Time} />}
-						label="Locations en cours"
-						value={formatCount(today.rentalsInProgress, "location")}
-						description="Contrats actuellement en cours"
-					/>
 					<StatCard
 						icon={<Icon icon={CarFront} />}
 						label="Véhicules mobilisés"
@@ -358,6 +423,69 @@ function ProfitabilitySection() {
 				<StatCard label="Marge" value={margin} />
 			</StatGroup>
 		</DashboardSection>
+	);
+}
+
+function CashflowChart({
+	daily,
+	monthly,
+	formatValue,
+}: {
+	daily: Summary["cashflowDaily"];
+	monthly: Summary["cashflowMonthly"];
+	formatValue: (value: unknown) => string;
+}) {
+	const [scale, setScale] = useState<CashflowScale>("day");
+	const data = scale === "day" ? daily : monthly;
+	const hasData = data.some(
+		(point) => point.revenueCents > 0 || point.expenseCents > 0,
+	);
+
+	return (
+		<ChartCard
+			className="min-w-0"
+			title="Revenus et dépenses"
+			description={
+				scale === "day"
+					? `${daily.length} derniers jours`
+					: `${monthly.length} derniers mois`
+			}
+			action={
+				<div className="inline-flex rounded-md border p-0.5">
+					<Button
+						variant={scale === "day" ? "secondary" : "ghost"}
+						size="sm"
+						onClick={() => setScale("day")}
+					>
+						Jour
+					</Button>
+					<Button
+						variant={scale === "month" ? "secondary" : "ghost"}
+						size="sm"
+						onClick={() => setScale("month")}
+					>
+						Mois
+					</Button>
+				</div>
+			}
+		>
+			{hasData ? (
+				<div className="flex flex-1 flex-col justify-center py-4">
+					<BarTrend
+						data={data}
+						config={CASHFLOW_CONFIG}
+						xKey="period"
+						height={196}
+						showLegend
+						bloom="high"
+						formatX={(value) => formatCashflowPeriod(value, scale)}
+						formatValue={formatValue}
+					/>
+				</div>
+			) : (
+				<EmptyChart label="Aucun paiement enregistré pour le moment" />
+			)}
+		</ChartCard>
 	);
 }
 

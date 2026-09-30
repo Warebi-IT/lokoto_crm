@@ -2,7 +2,6 @@ import { FinancingType, FuelType, VehicleStatus, VehicleType } from "@crm/db";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
 import {
-	amountCents,
 	currencyCode,
 	optionalAmountCents,
 } from "../currency/currency.contracts";
@@ -30,11 +29,19 @@ export const vehicleListInput = listInput.extend({
 	type: z.string().default("all"),
 });
 
+export const vehicleCatalogInput = z.object({
+	q: z.string().trim().default(""),
+	make: z.string().trim().optional(),
+});
+
 export type VehicleListInput = z.infer<typeof vehicleListInput>;
+export type VehicleCatalogInput = z.infer<typeof vehicleCatalogInput>;
 
 export const vehicleCreateInput = z.object({
 	type: vehicleTypeEnum,
-	fuelType: fuelTypeEnum.optional(),
+	fuelType: fuelTypeEnum,
+	seats: z.number().int().min(1, "A vehicle needs at least one seat.").max(100),
+	vehicleCatalogId: z.string().trim().optional(),
 	make: z.string().trim().min(1, "A vehicle needs a make."),
 	model: z.string().trim().min(1, "A vehicle needs a model."),
 	year: z.number().int().min(1950).max(2100).nullable().optional(),
@@ -56,6 +63,7 @@ export type VehicleCreateInput = z.infer<typeof vehicleCreateInput>;
 const vehicleUpdateInput = z.object({
 	type: vehicleTypeEnum.optional(),
 	fuelType: fuelTypeEnum.optional(),
+	seats: z.number().int().min(1).max(100).nullable().optional(),
 	make: z.string().trim().min(1).optional(),
 	model: z.string().trim().min(1).optional(),
 	year: z.number().int().min(1950).max(2100).nullable().optional(),
@@ -98,16 +106,73 @@ export const vehicleBulkStatusInput = bulkIdsInput.extend({
 
 export type VehicleBulkStatusInput = z.infer<typeof vehicleBulkStatusInput>;
 
-export const vehicleSetFinancingInput = z.object({
-	vehicleId: z.string(),
-	type: financingTypeEnum,
-	principalAmountCents: optionalAmountCents,
-	monthlyPaymentCents: amountCents,
-	currency: currencyCode.optional(),
-	interestRate: z.number().min(0).max(100).nullable().optional(),
-	termMonths: z.number().int().min(1).max(600).nullable().optional(),
-	startDate: z.string().min(1, "Financing needs a start date."),
-});
+export const vehicleSetFinancingInput = z
+	.object({
+		vehicleId: z.string(),
+		type: financingTypeEnum,
+		principalAmountCents: optionalAmountCents,
+		monthlyPaymentCents: optionalAmountCents,
+		currency: currencyCode.optional(),
+		interestRate: z.number().min(0).max(100).nullable().optional(),
+		fiscalDepreciationRate: z
+			.number()
+			.positive()
+			.max(100)
+			.nullable()
+			.optional(),
+		termMonths: z.number().int().min(1).max(600).nullable().optional(),
+		startDate: z.string().min(1, "Financing needs a start date."),
+	})
+	.superRefine((input, context) => {
+		if (input.type === FinancingType.PURCHASE) {
+			if (
+				input.principalAmountCents === null ||
+				input.principalAmountCents === undefined
+			) {
+				context.addIssue({
+					code: "custom",
+					path: ["principalAmountCents"],
+					message: "Un achat comptant nécessite un prix d’achat.",
+				});
+			}
+			if (!input.termMonths) {
+				context.addIssue({
+					code: "custom",
+					path: ["termMonths"],
+					message: "Un achat comptant nécessite une durée d’amortissement.",
+				});
+			}
+			return;
+		}
+		if (input.type === FinancingType.LEASING && input.fiscalDepreciationRate) {
+			context.addIssue({
+				code: "custom",
+				path: ["fiscalDepreciationRate"],
+				message: "Le leasing ne peut pas être amorti fiscalement.",
+			});
+		}
+		if (
+			input.monthlyPaymentCents === null ||
+			input.monthlyPaymentCents === undefined
+		) {
+			context.addIssue({
+				code: "custom",
+				path: ["monthlyPaymentCents"],
+				message: "Ce financement nécessite une mensualité.",
+			});
+		}
+		if (
+			input.type === FinancingType.LOAN &&
+			(input.principalAmountCents === null ||
+				input.principalAmountCents === undefined)
+		) {
+			context.addIssue({
+				code: "custom",
+				path: ["principalAmountCents"],
+				message: "Un crédit nécessite un capital financé.",
+			});
+		}
+	});
 
 export type VehicleSetFinancingInput = z.infer<typeof vehicleSetFinancingInput>;
 

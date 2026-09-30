@@ -43,7 +43,7 @@ export const SECTION_TITLE =
 
 export const PROPERTY_ROW = "grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2";
 
-export const PROPERTY_LABEL = "truncate text-muted-foreground text-xs";
+export const PROPERTY_LABEL = "text-muted-foreground text-xs";
 
 const PROPERTY_CELL = "border border-transparent py-1";
 
@@ -148,7 +148,9 @@ export function DetailSheetHeader({
 
 export function DetailSheetStats({ children }: { children: ReactNode }) {
 	return (
-		<dl className="flex shrink-0 divide-x border-b bg-muted/40">{children}</dl>
+		<dl className="flex shrink-0 divide-x divide-primary-foreground/15 bg-primary">
+			{children}
+		</dl>
 	);
 }
 
@@ -163,11 +165,11 @@ export function DetailSheetStat({
 }) {
 	return (
 		<div className={cn("flex min-w-0 flex-1 flex-col gap-1 py-2.5", GUTTER)}>
-			<dt className="flex items-center gap-1.5 truncate text-muted-foreground text-xs/5">
+			<dt className="flex items-center gap-1.5 truncate text-primary-foreground/70 text-xs/5">
 				{icon ? <Icon icon={icon} className="size-3.5" /> : null}
 				{label}
 			</dt>
-			<dd className="min-w-0 truncate font-medium text-foreground text-sm/5">
+			<dd className="min-w-0 truncate font-medium text-primary-foreground text-sm/5">
 				{children}
 			</dd>
 		</div>
@@ -180,6 +182,8 @@ export type DetailSheetTab = {
 	count?: number | null;
 	content: ReactNode;
 	keepMounted?: boolean;
+	/** Marks a tab whose content is inherently negative (incidents, issues) — its active state reads as a warning, not the usual brand green. */
+	destructive?: boolean;
 };
 
 export function DetailSheetTabs({
@@ -205,10 +209,25 @@ export function DetailSheetTabs({
 				className={cn("w-full shrink-0 justify-start gap-6 border-b", GUTTER)}
 			>
 				{tabs.map((tab) => (
-					<TabsTrigger key={tab.value} value={tab.value}>
+					<TabsTrigger
+						key={tab.value}
+						value={tab.value}
+						className={
+							tab.destructive
+								? "group-data-[variant=line]/tabs-list:data-active:text-destructive after:bg-destructive"
+								: undefined
+						}
+					>
 						{tab.label}
 						{tab.count ? (
-							<span className="text-muted-foreground tabular-nums">
+							<span
+								className={cn(
+									"tabular-nums",
+									tab.destructive
+										? "text-destructive"
+										: "text-muted-foreground",
+								)}
+							>
 								{tab.count}
 							</span>
 						) : null}
@@ -261,7 +280,17 @@ export function DetailSheetSection({
 		>
 			{title || action ? (
 				<div className="flex h-5 items-center justify-between gap-3">
-					{title ? <h3 className={SECTION_TITLE}>{title}</h3> : <span />}
+					{title ? (
+						<h3 className={cn(SECTION_TITLE, "flex items-center gap-1.5")}>
+							<span
+								aria-hidden
+								className="size-1.5 shrink-0 rounded-full bg-primary"
+							/>
+							{title}
+						</h3>
+					) : (
+						<span />
+					)}
 					{action}
 				</div>
 			) : null}

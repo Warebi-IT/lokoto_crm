@@ -31,6 +31,10 @@ const TREND_CONFIG: ChartConfig = {
 	expensesCents: { label: "Dépenses", color: "var(--chart-5)" },
 };
 
+const MARGIN_CONFIG: ChartConfig = {
+	marginPercent: { label: "Marge nette", color: "var(--success)" },
+};
+
 const TYPE_LABEL: Record<string, string> = {
 	CAR: "Voitures",
 	MOTORCYCLE: "Motos",
@@ -38,6 +42,22 @@ const TYPE_LABEL: Record<string, string> = {
 	TRUCK: "Camions",
 	MINIBUS: "Minibus",
 };
+
+const TYPE_COLOR: Record<string, string> = {
+	CAR: "var(--chart-1)",
+	MOTORCYCLE: "var(--chart-2)",
+	SCOOTER: "var(--chart-3)",
+	TRUCK: "var(--chart-4)",
+	MINIBUS: "var(--chart-5)",
+};
+
+const CLIENT_PALETTE = [
+	"var(--chart-1)",
+	"var(--chart-2)",
+	"var(--chart-3)",
+	"var(--chart-4)",
+	"var(--chart-5)",
+];
 
 const TOP_LIMIT = 5;
 
@@ -77,6 +97,13 @@ export function FinanceView() {
 		(point) => point.revenueCents > 0 || point.expensesCents > 0,
 	);
 
+	const marginTrend = data.trend.map((point) => ({
+		month: point.month,
+		marginPercent:
+			point.revenueCents > 0 ? point.netCents / point.revenueCents : 0,
+	}));
+	const hasMarginTrend = data.trend.some((point) => point.revenueCents > 0);
+
 	const expenses = data.expenseBreakdown;
 	const expenseSlices = [
 		{
@@ -90,6 +117,12 @@ export function FinanceView() {
 			label: "Leasing",
 			value: expenses.leasingCents,
 			color: "var(--chart-4)",
+		},
+		{
+			key: "purchase",
+			label: "Achats comptants",
+			value: expenses.purchaseCents,
+			color: "var(--chart-1)",
 		},
 		{
 			key: "charges",
@@ -119,6 +152,26 @@ export function FinanceView() {
 		.sort((a, b) => b.revenueCents - a.revenueCents)
 		.slice(0, TOP_LIMIT);
 
+	const segments = bySegment.data ?? [];
+	const segmentSlices = segments
+		.filter((segment) => segment.revenueCents > 0)
+		.map((segment) => ({
+			key: segment.type,
+			label: TYPE_LABEL[segment.type] ?? segment.type,
+			value: segment.revenueCents,
+			color: TYPE_COLOR[segment.type] ?? "var(--chart-5)",
+		}));
+
+	const clients = topClients.data ?? [];
+	const clientSlices = clients
+		.filter((client) => client.revenueCents > 0)
+		.map((client, index) => ({
+			key: client.contactId,
+			label: `${client.firstName} ${client.lastName ?? ""}`.trim(),
+			value: client.revenueCents,
+			color: CLIENT_PALETTE[index % CLIENT_PALETTE.length] ?? "var(--chart-5)",
+		}));
+
 	return (
 		<div className="flex flex-col gap-6">
 			<DashboardSection
@@ -134,6 +187,11 @@ export function FinanceView() {
 					<StatCard
 						label="Dépenses depuis le début"
 						value={money(data.lifetime.expensesCents)}
+					/>
+					<StatCard
+						label="Seuil de rentabilité"
+						value={money(data.lifetime.minimumRevenueToBeProfitableCents)}
+						description="Revenus minimum pour couvrir tous les coûts"
 					/>
 					<StatCard
 						label="Net"
@@ -217,8 +275,31 @@ export function FinanceView() {
 			</DashboardRow>
 
 			<DashboardSection
+				title="Évolution de la marge"
+				description="Marge nette (net / revenus), six derniers mois"
+			>
+				<ChartCard className="min-w-0">
+					{hasMarginTrend ? (
+						<div className="flex flex-1 flex-col justify-center py-4">
+							<AreaTrend
+								data={marginTrend}
+								config={MARGIN_CONFIG}
+								xKey="month"
+								height={180}
+								variant="gradient"
+								bloom="high"
+								formatValue={(value) => formatPercent(Number(value))}
+							/>
+						</div>
+					) : (
+						<EmptyChart label="Aucun revenu enregistré pour le moment" />
+					)}
+				</ChartCard>
+			</DashboardSection>
+
+			<DashboardSection
 				title="Poids du financement"
-				description="Part du crédit et du leasing dans les charges totales"
+				description="Part du crédit, du leasing et des achats dans les charges totales"
 			>
 				<StatGroup>
 					<StatCard
@@ -230,6 +311,16 @@ export function FinanceView() {
 						label="Leasing"
 						value={money(expenses.leasingCents)}
 						description={`${ratio(expenses.leasingCents, data.lifetime.expensesCents)} des charges`}
+					/>
+					<StatCard
+						label="Achats comptants"
+						value={money(expenses.purchaseCents)}
+						description={`${ratio(expenses.purchaseCents, data.lifetime.expensesCents)} des charges`}
+					/>
+					<StatCard
+						label="Amortissement crédit"
+						value={money(expenses.amortizationCents)}
+						description={`${ratio(expenses.amortizationCents, data.lifetime.expensesCents)} des charges`}
 					/>
 					<StatCard
 						label="Financement total"
@@ -248,11 +339,44 @@ export function FinanceView() {
 				title="Rentabilité par secteur"
 				description="Revenus et marge nette par type de véhicule"
 			>
-				<SegmentTable
-					segments={bySegment.data ?? []}
-					money={money}
-					ratio={ratio}
-				/>
+				<DashboardRow split="hero">
+					<SegmentTable segments={segments} money={money} ratio={ratio} />
+
+					<ChartCard className="min-w-0" title="Répartition du CA par type">
+						{segmentSlices.length > 0 ? (
+							<div className="flex flex-1 flex-col justify-between gap-1 pt-4">
+								<DonutStat
+									data={segmentSlices}
+									height={168}
+									centerValue={money(data.lifetime.revenueCents)}
+									centerLabel="CA total"
+									formatValue={exact}
+								/>
+								<ul className="flex flex-col px-5 pb-1 md:px-6">
+									{segmentSlices.map((slice) => (
+										<li key={slice.key} className="border-t first:border-t-0">
+											<div className="flex items-center gap-2.5 py-2 text-xs">
+												<span
+													aria-hidden
+													className="size-1.5 shrink-0"
+													style={{ backgroundColor: slice.color }}
+												/>
+												<span className="min-w-0 flex-1 truncate">
+													{slice.label}
+												</span>
+												<span className="w-14 shrink-0 text-right font-medium tabular-nums">
+													{money(slice.value)}
+												</span>
+											</div>
+										</li>
+									))}
+								</ul>
+							</div>
+						) : (
+							<EmptyChart label="Aucun revenu par type pour le moment" />
+						)}
+					</ChartCard>
+				</DashboardRow>
 			</DashboardSection>
 
 			<DashboardRow split="even">
@@ -275,7 +399,49 @@ export function FinanceView() {
 				title="Top clients"
 				description="Chiffre d’affaires cumulé par client"
 			>
-				<ClientTable clients={topClients.data ?? []} money={money} />
+				<DashboardRow split="hero">
+					<ClientTable clients={clients} money={money} />
+
+					<ChartCard className="min-w-0" title="Répartition du CA par client">
+						{clientSlices.length > 0 ? (
+							<div className="flex flex-1 flex-col justify-between gap-1 pt-4">
+								<DonutStat
+									data={clientSlices}
+									height={168}
+									centerValue={money(
+										clientSlices.reduce(
+											(total, slice) => total + slice.value,
+											0,
+										),
+									)}
+									centerLabel="top clients"
+									formatValue={exact}
+								/>
+								<ul className="flex flex-col px-5 pb-1 md:px-6">
+									{clientSlices.map((slice) => (
+										<li key={slice.key} className="border-t first:border-t-0">
+											<div className="flex items-center gap-2.5 py-2 text-xs">
+												<span
+													aria-hidden
+													className="size-1.5 shrink-0"
+													style={{ backgroundColor: slice.color }}
+												/>
+												<span className="min-w-0 flex-1 truncate">
+													{slice.label || "Sans nom"}
+												</span>
+												<span className="w-14 shrink-0 text-right font-medium tabular-nums">
+													{money(slice.value)}
+												</span>
+											</div>
+										</li>
+									))}
+								</ul>
+							</div>
+						) : (
+							<EmptyChart label="Aucun client avec des paiements enregistrés" />
+						)}
+					</ChartCard>
+				</DashboardRow>
 			</DashboardSection>
 		</div>
 	);

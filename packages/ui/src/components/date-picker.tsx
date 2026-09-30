@@ -21,12 +21,15 @@ export function DatePicker({
 	onChange,
 	placeholder = "Select a date",
 	variant,
+	size = "default",
 }: {
 	id?: string;
 	value: string | null | undefined;
 	onChange: (next: string) => void;
 	placeholder?: string;
-} & VariantProps<typeof selectTriggerVariants>) {
+} & VariantProps<typeof selectTriggerVariants> & {
+	size?: "sm" | "default" | "lg";
+}) {
 	const [open, setOpen] = useState(false);
 	const selected = fromDay(value);
 	const thisYear = new Date().getFullYear();
@@ -43,7 +46,7 @@ export function DatePicker({
 					type="button"
 					id={id}
 					data-slot="date-picker-trigger"
-					data-size="default"
+					data-size={size}
 					data-placeholder={selected ? undefined : ""}
 					className={cn(selectTriggerVariants({ variant }), "w-full")}
 				>

@@ -1,4 +1,4 @@
-import { type Db, PaymentStatus, PaymentType } from "@crm/db";
+import { type Db, FinancingType, PaymentStatus, PaymentType } from "@crm/db";
 import { Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
@@ -21,11 +21,17 @@ export type ProfitabilityBucket = {
 
 export type ProfitabilitySummary = {
 	reportingCurrency: string;
-	lifetime: { revenueCents: number; expensesCents: number; netCents: number };
+	lifetime: {
+		revenueCents: number;
+		expensesCents: number;
+		netCents: number;
+		minimumRevenueToBeProfitableCents: number;
+	};
 	monthly: {
 		revenueCents: number;
 		expensesCents: number;
 		netCents: number;
+		minimumRevenueToBeProfitableCents: number;
 		marginPercent: number | null;
 		costCoveragePercent: number | null;
 	};
@@ -42,6 +48,8 @@ export type ProfitabilitySummary = {
 		financingCents: number;
 		loanCents: number;
 		leasingCents: number;
+		purchaseCents: number;
+		amortizationCents: number;
 		chargesCents: number;
 		maintenanceCents: number;
 		incidentsCents: number;
@@ -58,6 +66,8 @@ export type ProfitabilityByVehicle = ProfitabilitySummary & {
 		financingCents: number;
 		loanCents: number;
 		leasingCents: number;
+		purchaseCents: number;
+		amortizationCents: number;
 		chargesCents: number;
 		maintenanceCents: number;
 		incidentsCents: number;
@@ -268,8 +278,12 @@ export class ProfitabilityService {
 		const financingPlans = await this.db.vehicleFinancing.findMany({
 			select: {
 				vehicleId: true,
+				type: true,
 				baseAmount: true,
 				baseCurrency: true,
+				principalAmount: true,
+				currency: true,
+				fiscalDepreciationRate: true,
 				startDate: true,
 				termMonths: true,
 			},
@@ -283,6 +297,24 @@ export class ProfitabilityService {
 				: currentKey;
 			const months = Math.max(0, Math.min(currentKey, lastKey) - startKey + 1);
 			bump(plan.vehicleId, "expensesCents", cents * months);
+			if (
+				(plan.type === FinancingType.LOAN ||
+					plan.type === FinancingType.PURCHASE) &&
+				plan.principalAmount &&
+				plan.termMonths
+			) {
+				const converted = await this.conversion.convert(
+					plan.principalAmount,
+					plan.currency,
+				);
+				const amortizationCents = Math.round(
+					(toCents(converted?.baseAmount ?? null) ?? 0) *
+						(plan.fiscalDepreciationRate
+							? plan.fiscalDepreciationRate.toNumber() / 100 / 12
+							: 1 / (plan.termMonths ?? 1)),
+				);
+				bump(plan.vehicleId, "expensesCents", amortizationCents * months);
+			}
 		}
 
 		const vehicleCharges = await this.db.vehicleCharge.findMany({
@@ -373,6 +405,8 @@ export class ProfitabilityService {
 		const financing = empty();
 		const loan = empty();
 		const leasing = empty();
+		const purchase = empty();
+		const amortization = empty();
 		const charges = empty();
 		const maintenance = empty();
 		const incidents = empty();
@@ -403,6 +437,9 @@ export class ProfitabilityService {
 			select: {
 				baseAmount: true,
 				baseCurrency: true,
+				principalAmount: true,
+				currency: true,
+				fiscalDepreciationRate: true,
 				startDate: true,
 				termMonths: true,
 				type: true,
@@ -418,8 +455,36 @@ export class ProfitabilityService {
 				Math.min(monthKey(now), lastMonth) - monthKey(plan.startDate) + 1;
 			const monthsElapsed = Math.max(0, elapsedMonths);
 			financing.lifetime += monthsElapsed * cents;
-			const byType = plan.type === "LOAN" ? loan : leasing;
+			const byType =
+				plan.type === FinancingType.LOAN
+					? loan
+					: plan.type === FinancingType.PURCHASE
+						? purchase
+						: leasing;
 			byType.lifetime += monthsElapsed * cents;
+			let monthlyAmortization = 0;
+			if (
+				(plan.type === FinancingType.LOAN ||
+					plan.type === FinancingType.PURCHASE) &&
+				plan.principalAmount &&
+				plan.termMonths
+			) {
+				const converted = await this.conversion.convert(
+					plan.principalAmount,
+					plan.currency,
+				);
+				monthlyAmortization = Math.round(
+					(toCents(converted?.baseAmount ?? null) ?? 0) *
+						(plan.fiscalDepreciationRate
+							? plan.fiscalDepreciationRate.toNumber() / 100 / 12
+							: 1 / (plan.termMonths ?? 1)),
+				);
+				amortization.lifetime += monthsElapsed * monthlyAmortization;
+				financing.lifetime += monthsElapsed * monthlyAmortization;
+				const amortizationType =
+					plan.type === FinancingType.LOAN ? loan : purchase;
+				amortizationType.lifetime += monthsElapsed * monthlyAmortization;
+			}
 
 			for (let index = 0; index < TREND_MONTHS; index++) {
 				const bucketKey = firstBucket + index;
@@ -428,11 +493,28 @@ export class ProfitabilityService {
 				}
 				financing.buckets[index] = (financing.buckets[index] ?? 0) + cents;
 				byType.buckets[index] = (byType.buckets[index] ?? 0) + cents;
+				if (monthlyAmortization > 0) {
+					financing.buckets[index] =
+						(financing.buckets[index] ?? 0) + monthlyAmortization;
+					const amortizationType =
+						plan.type === FinancingType.LOAN ? loan : purchase;
+					amortizationType.buckets[index] =
+						(amortizationType.buckets[index] ?? 0) + monthlyAmortization;
+					amortization.buckets[index] =
+						(amortization.buckets[index] ?? 0) + monthlyAmortization;
+				}
 			}
 
 			if (yoyKey >= monthKey(plan.startDate) && yoyKey <= lastMonth) {
 				financing.yoy += cents;
 				byType.yoy += cents;
+				if (monthlyAmortization > 0) {
+					financing.yoy += monthlyAmortization;
+					const amortizationType =
+						plan.type === FinancingType.LOAN ? loan : purchase;
+					amortizationType.yoy += monthlyAmortization;
+					amortization.yoy += monthlyAmortization;
+				}
 			}
 		}
 
@@ -560,11 +642,13 @@ export class ProfitabilityService {
 				revenueCents: revenue.lifetime,
 				expensesCents: expensesLifetime,
 				netCents: revenue.lifetime - expensesLifetime,
+				minimumRevenueToBeProfitableCents: expensesLifetime,
 			},
 			monthly: {
 				revenueCents: monthly.revenueCents,
 				expensesCents: monthly.expensesCents,
 				netCents: monthly.netCents,
+				minimumRevenueToBeProfitableCents: monthly.expensesCents,
 				marginPercent: marginPercent(monthly.revenueCents, monthly.netCents),
 				costCoveragePercent: costCoveragePercent(
 					monthly.revenueCents,
@@ -593,6 +677,8 @@ export class ProfitabilityService {
 				financingCents: financing.lifetime,
 				loanCents: loan.lifetime,
 				leasingCents: leasing.lifetime,
+				purchaseCents: purchase.lifetime,
+				amortizationCents: amortization.lifetime,
 				chargesCents: charges.lifetime,
 				maintenanceCents: maintenance.lifetime,
 				incidentsCents: incidents.lifetime,

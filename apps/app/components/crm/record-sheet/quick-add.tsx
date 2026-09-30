@@ -2,6 +2,7 @@
 
 import { Button } from "@crm/ui/components/button";
 import { Spinner } from "@crm/ui/components/spinner";
+import { cn } from "@crm/ui/lib/utils";
 
 export function QuickAddForm({
 	submitLabel,
@@ -9,6 +10,8 @@ export function QuickAddForm({
 	ready,
 	onSubmit,
 	onCancel,
+	density = "default",
+	columns = 2,
 	children,
 }: {
 	submitLabel: string;
@@ -16,14 +19,27 @@ export function QuickAddForm({
 	ready: boolean;
 	onSubmit: () => void;
 	onCancel: () => void;
+	density?: "default" | "compact";
+	columns?: 2 | 3;
 	children: React.ReactNode;
 }) {
 	return (
 		<form
-			className="flex shrink-0 flex-col gap-4 border-b px-5 py-4"
+			className={cn(
+				"flex shrink-0 flex-col border-b px-5",
+				density === "compact" ? "gap-3 py-3" : "gap-4 py-4",
+			)}
 			action={onSubmit}
 		>
-			<div className="grid gap-4 sm:grid-cols-2">{children}</div>
+			<div
+				className={cn(
+					"grid",
+					columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2",
+					density === "compact" ? "gap-3" : "gap-4",
+				)}
+			>
+				{children}
+			</div>
 			<div className="flex items-center justify-end gap-2">
 				<Button
 					type="button"

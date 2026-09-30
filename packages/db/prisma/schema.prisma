@@ -914,6 +914,7 @@ model Vehicle {
   make        String
   model       String
   year        Int?
+  seats       Int?
   plateNumber String        @unique
   vin         String?
   color       String?
@@ -962,9 +963,29 @@ model Vehicle {
   @@map("vehicle")
 }
 
+model VehicleCatalog {
+  id        String   @id @default(cuid())
+  make      String
+  model     String
+  yearFrom  Int?
+  yearTo    Int?
+  seats     Int?
+  fuelType  FuelType?
+  photoUrls String[] @default([])
+  source    String   @default("vpic")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([make, model])
+  @@index([make])
+  @@index([model])
+  @@map("vehicleCatalog")
+}
+
 enum FinancingType {
   LOAN
   LEASING
+  PURCHASE
 }
 
 enum ChargeFrequency {
@@ -988,6 +1009,7 @@ model VehicleFinancing {
   fxRateAt     DateTime?
 
   interestRate Decimal? @db.Decimal(6, 3)
+  fiscalDepreciationRate Decimal? @db.Decimal(6, 3)
   termMonths   Int?
   startDate    DateTime
 

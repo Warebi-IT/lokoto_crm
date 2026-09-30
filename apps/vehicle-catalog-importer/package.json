@@ -1,0 +1,23 @@
+{
+	"name": "vehicle-catalog-importer",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"import": "bun scripts/import.ts",
+		"dev": "bun --watch server.ts",
+		"start": "bun server.ts",
+		"check-types": "tsc --noEmit",
+		"lint": "biome check ."
+	},
+	"dependencies": {
+		"@aws-sdk/client-s3": "^3.1131.0",
+		"@crm/db": "workspace:*",
+		"@crm/env": "workspace:*"
+	},
+	"devDependencies": {
+		"@crm/typescript-config": "workspace:*",
+		"@types/node": "^24.10.1",
+		"typescript": "5.9.2"
+	}
+}
