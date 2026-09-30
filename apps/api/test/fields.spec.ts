@@ -455,7 +455,7 @@ describe("a record update that fails", () => {
 
 		await expect(
 			contacts.update(contact.id, {
-				fields: { spec_note: "Reads the docs" },
+				fields: { spec_unknown: "Reads the docs" },
 			}),
 		).rejects.toThrow();
 
