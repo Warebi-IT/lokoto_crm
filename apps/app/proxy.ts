@@ -2,10 +2,7 @@ import { AUTH_COOKIE_PREFIX } from "@crm/auth/cookies";
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 import { isMarketing } from "@/lib/env";
-import {
-	ONBOARDING_PATH,
-	readWorkspaceGate,
-} from "@/lib/onboarding";
+import { ONBOARDING_PATH, readWorkspaceGate } from "@/lib/onboarding";
 import { workspaceUrl } from "@/lib/workspace-url";
 
 const LANDING_PATH = "/";
@@ -35,7 +32,8 @@ export async function proxy(request: NextRequest) {
 
 	if (workspace.gate === "required") return sendTo(ONBOARDING_PATH, request);
 
-	if (workspace.gate !== "settled" || !workspace.slug) return NextResponse.next();
+	if (workspace.gate !== "settled" || !workspace.slug)
+		return NextResponse.next();
 
 	return sendTo(appPath(pathname, workspace.slug), request);
 }
