@@ -35,6 +35,7 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { SimpleTable, SimpleTableRow } from "@crm/ui/components/simple-table";
+import { Spinner } from "@crm/ui/components/spinner";
 import {
 	IndicatorDot,
 	StatusIndicator,
@@ -74,6 +75,7 @@ import {
 } from "@/components/detail-sheet";
 import { LocalDay } from "@/components/local-date-time";
 import { savingField } from "@/lib/pending-field";
+import { formatReported } from "@/lib/reported-money";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -217,6 +219,8 @@ function VehicleMedia({ vehicle }: { vehicle: Vehicle }) {
 					className="object-cover"
 					onError={() => setBroken(true)}
 				/>
+			) : isAwaitingPhoto(vehicle.photoUrls, vehicle.createdAt) ? (
+				<Spinner aria-label="Image bientôt disponible" />
 			) : (
 				<Icon icon={CarFront} className="text-muted-foreground" />
 			)}
@@ -329,7 +333,11 @@ export function VehicleSheet({ vehicleId }: { vehicleId: string }) {
 								<EmptyCellValue />
 							) : (
 								<span className="tabular-nums">
-									{formatMoney(vehicle.dailyRateCents, vehicle.currency)}
+									{formatReported(
+										vehicle,
+										vehicle.dailyRateCents,
+										vehicle.currency,
+									)}
 								</span>
 							)}
 						</DetailSheetStat>
@@ -598,7 +606,11 @@ function VehicleRentalHistory({ vehicleId }: { vehicleId: string }) {
 						{contract.totalAmountCents === null ? (
 							<EmptyCellValue />
 						) : (
-							formatMoney(contract.totalAmountCents, contract.currency)
+							formatReported(
+								contract,
+								contract.totalAmountCents,
+								contract.currency,
+							)
 						)}
 					</TableCell>
 				</SimpleTableRow>

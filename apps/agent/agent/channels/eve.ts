@@ -1,3 +1,5 @@
+import { db } from "@crm/db";
+import { isAgentEnabled } from "@crm/db/agent-usage";
 import {
 	type AuthFn,
 	extractBearerToken,
@@ -29,6 +31,12 @@ export function repFromCrm(secret: string): AuthFn<Request> {
 			const claims = result.sessionAuth;
 			const userId = claims.subject;
 			if (!userId) return null;
+
+			try {
+				if (!(await isAgentEnabled(db, userId))) return null;
+			} catch {
+				return null;
+			}
 
 			return {
 				attributes: claims.attributes ?? {},

@@ -12,6 +12,7 @@ import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	memberListInput,
+	setMemberAgentInput,
 	setMemberRoleInput,
 	updateWorkspaceInput,
 } from "./workspace.contracts";
@@ -35,6 +36,19 @@ export class WorkspaceRouter {
 		@Input() input: z.infer<typeof memberListInput>,
 	) {
 		return this.workspace.members(ctx.user.id, input);
+	}
+
+	@Query()
+	async agentUsage(@Ctx() ctx: AuthedTrpcContext) {
+		return this.workspace.agentUsage(ctx.user.id);
+	}
+
+	@Mutation({ input: setMemberAgentInput })
+	async setMemberAgent(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof setMemberAgentInput>,
+	) {
+		return this.workspace.setMemberAgent(ctx.user.id, input);
 	}
 
 	@Mutation({ input: updateWorkspaceInput })

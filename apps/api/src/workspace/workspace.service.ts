@@ -7,6 +7,7 @@ import {
 	type WorkspaceRole,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
+import { readAgentPricing } from "@crm/db/agent-usage";
 import { isOnboarded, markOnboarded, workspaceSlug } from "@crm/db/workspace";
 import {
 	BadRequestException,
@@ -28,6 +29,7 @@ import {
 } from "../trpc/list-input";
 import type {
 	MemberListInput,
+	SetMemberAgentInput,
 	SetMemberRoleInput,
 	UpdateWorkspaceInput,
 } from "./workspace.contracts";
@@ -41,6 +43,7 @@ export interface Workspace {
 	viewerRole: WorkspaceRole | null;
 	canRename: boolean;
 	canChangeRoles: boolean;
+	agentEnabled: boolean;
 }
 
 export interface WorkspaceMember {
@@ -50,13 +53,22 @@ export interface WorkspaceMember {
 	email: string;
 	image: string | null;
 	role: WorkspaceRole;
+	agentEnabled: boolean;
 	joinedAt: string;
 	isViewer: boolean;
+}
+
+export interface AgentUsageSummary {
+	pricing: { inputPerMillion: number; outputPerMillion: number };
+	month: string;
+	totalTokens: number;
+	days: { day: string; tokens: number }[];
 }
 
 const MEMBER_SELECT = {
 	id: true,
 	role: true,
+	agentEnabled: true,
 	createdAt: true,
 	userId: true,
 	user: { select: { name: true, email: true, image: true } },
@@ -101,7 +113,8 @@ export class WorkspaceService {
 			);
 		}
 
-		const role = await this.roleOf(userId);
+		const viewer = await this.viewerOf(userId);
+		const role = viewer?.role ?? null;
 
 		return {
 			id: row.id,
@@ -112,6 +125,7 @@ export class WorkspaceService {
 			viewerRole: role,
 			canRename: canRenameWorkspace(role),
 			canChangeRoles: canChangeRole(role),
+			agentEnabled: viewer?.agentEnabled ?? false,
 		};
 	}
 
@@ -247,6 +261,96 @@ export class WorkspaceService {
 		return this.toMember(updated, userId);
 	}
 
+	async setMemberAgent(
+		userId: string,
+		input: SetMemberAgentInput,
+	): Promise<WorkspaceMember> {
+		const role = await this.roleOf(userId);
+
+		if (!canChangeRole(role)) {
+			throw new ForbiddenException(
+				"Only an owner or an admin can turn the research agent on or off.",
+			);
+		}
+
+		const target = await this.db.member.findFirst({
+			where: { id: input.memberId, organizationId: WORKSPACE_ID },
+			select: { id: true },
+		});
+
+		if (!target) {
+			throw new NotFoundException("That person is not in this workspace.");
+		}
+
+		const updated = await this.db.member.update({
+			where: { id: target.id },
+			data: { agentEnabled: input.enabled },
+			select: MEMBER_SELECT,
+		});
+
+		this.logger.log({
+			message: "Research agent access changed",
+			userId,
+			memberId: updated.id,
+			enabled: input.enabled,
+		});
+
+		return this.toMember(updated, userId);
+	}
+
+	async agentUsage(userId: string): Promise<AgentUsageSummary> {
+		const role = await this.roleOf(userId);
+
+		if (!canChangeRole(role)) {
+			throw new ForbiddenException(
+				"Only an owner or an admin can read the research agent's cost.",
+			);
+		}
+
+		const now = new Date();
+		const start = new Date(
+			Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+		);
+		const end = new Date(
+			Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+		);
+
+		const [pricing, rows] = await Promise.all([
+			readAgentPricing(this.db),
+			this.db.$queryRaw<{ day: Date; tokens: bigint }[]>`
+				SELECT date_trunc('day', "createdAt" AT TIME ZONE 'UTC') AS day,
+					SUM("totalTokens") AS tokens
+				FROM "agentUsage"
+				WHERE "createdAt" >= ${start} AND "createdAt" < ${end}
+				GROUP BY 1
+			`,
+		]);
+
+		const byDay = new Map(
+			rows.map((row) => [
+				row.day.toISOString().slice(0, 10),
+				Number(row.tokens),
+			]),
+		);
+		const lastDay = Math.min(
+			now.getUTCDate(),
+			new Date(end.getTime() - 1).getUTCDate(),
+		);
+		const days = Array.from({ length: lastDay }, (_, index) => {
+			const day = new Date(start.getTime() + index * 86_400_000)
+				.toISOString()
+				.slice(0, 10);
+			return { day, tokens: byDay.get(day) ?? 0 };
+		});
+
+		return {
+			pricing,
+			month: start.toISOString().slice(0, 7),
+			totalTokens: days.reduce((sum, entry) => sum + entry.tokens, 0),
+			days,
+		};
+	}
+
 	private toMember(row: MemberRow, userId: string): WorkspaceMember {
 		return {
 			id: row.id,
@@ -255,6 +359,7 @@ export class WorkspaceService {
 			email: row.user.email,
 			image: row.user.image,
 			role: toRole(row.role),
+			agentEnabled: row.agentEnabled,
 			joinedAt: row.createdAt.toISOString(),
 			isViewer: row.userId === userId,
 		};
@@ -297,6 +402,19 @@ export class WorkspaceService {
 				metadata: true,
 			},
 		});
+	}
+
+	private async viewerOf(userId: string) {
+		const member = await this.db.member.findUnique({
+			where: {
+				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+			},
+			select: { role: true, agentEnabled: true },
+		});
+
+		return member
+			? { role: toRole(member.role), agentEnabled: member.agentEnabled }
+			: null;
 	}
 
 	private async roleOf(userId: string): Promise<WorkspaceRole | null> {

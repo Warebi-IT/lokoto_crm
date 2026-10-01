@@ -9,12 +9,12 @@ import {
 	type DataTableFacet,
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
+import { Spinner } from "@crm/ui/components/spinner";
 import {
 	IndicatorDot,
 	StatusIndicator,
 } from "@crm/ui/components/status-indicator";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
-import { formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import type { ReactNode } from "react";
@@ -25,6 +25,7 @@ import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalRelativeTime } from "@/components/local-date-time";
+import { formatReported } from "@/lib/reported-money";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { isAwaitingPhoto, VEHICLE_PHOTO_POLL_MS } from "@/lib/vehicle-photo";
@@ -121,7 +122,7 @@ const COLUMNS: DataTableColumn<VehicleRow>[] = [
 				<EmptyCellValue />
 			) : (
 				<span className="tabular-nums">
-					{formatMoney(row.dailyRateCents, row.currency)}
+					{formatReported(row, row.dailyRateCents, row.currency)}
 				</span>
 			),
 	},
@@ -213,6 +214,11 @@ function VehicleCard({ vehicle }: { vehicle: VehicleRow }) {
 						className="scale-170 object-contain p-3"
 						onError={() => setBroken(true)}
 					/>
+				) : isAwaitingPhoto(vehicle.photoUrls, vehicle.createdAt) ? (
+					<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
+						<Spinner />
+						Image bientôt disponible
+					</div>
 				) : null}
 			</div>
 
@@ -233,7 +239,11 @@ function VehicleCard({ vehicle }: { vehicle: VehicleRow }) {
 					) : (
 						<>
 							<span className="font-bold text-xl tabular-nums">
-								{formatMoney(vehicle.dailyRateCents, vehicle.currency)}
+								{formatReported(
+									vehicle,
+									vehicle.dailyRateCents,
+									vehicle.currency,
+								)}
 							</span>
 							<span className="ml-1 text-muted-foreground text-xs">/jour</span>
 						</>

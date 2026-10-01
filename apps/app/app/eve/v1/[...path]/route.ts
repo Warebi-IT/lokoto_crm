@@ -1,4 +1,5 @@
 import { db } from "@crm/db";
+import { isAgentEnabled } from "@crm/db/agent-usage";
 import { connection } from "next/server";
 import {
 	AGENT_URL,
@@ -20,6 +21,13 @@ async function handler(request: Request): Promise<Response> {
 	const session = await getSession();
 	if (!session) {
 		return Response.json({ error: "Not signed in." }, { status: 401 });
+	}
+
+	if (!(await isAgentEnabled(db, session.user.id))) {
+		return Response.json(
+			{ error: "The research agent is not enabled for your account." },
+			{ status: 403 },
+		);
 	}
 
 	const url = new URL(request.url);

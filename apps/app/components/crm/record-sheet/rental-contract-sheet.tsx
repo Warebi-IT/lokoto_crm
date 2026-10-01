@@ -97,6 +97,7 @@ import {
 } from "@/components/detail-sheet";
 import { LocalDateTime, LocalDay } from "@/components/local-date-time";
 import { savingField } from "@/lib/pending-field";
+import { reportedAmount } from "@/lib/reported-money";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -328,8 +329,11 @@ export function RentalContractSheet({ contractId }: { contractId: string }) {
 					<DetailSheetStats>
 						<DetailSheetStat label="Total" icon={Wallet}>
 							<MoneyAmount
-								amountCents={contract.totalAmountCents}
-								currency={contract.currency}
+								{...reportedAmount(
+									contract,
+									contract.totalAmountCents ?? 0,
+									contract.currency,
+								)}
 							/>
 						</DetailSheetStat>
 						<DetailSheetStat label="Caution" icon={PiggyBank}>

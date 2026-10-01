@@ -7,7 +7,6 @@ import {
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
-import { formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { contactName } from "@/components/crm/contact-name";
@@ -20,6 +19,7 @@ import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
 import { RENTAL_STATUS_OPTIONS } from "@/lib/rental-status";
+import { formatReported } from "@/lib/reported-money";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { RentalContractsBulkActions } from "./rental-contracts-bulk-actions";
@@ -96,7 +96,7 @@ const COLUMNS: DataTableColumn<ContractRow>[] = [
 				<EmptyCellValue />
 			) : (
 				<span className="tabular-nums">
-					{formatMoney(row.totalAmountCents, row.currency)}
+					{formatReported(row, row.totalAmountCents, row.currency)}
 				</span>
 			),
 	},

@@ -18,7 +18,7 @@ agent and the API both need it.
   Open conversations keep their model — prompt caches are per model.
 - **`lib/model.ts` always sends `modelContextWindowTokens`**; eve never inherits it.
 - **A failed read logs and keeps the compiled fallback.** Never throws.
-- **The chooser offers only `tool-use` models** (`ModelCatalogService`).
+- **There is no model chooser.** The agent runs on our own provider (`ovhModel()`); `AppSetting` only carries the context window.
 - **Not a frontier model, deliberately** — refusing wrong answers is enforced by the
   tools and evidence model, not model strength.
 
@@ -42,6 +42,23 @@ agent and the API both need it.
   each keyed on an identifier already on the record.
 - **There is no image search by name, and there must never be.** Nobody audits a face.
   **Guess where to look, never what you will find.**
+
+## Access and cost are rows
+
+The agent is paid, so it is **off per member**: `Member.agentEnabled`, default
+`false`, set to `true` for owners by the migration. Toggled in Settings → Members
+(`workspace.setMemberAgent`, owner/admin only).
+
+- **Enforced twice** — the `/eve/v1/*` proxy answers `403`, and `repFromCrm` refuses
+  the token. Either alone would be a hole.
+- **Every `step.completed` is billed to a row** — `AgentUsage` (tokens in/out/total,
+  the prices applied, `costUsd`), unique on the event id so a replayed event counts
+  once. `AgentUsageMonthly` is the per-month, per-member rollup
+  (`userId = ''` is dispatched research with no rep). Writer:
+  `recordAgentUsage` in `@crm/db/agent-usage`.
+- **Prices are `AppSetting.agentInputPricePerMillion` / `agentOutputPricePerMillion`**
+  — **set in the database only, the front reads and never writes them**. Unset means `0`, never an error. Each usage row keeps
+  the prices it was costed at, so changing them never rewrites history.
 
 ## Two lanes
 
