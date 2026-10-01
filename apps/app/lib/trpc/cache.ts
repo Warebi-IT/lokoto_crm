@@ -27,7 +27,6 @@ export type CrmCache = {
 	activity(options?: Options): Promise<void>;
 	google(options?: Options): Promise<void>;
 	microsoft(options?: Options): Promise<void>;
-	settings(options?: Options): Promise<void>;
 	currency(options?: Options): Promise<void>;
 	workspace(options?: Options): Promise<void>;
 	sso(options?: Options): Promise<void>;
@@ -254,13 +253,6 @@ export function useCrmCache(): CrmCache {
 					trpc.contacts.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
 				],
-				options,
-			),
-
-		settings: (options) =>
-			run(
-				[trpc.settings.researchKey.queryKey()],
-				[],
 				options,
 			),
 
