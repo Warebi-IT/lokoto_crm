@@ -4,5 +4,6 @@
   },
   "enabledPlugins": {
     "paper-desktop@paper": true
-  }
+  },
+  "permissions": { "allow": ["Bash(node /private/tmp/claude-501/-Users-yann-Documents-GitHub-lokoto-crm/9e07fdb1-b3db-45e3-9c35-437293119811/scratchpad/copy.cjs)"] }
 }

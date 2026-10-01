@@ -11,27 +11,28 @@ import { db } from "@crm/db/client";
 
 const port = Number(process.env.IMPORTER_PORT ?? 4310);
 const baseUrl = "https://carimage.dev/api/v1";
-const brands = [
-	"Toyota",
-	"Lexus",
-	"Nissan",
-	"Chevrolet",
-	"Jeep",
-	"Mercedes-Benz",
-	"BMW",
-	"Audi",
-	"Kia",
-	"Hyundai",
-	"Mitsubishi",
-	"Honda",
-	"Mazda",
-	"Volkswagen",
-	"Ford",
-	"Volvo",
-	"Range Rover",
-];
 const networkLimit = createConcurrencyLimiter(5);
 const manifestPath = path.join(import.meta.dir, "data", "import-state.json");
+const catalogPath = path.join(
+	import.meta.dir,
+	"data",
+	"car-image-catalog.json",
+);
+const catalogTtlMs = 7 * 24 * 60 * 60 * 1000;
+type CatalogMake = {
+	name: string;
+	ids: Record<string, number>;
+	models?: { name: string; years: number[] }[];
+};
+type Catalog = {
+	fetchedAt: string;
+	years: number[];
+	makes: Record<string, CatalogMake>;
+};
+let catalog: Catalog | null = null;
+let catalogLoad: Promise<Catalog> | null = null;
+let catalogWrite = Promise.resolve();
+let manifestSynced: Promise<void> | null = null;
 type ManifestEntry = {
 	make: string;
 	model: string;
@@ -208,49 +209,98 @@ async function carImage<T>(path: string): Promise<T> {
 	});
 }
 
-async function getModels(view = "side-right") {
+function saveCatalog() {
+	catalogWrite = catalogWrite.then(async () => {
+		await mkdir(path.dirname(catalogPath), { recursive: true });
+		await writeFile(catalogPath, JSON.stringify(catalog));
+	});
+	return catalogWrite;
+}
+
+async function buildCatalog() {
+	try {
+		const stored = JSON.parse(await readFile(catalogPath, "utf8")) as Catalog;
+		if (Date.now() - Date.parse(stored.fetchedAt) < catalogTtlMs) {
+			catalog = stored;
+			return stored;
+		}
+	} catch {}
 	const yearData = await carImage<{ years: number[] }>("/vehicles");
 	const years = pickYears(yearData.years);
-	await syncManifest();
-	const catalog = new Map<
-		string,
-		{ make: string; model: string; years: number[] }
-	>();
-	const yearResults = await Promise.all(
+	const makes: Record<string, CatalogMake> = {};
+	await Promise.all(
 		years.map(async (year) => {
 			const data = await carImage<{ makes: { id: number; name: string }[] }>(
 				`/vehicles?year=${year}`,
 			);
-			const brandResults = await Promise.all(
-				brands.map(async (brand) => {
-					const make = data.makes.find(
-						(entry) => entry.name.toLowerCase() === brand.toLowerCase(),
-					);
-					if (!make) return [];
-					const models = await carImage<{ models: { name: string }[] }>(
-						`/vehicles?year=${year}&makeId=${make.id}`,
-					);
-					return models.models.map((model) => ({ brand, model: model.name }));
-				}),
-			);
-			return { year, brandResults };
+			for (const make of data.makes) {
+				const slot = make.name.toLowerCase();
+				const entry = makes[slot] ?? { name: make.name, ids: {} };
+				entry.ids[year] = make.id;
+				makes[slot] = entry;
+			}
 		}),
 	);
-	for (const { year, brandResults } of yearResults) {
-		for (const models of brandResults) {
-			for (const item of models) {
-				const key = `${item.brand}|${item.model}`;
-				const existing = catalog.get(key) ?? {
-					make: item.brand,
-					model: item.model,
-					years: [],
-				};
-				if (!existing.years.includes(year)) existing.years.push(year);
-				catalog.set(key, existing);
-			}
-		}
+	catalog = { fetchedAt: new Date().toISOString(), years, makes };
+	await saveCatalog();
+	return catalog;
+}
+
+function loadCatalog() {
+	if (catalog) return Promise.resolve(catalog);
+	catalogLoad ??= buildCatalog().finally(() => {
+		catalogLoad = null;
+	});
+	return catalogLoad;
+}
+
+async function getMakes() {
+	const loaded = await loadCatalog();
+	return Object.values(loaded.makes)
+		.map((entry) => entry.name)
+		.sort((a, b) => a.localeCompare(b));
+}
+
+async function catalogModels(make: string) {
+	const loaded = await loadCatalog();
+	const entry = loaded.makes[make.toLowerCase()];
+	if (!entry) return [];
+	if (!entry.models) {
+		const byModel = new Map<string, number[]>();
+		await Promise.all(
+			Object.entries(entry.ids).map(async ([year, id]) => {
+				const data = await carImage<{ models: { name: string }[] }>(
+					`/vehicles?year=${year}&makeId=${id}`,
+				);
+				for (const model of data.models) {
+					const years = byModel.get(model.name) ?? [];
+					years.push(Number(year));
+					byModel.set(model.name, years);
+				}
+			}),
+		);
+		entry.models = [...byModel].map(([name, years]) => ({
+			name,
+			years: years.sort((a, b) => a - b),
+		}));
+		await saveCatalog();
 	}
-	const rows = [...catalog.values()];
+	return entry.models.map((model) => ({
+		make: entry.name,
+		model: model.name,
+		years: model.years,
+	}));
+}
+
+async function getModels(view: string, make: string, query: string) {
+	manifestSynced ??= syncManifest();
+	await manifestSynced;
+	const needle = query.trim().toLowerCase();
+	const rows = (await catalogModels(make)).filter(
+		(row) => !needle || row.model.toLowerCase().includes(needle),
+	);
+	if (rows.length === 0) return [];
+	let storedByModel = new Map<string, string[]>();
 	try {
 		const stored = await db.vehicleCatalog.findMany({
 			where: {
@@ -260,25 +310,17 @@ async function getModels(view = "side-right") {
 			},
 			select: { make: true, model: true, photoUrls: true },
 		});
-		const storedByModel = new Map(
+		storedByModel = new Map(
 			stored.map((row) => [`${row.make}|${row.model}`, row.photoUrls]),
 		);
-		return rows.map((row) => ({
-			...row,
-			photoUrls: storedByModel.get(`${row.make}|${row.model}`) ?? [],
-			downloadedYears: row.years.filter((year) =>
-				Boolean(manifest[imageKey(row.make, row.model, year, view)]),
-			),
-		}));
-	} catch {
-		return rows.map((row) => ({
-			...row,
-			photoUrls: [],
-			downloadedYears: row.years.filter((year) =>
-				Boolean(manifest[imageKey(row.make, row.model, year, view)]),
-			),
-		}));
-	}
+	} catch {}
+	return rows.map((row) => ({
+		...row,
+		photoUrls: storedByModel.get(`${row.make}|${row.model}`) ?? [],
+		downloadedYears: row.years.filter((year) =>
+			Boolean(manifest[imageKey(row.make, row.model, year, view)]),
+		),
+	}));
 }
 
 async function upload(input: {
@@ -374,9 +416,17 @@ const server = Bun.serve({
 				const data = await carImage<{ years: number[] }>("/vehicles");
 				return Response.json({ years: pickYears(data.years) });
 			}
+			if (url.pathname === "/api/makes" && request.method === "GET")
+				return Response.json({ makes: await getMakes() });
 			if (url.pathname === "/api/models" && request.method === "GET") {
+				const make = url.searchParams.get("make")?.trim();
+				if (!make) return Response.json([]);
 				return Response.json(
-					await getModels(url.searchParams.get("view") ?? "side-right"),
+					await getModels(
+						url.searchParams.get("view") ?? "side-right",
+						make,
+						url.searchParams.get("q") ?? "",
+					),
 				);
 			}
 			if (url.pathname === "/api/upload" && request.method === "POST")

@@ -1,5 +1,6 @@
 const state = {
 	models: [],
+	makes: [],
 	years: [],
 	decisions: new Map(),
 	uploaded: new Set(),
@@ -7,14 +8,16 @@ const state = {
 };
 const view = document.querySelector("#view");
 const search = document.querySelector("#search");
+const makeInput = document.querySelector("#make");
+const makesList = document.querySelector("#makes");
+const models = new Map();
 const brands = document.querySelector("#brands");
 const message = document.querySelector("#message");
 
 function visible() {
 	const query = search.value.trim().toLowerCase();
 	return state.models.filter(
-		(item) =>
-			!query || `${item.make} ${item.model}`.toLowerCase().includes(query),
+		(item) => !query || item.model.toLowerCase().includes(query),
 	);
 }
 
@@ -47,27 +50,50 @@ function render() {
 	).length;
 }
 
+async function loadMakes() {
+	const response = await fetch("/api/makes");
+	const data = await response.json();
+	if (!response.ok)
+		throw new Error(data.error ?? "Impossible de charger les marques.");
+	state.makes = data.makes;
+	makesList.innerHTML = data.makes
+		.map((make) => `<option value="${make}"></option>`)
+		.join("");
+}
+
 async function loadYears() {
 	const response = await fetch("/api/years");
 	const data = await response.json();
 	state.years = data.years;
 	document.querySelector("#years").textContent = data.years.join(" · ");
-	await loadModels();
+	await loadMakes();
 }
 
 async function loadModels() {
-	message.textContent = "Chargement des modèles...";
-	const response = await fetch(
-		`/api/models?view=${encodeURIComponent(view.value)}`,
+	const make = state.makes.find(
+		(entry) => entry.toLowerCase() === makeInput.value.trim().toLowerCase(),
 	);
-	const data = await response.json();
-	if (!response.ok || !Array.isArray(data))
-		throw new Error(
-			data.error ?? "Impossible de charger les modèles depuis Car Image.",
+	if (!make) {
+		state.models = [];
+		message.textContent = "Choisissez une marque de la liste.";
+		render();
+		return;
+	}
+	if (!models.has(make)) {
+		message.textContent = `Chargement des modèles ${make}...`;
+		const response = await fetch(
+			`/api/models?make=${encodeURIComponent(make)}&view=${encodeURIComponent(view.value)}`,
 		);
-	state.models = data;
+		const data = await response.json();
+		if (!response.ok || !Array.isArray(data))
+			throw new Error(
+				data.error ?? "Impossible de charger les modèles depuis Car Image.",
+			);
+		models.set(make, data);
+	}
+	state.models = models.get(make);
 	state.decisions.clear();
-	message.textContent = `${state.models.length} modèles disponibles sur ${state.years.length} années.`;
+	message.textContent = `${state.models.length} modèles ${make} sur ${state.years.length} années.`;
 	render();
 }
 
@@ -92,7 +118,17 @@ brands.addEventListener("click", (event) => {
 	render();
 });
 search.addEventListener("input", render);
-view.addEventListener("change", loadModels);
+view.addEventListener("change", () => {
+	models.clear();
+	loadModels().catch((error) => {
+		message.textContent = error.message;
+	});
+});
+makeInput.addEventListener("change", () => {
+	loadModels().catch((error) => {
+		message.textContent = error.message;
+	});
+});
 document.querySelector("#selectAll").addEventListener("click", () => {
 	for (const item of visible())
 		if (!isDownloaded(item))
@@ -153,8 +189,9 @@ loadYears()
 	.then(() => {
 		document.querySelector("#connection").classList.add("online");
 		document.querySelector("#statusText").textContent = "Car Image connecté";
+		message.textContent = "Choisissez une marque de la liste.";
 	})
 	.catch((error) => {
 		document.querySelector("#statusText").textContent = error.message;
-		message.textContent = "Impossible de charger les modèles.";
+		message.textContent = "Impossible de charger les marques.";
 	});

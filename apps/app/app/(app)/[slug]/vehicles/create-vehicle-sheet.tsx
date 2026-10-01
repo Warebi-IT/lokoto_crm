@@ -3,13 +3,6 @@
 import Add from "@carbon/icons-react/es/Add";
 import { Button } from "@crm/ui/components/button";
 import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandItem,
-	CommandList,
-} from "@crm/ui/components/command";
-import {
 	Field,
 	FieldDescription,
 	FieldGroup,
@@ -17,11 +10,6 @@ import {
 } from "@crm/ui/components/field";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
-import {
-	Popover,
-	PopoverAnchor,
-	PopoverContent,
-} from "@crm/ui/components/popover";
 import {
 	Select,
 	SelectContent,
@@ -95,6 +83,7 @@ function CreateVehicleForm() {
 	const [make, setMake] = useState("");
 	const [model, setModel] = useState("");
 	const [catalogId, setCatalogId] = useState<string | null>(null);
+	const [resetKey, setResetKey] = useState(0);
 	const [plateNumber, setPlateNumber] = useState("");
 	const [dailyRate, setDailyRate] = useState("");
 
@@ -103,21 +92,14 @@ function CreateVehicleForm() {
 	const plateId = useId();
 	const rateId = useId();
 
-	const makeCatalog = useQuery({
-		...trpc.vehicles.catalog.queryOptions({ q: make }),
-		enabled: make.trim().length > 0,
-	});
+	const makeCatalog = useQuery(trpc.vehicles.makes.queryOptions());
 	const modelCatalog = useQuery({
-		...trpc.vehicles.catalog.queryOptions({ q: model, make }),
+		...trpc.vehicles.catalog.queryOptions({ q: "", make }),
 		enabled: make.trim().length > 0,
 	});
 
-	const makeOptions = [
-		...new Map(
-			(makeCatalog.data ?? []).map((row) => [row.make, row.make]),
-		).values(),
-	].slice(0, 8);
-	const modelOptions = (modelCatalog.data ?? []).slice(0, 8);
+	const makeOptions = makeCatalog.data ?? [];
+	const modelOptions = modelCatalog.data ?? [];
 
 	const create = useMutation(
 		trpc.vehicles.create.mutationOptions({
@@ -128,6 +110,7 @@ function CreateVehicleForm() {
 				setMake("");
 				setModel("");
 				setCatalogId(null);
+				setResetKey((current) => current + 1);
 				setYear("");
 				setSeats("");
 				setPlateNumber("");
@@ -237,9 +220,10 @@ function CreateVehicleForm() {
 							/>
 						</Field>
 
-						<CatalogField
+						<CatalogSelect
+							key={`make-${resetKey}`}
 							label="Marque"
-							description="Choisissez une marque du catalogue ou saisissez-la."
+							description="Choisissez une marque, ou « Autre » pour la saisir."
 							placeholder="Toyota"
 							value={make}
 							options={makeOptions.map((option) => ({
@@ -258,7 +242,8 @@ function CreateVehicleForm() {
 							}}
 						/>
 
-						<CatalogField
+						<CatalogSelect
+							key={`model-${make}-${resetKey}`}
 							label="Modèle"
 							description="Le modèle est filtré selon la marque choisie."
 							placeholder="Corolla"
@@ -345,7 +330,9 @@ function CreateVehicleForm() {
 	);
 }
 
-function CatalogField({
+const OTHER_OPTION = "__other";
+
+function CatalogSelect({
 	label,
 	description,
 	placeholder,
@@ -365,55 +352,48 @@ function CatalogField({
 	onSelect: (key: string) => void;
 }) {
 	const id = useId();
-	const [open, setOpen] = useState(false);
-	const showSuggestions = open && !disabled;
+	const [other, setOther] = useState(false);
+	const picked = options.find((option) => option.label === value);
+	const selected = other ? OTHER_OPTION : (picked?.key ?? "");
 
 	return (
 		<Field>
 			<FieldLabel htmlFor={id}>{label}</FieldLabel>
 			<FieldDescription>{description}</FieldDescription>
-			<Popover open={showSuggestions} onOpenChange={setOpen}>
-				<PopoverAnchor asChild>
-					<Input
-						id={id}
-						value={value}
-						onChange={(event) => {
-							onValueChange(event.target.value);
-							setOpen(true);
-						}}
-						onFocus={() => setOpen(true)}
-						placeholder={placeholder}
-						autoComplete="off"
-						disabled={disabled}
-						required
-					/>
-				</PopoverAnchor>
-				<PopoverContent
-					size="fit"
-					align="start"
-					className="w-(--radix-popover-trigger-width)"
-					onOpenAutoFocus={(event) => event.preventDefault()}
-				>
-					<Command shouldFilter={false}>
-						<CommandList>
-							<CommandEmpty>Aucun résultat.</CommandEmpty>
-							<CommandGroup>
-								{options.map((option) => (
-									<CommandItem
-										key={option.key}
-										onSelect={() => {
-											onSelect(option.key);
-											setOpen(false);
-										}}
-									>
-										{option.label}
-									</CommandItem>
-								))}
-							</CommandGroup>
-						</CommandList>
-					</Command>
-				</PopoverContent>
-			</Popover>
+			<Select
+				value={selected}
+				disabled={disabled}
+				onValueChange={(next) => {
+					if (next === OTHER_OPTION) {
+						setOther(true);
+						onValueChange("");
+						return;
+					}
+					setOther(false);
+					onSelect(next);
+				}}
+			>
+				<SelectTrigger id={id}>
+					<SelectValue placeholder={placeholder} />
+				</SelectTrigger>
+				<SelectContent>
+					{options.map((option) => (
+						<SelectItem key={option.key} value={option.key}>
+							{option.label}
+						</SelectItem>
+					))}
+					<SelectItem value={OTHER_OPTION}>Autre…</SelectItem>
+				</SelectContent>
+			</Select>
+			{other ? (
+				<Input
+					value={value}
+					onChange={(event) => onValueChange(event.target.value)}
+					placeholder={placeholder}
+					autoComplete="off"
+					required
+				/>
+			) : null}
 		</Field>
 	);
 }

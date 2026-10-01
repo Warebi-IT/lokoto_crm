@@ -77,6 +77,7 @@ import { savingField } from "@/lib/pending-field";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { isAwaitingPhoto, VEHICLE_PHOTO_POLL_MS } from "@/lib/vehicle-photo";
 import type {
 	DamageAnnotationDraft,
 	DamagePoint,
@@ -227,7 +228,15 @@ export function VehicleSheet({ vehicleId }: { vehicleId: string }) {
 	const trpc = useTRPC();
 	const { tab, setTab } = useRecordSheetView("overview");
 
-	const query = useQuery(trpc.vehicles.byId.queryOptions({ id: vehicleId }));
+	const query = useQuery({
+		...trpc.vehicles.byId.queryOptions({ id: vehicleId }),
+		refetchInterval: (current) => {
+			const record = current.state.data;
+			return record && isAwaitingPhoto(record.photoUrls, record.createdAt)
+				? VEHICLE_PHOTO_POLL_MS
+				: false;
+		},
+	});
 	const vehicle = query.data;
 
 	const tabs: DetailSheetTab[] = vehicle

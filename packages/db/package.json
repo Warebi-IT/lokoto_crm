@@ -18,6 +18,7 @@
 		"./rental-status": "./src/rental-status.ts",
 		"./safe-fetch": "./src/safe-fetch.ts",
 		"./settings": "./src/settings.ts",
+		"./vehicle-photos": "./src/vehicle-photos.ts",
 		"./workspace": "./src/workspace.ts"
 	},
 	"scripts": {

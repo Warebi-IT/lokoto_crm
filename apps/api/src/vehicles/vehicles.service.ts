@@ -7,6 +7,7 @@ import {
 	VehicleStatus as VehicleStatusEnum,
 } from "@crm/db";
 import { normalizeCurrency } from "@crm/db/currency";
+import { closestYearPhoto } from "@crm/db/vehicle-photos";
 import {
 	BadRequestException,
 	Injectable,
@@ -29,6 +30,7 @@ import {
 	paginate,
 	resolveOrderBy,
 } from "../trpc/list-input";
+import { VehicleImagesService } from "./vehicle-images.service";
 import type {
 	VehicleAvailabilityInput,
 	VehicleBulkStatusInput,
@@ -53,30 +55,6 @@ const SORTABLE: Record<
 	lastActivity: (dir) => [{ lastActivityAt: { sort: dir, nulls: "last" } }],
 };
 
-const PHOTO_YEAR = /\/(\d{4})\/[^/]+$/;
-
-function closestYearPhoto(
-	photoUrls: string[],
-	targetYear: number | null,
-): string | null {
-	const year = targetYear ?? new Date().getFullYear();
-
-	let best: string | null = null;
-	let bestDistance = Number.POSITIVE_INFINITY;
-
-	for (const url of photoUrls) {
-		const match = url.match(PHOTO_YEAR);
-		if (!match?.[1]) continue;
-		const distance = Math.abs(Number(match[1]) - year);
-		if (distance < bestDistance) {
-			best = url;
-			bestDistance = distance;
-		}
-	}
-
-	return best;
-}
-
 @Injectable()
 export class VehiclesService {
 	private readonly logger = new Logger(VehiclesService.name);
@@ -86,6 +64,7 @@ export class VehiclesService {
 		private readonly stamp: ActivityStampService,
 		private readonly conversion: ConversionService,
 		private readonly fields: FieldsService,
+		private readonly importer: VehicleImagesService,
 	) {}
 
 	async list(input: VehicleListInput) {
@@ -149,6 +128,14 @@ export class VehiclesService {
 		};
 	}
 
+	async makes() {
+		const rows = await this.db.vehicleCatalog.groupBy({
+			by: ["make"],
+			orderBy: { make: "asc" },
+		});
+		return rows.map((row) => row.make);
+	}
+
 	async catalog(input: VehicleCatalogInput) {
 		const q = input.q.trim();
 		return this.db.vehicleCatalog.findMany({
@@ -164,7 +151,7 @@ export class VehiclesService {
 					: {}),
 			},
 			orderBy: [{ make: "asc" }, { model: "asc" }],
-			take: 100,
+			take: input.make ? 300 : 100,
 			select: {
 				id: true,
 				make: true,
@@ -342,12 +329,15 @@ export class VehiclesService {
 			currency,
 		);
 
-		const catalog = input.vehicleCatalogId
-			? await this.db.vehicleCatalog.findUnique({
-					where: { id: input.vehicleCatalogId },
-					select: { photoUrls: true },
-				})
-			: null;
+		const catalog = await this.db.vehicleCatalog.findFirst({
+			where: input.vehicleCatalogId
+				? { id: input.vehicleCatalogId }
+				: {
+						make: { equals: input.make.trim(), mode: "insensitive" },
+						model: { equals: input.model.trim(), mode: "insensitive" },
+					},
+			select: { photoUrls: true },
+		});
 		const photo = catalog
 			? closestYearPhoto(catalog.photoUrls, input.year ?? null)
 			: null;
@@ -383,6 +373,13 @@ export class VehiclesService {
 				vehicleId: vehicle.id,
 				plateNumber: vehicle.plateNumber,
 			});
+
+			if (!catalog?.photoUrls.length)
+				void this.importer.requestImages(
+					vehicle.make,
+					vehicle.model,
+					input.year ?? null,
+				);
 
 			return vehicle;
 		} catch (error) {

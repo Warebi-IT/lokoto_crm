@@ -43,6 +43,11 @@ export class VehiclesRouter {
 		return this.vehicles.catalog(input);
 	}
 
+	@Query()
+	async makes() {
+		return this.vehicles.makes();
+	}
+
 	@Mutation({ input: vehicleCreateInput })
 	async create(@Input() input: z.infer<typeof vehicleCreateInput>) {
 		return this.vehicles.create(input);

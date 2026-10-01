@@ -475,6 +475,8 @@ const appRouter = t.router({
     catalog: publicProcedure
       .input(vehicleCatalogInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["catalog"]>>),
+    makes: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["makes"]>>),
     create: publicProcedure
       .input(vehicleCreateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["create"]>>),

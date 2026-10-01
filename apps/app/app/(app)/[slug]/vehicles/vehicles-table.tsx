@@ -27,6 +27,7 @@ import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { isAwaitingPhoto, VEHICLE_PHOTO_POLL_MS } from "@/lib/vehicle-photo";
 import { VehiclesBulkActions } from "./vehicles-bulk-actions";
 import { vehiclesSearchParams } from "./vehicles-search-params";
 
@@ -252,6 +253,12 @@ export function VehiclesTable() {
 	const vehicles = useQuery({
 		...trpc.vehicles.list.queryOptions(input),
 		placeholderData: (previous) => previous,
+		refetchInterval: (current) =>
+			current.state.data?.rows.some((row) =>
+				isAwaitingPhoto(row.photoUrls, row.createdAt),
+			)
+				? VEHICLE_PHOTO_POLL_MS
+				: false,
 	});
 	const rows = vehicles.data?.rows ?? [];
 	const selection = useTableSelection(
