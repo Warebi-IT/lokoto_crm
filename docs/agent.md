@@ -224,7 +224,7 @@ egress:
 the backend factory** so it cannot be forgotten per session. Costs nothing —
 `web_fetch` runs in the app runtime, `web_search` at the provider.
 
-**Never give the sandbox `DATABASE_URL`.** CRM access is authored tools. A shell with
+**Never give the sandbox `BDD_URL`.** CRM access is authored tools. A shell with
 credentials and network is exfiltration-shaped; with neither it is a text processor.
 
 ## Team-agent builder and runner
@@ -591,7 +591,7 @@ byte-identical to the one it sent.** Parse for your own marker.
 
 ## Tests
 
-`bun run --filter=agent test`. The integration specs need `DATABASE_URL` and run
+`bun run --filter=agent test`. The integration specs need `BDD_URL` and run
 against a real Postgres, which is the point — "never overwrite a human" is only
 true if the transaction says so.
 **`taskFromToken` keys on the `task:` marker, not a fixed prefix**

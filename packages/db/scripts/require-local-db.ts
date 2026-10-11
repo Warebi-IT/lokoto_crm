@@ -15,7 +15,7 @@ const resolved = resolveDatabaseUrl();
 
 if (!resolved) {
 	console.error(
-		`\n  ${command} needs DATABASE_URL, and nothing set it.` +
+		`\n  ${command} needs BDD_URL, and nothing set it.` +
 			"\n  Copy .env.example to .env at the repo root.\n",
 	);
 	process.exit(1);
@@ -41,12 +41,12 @@ console.error(
 		resolved.from.endsWith(".env.local")
 			? [
 					"  `.env.local` overrides `.env`, and `vercel env pull` writes",
-					"  production credentials into it. Either remove DATABASE_URL from",
+					"  production credentials into it. Either remove BDD_URL from",
 					"  that file, or pull Vercel's environment somewhere inert:",
 					"",
 					"    vercel env pull .env.vercel",
 				].join("\n")
-			: "  Check which file is winning:  grep -m1 DATABASE_URL .env .env.local",
+			: "  Check which file is winning:  grep -m1 BDD_URL .env .env.local",
 		"",
 		"  To do this deliberately anyway:",
 		"",
@@ -64,13 +64,13 @@ function resolveDatabaseUrl(): { url: string; from: string } | null {
 		for (const file of [".env.local", ".env"]) {
 			const path = join(root, file);
 			try {
-				const url = parseEnv(readFileSync(path, "utf8")).DATABASE_URL;
+				const url = parseEnv(readFileSync(path, "utf8")).BDD_URL;
 				if (url) return { url, from: file };
 			} catch {}
 		}
 	}
 
-	const fromEnvironment = process.env.DATABASE_URL;
+	const fromEnvironment = process.env.BDD_URL;
 	return fromEnvironment
 		? { url: fromEnvironment, from: "the environment" }
 		: null;

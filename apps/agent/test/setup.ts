@@ -1,4 +1,4 @@
-if (process.env.DATABASE_URL) {
+if (process.env.BDD_URL) {
 	const { db } = await import("@crm/db");
 	const { setFallbackTenant } = await import("@crm/db/tenant");
 	const { WORKSPACE_ID } = await import("@crm/db/workspace");

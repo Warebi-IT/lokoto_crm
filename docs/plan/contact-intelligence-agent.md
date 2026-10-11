@@ -606,7 +606,7 @@ built on unverified identities is confidently wrong *in front of a customer*.
   the vendor-shaped code lives; keep framework surface in the authored files
   thin enough to move.
 - **A sandbox with egress is a real capability.** §8's no-credentials rule is
-  the mitigation, and it only holds if nobody "temporarily" adds `DATABASE_URL`
+  the mitigation, and it only holds if nobody "temporarily" adds `BDD_URL`
   to the sandbox env.
 - **Task-mode schedules cannot pause.** Any design that wants a human mid-cron
   is wrong by construction; that is why §5's policy denies rather than asks.

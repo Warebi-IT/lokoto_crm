@@ -125,7 +125,7 @@ putting it behind a service in the first place.
 Use a pooled connection string for the app and a direct one for migrations:
 
 ```
-DATABASE_URL="postgres://...pooler...?pgbouncer=true&connection_limit=1"
+BDD_URL="postgres://...pooler...?pgbouncer=true&connection_limit=1"
 DIRECT_URL="postgres://...direct..."
 ```
 
@@ -1271,7 +1271,7 @@ auth + permissions + logging middleware, error handler) from the mvp reference;
 
 **Phase 1 — Auth, RBAC and hosting.** `admin` plugin + access control in
 `packages/auth`; `bun run auth:generate`; Redis secondary storage; owner
-bootstrap; `PermissionsMiddleware`; two Vercel projects; pooled `DATABASE_URL` +
+bootstrap; `PermissionsMiddleware`; two Vercel projects; pooled `BDD_URL` +
 `DIRECT_URL`; Upstash; blob store. *Verify: a `readonly` user gets 403 from a
 mutation, and the button is hidden.*
 
@@ -1352,7 +1352,7 @@ in it.
   requires `--access public|private` and exposes `blob presign`, so
   RBAC-checked presigned downloads are the supported path, not a workaround.
 - **Postgres provider** for pooled connections — Neon and Supabase both work;
-  pick one and I'll wire `DATABASE_URL`/`DIRECT_URL`.
+  pick one and I'll wire `BDD_URL`/`DIRECT_URL`.
 - **`docs/review.md`** — write it or drop the `AGENTS.md` reference.
 
 ## 15. Deliberately out of scope

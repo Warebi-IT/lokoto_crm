@@ -30,9 +30,9 @@ export class EnvironmentVariables {
 	@IsString()
 	@MinLength(1, {
 		message:
-			"DATABASE_URL is required. `docker compose up -d` starts one, or set it to any Postgres connection string.",
+			"BDD_URL is required. `docker compose up -d` starts one, or set it to any Postgres connection string.",
 	})
-	DATABASE_URL!: string;
+	BDD_URL!: string;
 
 	@IsString()
 	@MinLength(32, {

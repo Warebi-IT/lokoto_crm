@@ -10,12 +10,12 @@ export default defineEval({
 	async test(t) {
 		const secret = process.env.AGENT_BRIDGE_SECRET?.trim();
 		if (
-			!process.env.DATABASE_URL ||
+			!process.env.BDD_URL ||
 			!secret ||
 			(!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN)
 		) {
 			t.skip(
-				"Requires DATABASE_URL, AGENT_BRIDGE_SECRET, and an AI Gateway credential.",
+				"Requires BDD_URL, AGENT_BRIDGE_SECRET, and an AI Gateway credential.",
 			);
 			return;
 		}

@@ -21,7 +21,7 @@
 				"OVH_AI_ENDPOINTS_BASE_URL",
 				"OVH_AI_MODEL",
 				"BLOB_READ_WRITE_TOKEN",
-				"DATABASE_URL",
+				"BDD_URL",
 				"GITHUB_TOKEN",
 				"PERPLEXITY_API_KEY",
 				"RAPIDAPI_KEY"
@@ -38,7 +38,7 @@
 				"OVH_AI_ENDPOINTS_ACCESS_TOKEN",
 				"OVH_AI_MODEL",
 				"BLOB_READ_WRITE_TOKEN",
-				"DATABASE_URL",
+				"BDD_URL",
 				"GITHUB_TOKEN",
 				"PERPLEXITY_API_KEY",
 				"RAPIDAPI_KEY"
@@ -63,7 +63,7 @@
 		 */
 		"test": {
 			"dependsOn": ["topo", "^build", "@crm/auth#test"],
-			"passThroughEnv": ["DATABASE_URL"]
+			"passThroughEnv": ["BDD_URL"]
 		}
 	}
 }

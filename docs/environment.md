@@ -11,7 +11,7 @@ and nothing that is not read. `packages/env` walks up to the workspace root and 
 - **Real environment variables always win** — the loader never overwrites
   `process.env`, so Vercel/Docker/CI takes precedence.
 - **Never add a per-package `.env`.** Four once existed with duplicate
-  `DATABASE_URL`/`BETTER_AUTH_SECRET`; when they drifted the API minted a cookie the
+  `BDD_URL`/`BETTER_AUTH_SECRET`; when they drifted the API minted a cookie the
   app could not verify and the browser bounced between `/sign-in` and `/` forever.
 - **The root marker is a `package.json` declaring `workspaces`** — stopping at the
   first `turbo.json` resolves the API's root to `apps/api`.
@@ -29,7 +29,7 @@ metadata. The root file's comment has the whole account.
 
 ## Required
 
-`DATABASE_URL`, `BETTER_AUTH_SECRET`, `ALLOWED_SIGN_IN`. Everything else has a
+`BDD_URL`, `BETTER_AUTH_SECRET`, `ALLOWED_SIGN_IN`. Everything else has a
 localhost default or is genuinely optional.
 
 **`GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`** are the sign-in button *and* the

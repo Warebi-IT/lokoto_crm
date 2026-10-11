@@ -16,7 +16,7 @@ cookies. The **Next.js app** (`apps/app`, port 3000) imports this package on the
 server to *read* sessions straight from Postgres, and points its browser client
 at the API for sign-in and sign-out.
 
-Both processes therefore need the same `BETTER_AUTH_SECRET` and `DATABASE_URL`,
+Both processes therefore need the same `BETTER_AUTH_SECRET` and `BDD_URL`,
 or the cookie one writes will not verify in the other.
 
 ## Usage

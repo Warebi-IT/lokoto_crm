@@ -20,13 +20,13 @@ import { Prisma, type User } from "@crm/db";
 ## Setup
 
 ```bash
-docker compose up -d       # Postgres matching the DATABASE_URL in .env.example
+docker compose up -d       # Postgres matching the BDD_URL in .env.example
 cp .env.example .env       # at the repo root
 bun run db:generate        # generate Prisma Client
 bun run db:deploy          # apply the migrations
 ```
 
-`DATABASE_URL` comes from the **repo-root `.env`**, loaded by `@crm/env` — see
+`BDD_URL` comes from the **repo-root `.env`**, loaded by `@crm/env` — see
 [`docs/environment.md`](../../docs/environment.md). `src/client.ts` imports
 `@crm/env/load` before reading it, and `prisma.config.ts` does the same so the
 CLI works without any app running.

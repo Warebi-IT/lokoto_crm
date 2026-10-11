@@ -10,7 +10,7 @@ const fallback = (key: string, value: string) => {
 };
 
 fallback(
-	"DATABASE_URL",
+	"BDD_URL",
 	"postgresql://postgres:postgres@localhost:5432/crm?schema=public",
 );
 fallback("BETTER_AUTH_SECRET", "test-secret-at-least-32-characters-long");
