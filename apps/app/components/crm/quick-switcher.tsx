@@ -9,10 +9,6 @@ import {
 	CommandItem,
 	CommandList,
 } from "@crm/ui/components/command";
-import {
-	EntityLogo,
-	type EntityLogoTone,
-} from "@crm/ui/components/entity-logo";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
@@ -99,15 +95,7 @@ export function QuickSwitcher() {
 												name={hit.label}
 												size="sm"
 											/>
-										) : (
-											<EntityLogo
-												src={hit.iconUrl}
-												darkSrc={hit.iconDarkUrl}
-												tone={hit.iconTone as EntityLogoTone | null | undefined}
-												name={hit.label}
-												size="sm"
-											/>
-										)}
+										) : null}
 										<span className="flex min-w-0 flex-col">
 											<span className="truncate">{hit.label}</span>
 											{hit.detail ? (

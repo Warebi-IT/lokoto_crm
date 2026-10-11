@@ -1,7 +1,24 @@
 import type { Db } from "./client";
 import type { WorkspaceProfileSections } from "./json";
+import { currentTenant } from "./tenant";
 
 export const WORKSPACE_ID = "workspace";
+
+export function normalizeJoinCode(input: string): string {
+	return input.replace(/\s+/g, "").toUpperCase();
+}
+
+export function newJoinCode(): string {
+	return Array.from(crypto.getRandomValues(new Uint8Array(5)), (byte) =>
+		byte.toString(16).padStart(2, "0"),
+	)
+		.join("")
+		.toUpperCase();
+}
+
+export function workspaceId(): string {
+	return currentTenant() ?? WORKSPACE_ID;
+}
 
 export const DEFAULT_WORKSPACE_SLUG = "workspace";
 
@@ -89,7 +106,7 @@ export async function readWorkspaceProfile(
 	db: Db,
 ): Promise<WorkspaceProfile | null> {
 	const row = await db.workspaceProfile.findUnique({
-		where: { id: WORKSPACE_ID },
+		where: { id: workspaceId() },
 		select: {
 			website: true,
 			narrative: true,
@@ -139,7 +156,7 @@ export async function readWorkspaceIdentity(
 ): Promise<WorkspaceIdentity | null> {
 	const [workspace, profile] = await Promise.all([
 		db.organization.findUnique({
-			where: { id: WORKSPACE_ID },
+			where: { id: workspaceId() },
 			select: { name: true, website: true },
 		}),
 		readWorkspaceProfile(db),
@@ -174,8 +191,8 @@ export async function writeWorkspaceProfile(
 	};
 
 	const row = await db.workspaceProfile.upsert({
-		where: { id: WORKSPACE_ID },
-		create: { id: WORKSPACE_ID, ...fields },
+		where: { id: workspaceId() },
+		create: { id: workspaceId(), ...fields },
 		update: fields,
 		select: {
 			website: true,

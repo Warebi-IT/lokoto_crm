@@ -1,5 +1,6 @@
 import { db, Prisma } from "@crm/db";
 import { MAX_ATTEMPTS, RETIRED_OUTCOME } from "@crm/db/agent-tasks";
+import { organizationOfRecord } from "./organization";
 
 export type LeasedTask = {
 	id: string;
@@ -141,6 +142,9 @@ export async function scheduleTask(input: {
 
 	return db.agentTask.create({
 		data: {
+			organizationId: await organizationOfRecord({
+				contactId: input.contactId,
+			}),
 			contactId: input.contactId ?? null,
 			kind: input.kind,
 			reason: input.reason,

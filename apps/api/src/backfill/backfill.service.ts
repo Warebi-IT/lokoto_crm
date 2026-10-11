@@ -1,6 +1,7 @@
 import { onSignedIn } from "@crm/auth";
 import { type Db, EnrichmentStatus, type Prisma } from "@crm/db";
 import { PRIORITY } from "@crm/db/agent-tasks";
+import { runInTenant } from "@crm/db/tenant";
 import { readWorkspaceIdentity } from "@crm/db/workspace";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
@@ -59,17 +60,33 @@ export class BackfillService implements OnModuleInit {
 
 		void (async () => {
 			try {
-				await this.sweepWorkspace();
+				const organizations = await this.db.organization.findMany({
+					select: { id: true },
+				});
 
-				const contacts = await this.runContacts();
+				let queued = 0;
+				let remaining = 0;
+				let imagesMirrored = 0;
 
-				const mirrored = await this.images.sweep();
+				for (const { id } of organizations) {
+					await runInTenant(id, async () => {
+						await this.sweepWorkspace();
+
+						const contacts = await this.runContacts();
+
+						const mirrored = await this.images.sweep();
+
+						queued += contacts.queued;
+						remaining += contacts.remaining;
+						imagesMirrored += mirrored.copied;
+					});
+				}
 
 				this.logger.log({
 					message: "Automatic backfill swept",
-					queued: contacts.queued,
-					remaining: contacts.remaining,
-					imagesMirrored: mirrored.copied,
+					queued,
+					remaining,
+					imagesMirrored,
 				});
 			} catch (error) {
 				this.logger.error(

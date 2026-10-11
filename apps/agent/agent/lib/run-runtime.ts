@@ -4,6 +4,7 @@ import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { readRentalContractHistory } from "./accounts";
 import { readCrmHistory } from "./crm";
 import { searchCrm } from "./lookup";
+import { organizationOfRecord } from "./organization";
 import { lockAgentRun, runTerminalEventId } from "./run-state";
 
 const ACTION_LEASE_MS = 5 * 60_000;
@@ -289,6 +290,7 @@ export async function createRunActivity(
 				where: { id: activityId },
 				create: {
 					id: activityId,
+					organizationId: await organizationOfRecord(target),
 					type: input.type === "TASK" ? ActivityType.TASK : ActivityType.NOTE,
 					subject: input.subject?.trim() || null,
 					body: input.body?.trim() || null,

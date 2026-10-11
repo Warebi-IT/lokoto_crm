@@ -1,6 +1,5 @@
 import {
 	type Db,
-	FuelType,
 	type Prisma,
 	Prisma as PrismaNamespace,
 	RentalContractStatus,
@@ -8,6 +7,7 @@ import {
 	VehicleStatus as VehicleStatusEnum,
 } from "@crm/db";
 import { normalizeCurrency } from "@crm/db/currency";
+import { closestYearPhoto } from "@crm/db/vehicle-photos";
 import {
 	BadRequestException,
 	Injectable,
@@ -30,9 +30,11 @@ import {
 	paginate,
 	resolveOrderBy,
 } from "../trpc/list-input";
+import { VehicleImagesService } from "./vehicle-images.service";
 import type {
 	VehicleAvailabilityInput,
 	VehicleBulkStatusInput,
+	VehicleCatalogInput,
 	VehicleCreateInput,
 	VehicleListInput,
 	VehicleSetFinancingInput,
@@ -62,6 +64,7 @@ export class VehiclesService {
 		private readonly stamp: ActivityStampService,
 		private readonly conversion: ConversionService,
 		private readonly fields: FieldsService,
+		private readonly importer: VehicleImagesService,
 	) {}
 
 	async list(input: VehicleListInput) {
@@ -82,11 +85,14 @@ export class VehiclesService {
 					make: true,
 					model: true,
 					year: true,
+					seats: true,
+					photoUrls: true,
 					plateNumber: true,
 					status: true,
 					dailyRate: true,
 					currency: true,
 					baseAmount: true,
+					baseCurrency: true,
 					mileage: true,
 					lastActivityAt: true,
 					createdAt: true,
@@ -123,6 +129,43 @@ export class VehiclesService {
 		};
 	}
 
+	async makes() {
+		const rows = await this.db.vehicleCatalog.groupBy({
+			by: ["make"],
+			orderBy: { make: "asc" },
+		});
+		return rows.map((row) => row.make);
+	}
+
+	async catalog(input: VehicleCatalogInput) {
+		const q = input.q.trim();
+		return this.db.vehicleCatalog.findMany({
+			where: {
+				...(input.make ? { make: input.make } : {}),
+				...(q
+					? {
+							OR: [
+								{ make: { contains: q, mode: "insensitive" } },
+								{ model: { contains: q, mode: "insensitive" } },
+							],
+						}
+					: {}),
+			},
+			orderBy: [{ make: "asc" }, { model: "asc" }],
+			take: input.make ? 300 : 100,
+			select: {
+				id: true,
+				make: true,
+				model: true,
+				yearFrom: true,
+				yearTo: true,
+				seats: true,
+				fuelType: true,
+				photoUrls: true,
+			},
+		});
+	}
+
 	async byId(id: string) {
 		const vehicle = await this.db.vehicle.findUnique({
 			where: { id },
@@ -140,6 +183,7 @@ export class VehiclesService {
 				dailyRate: true,
 				currency: true,
 				baseAmount: true,
+				baseCurrency: true,
 				fxRate: true,
 				fxRateAt: true,
 				mileage: true,
@@ -158,6 +202,7 @@ export class VehiclesService {
 						currency: true,
 						baseAmount: true,
 						interestRate: true,
+						fiscalDepreciationRate: true,
 						termMonths: true,
 						startDate: true,
 					},
@@ -214,6 +259,8 @@ export class VehiclesService {
 						currency: financing.currency,
 						baseAmountCents: toCents(financing.baseAmount),
 						interestRate: financing.interestRate?.toNumber() ?? null,
+						fiscalDepreciationRate:
+							financing.fiscalDepreciationRate?.toNumber() ?? null,
 						termMonths: financing.termMonths,
 						startDate: financing.startDate.toISOString(),
 					}
@@ -284,11 +331,26 @@ export class VehiclesService {
 			currency,
 		);
 
+		const catalog = await this.db.vehicleCatalog.findFirst({
+			where: input.vehicleCatalogId
+				? { id: input.vehicleCatalogId }
+				: {
+						make: { equals: input.make.trim(), mode: "insensitive" },
+						model: { equals: input.model.trim(), mode: "insensitive" },
+					},
+			select: { photoUrls: true },
+		});
+		const photo = catalog
+			? closestYearPhoto(catalog.photoUrls, input.year ?? null)
+			: null;
+
 		try {
 			const vehicle = await this.db.vehicle.create({
 				data: {
 					type: input.type,
-					fuelType: input.fuelType ?? FuelType.GASOLINE,
+					fuelType: input.fuelType,
+					seats: input.seats,
+					photoUrls: photo ? [photo] : [],
 					make: input.make.trim(),
 					model: input.model.trim(),
 					year: input.year ?? null,
@@ -314,6 +376,13 @@ export class VehiclesService {
 				plateNumber: vehicle.plateNumber,
 			});
 
+			if (!catalog?.photoUrls.length)
+				void this.importer.requestImages(
+					vehicle.make,
+					vehicle.model,
+					input.year ?? null,
+				);
+
 			return vehicle;
 		} catch (error) {
 			throw this.translateRelations(error);
@@ -325,6 +394,7 @@ export class VehiclesService {
 
 		if (input.type !== undefined) data.type = input.type;
 		if (input.fuelType !== undefined) data.fuelType = input.fuelType;
+		if (input.seats !== undefined) data.seats = input.seats;
 		if (input.make !== undefined) data.make = input.make.trim();
 		if (input.model !== undefined) data.model = input.model.trim();
 		if (input.year !== undefined) data.year = input.year;
@@ -442,17 +512,26 @@ export class VehiclesService {
 		const currency = normalizeCurrency(
 			input.currency ?? (await this.conversion.reportingCurrency()),
 		);
-		const fx = await this.conversion.convertFields(
-			decimalFromCents(input.monthlyPaymentCents),
-			currency,
-		);
+		const principal = decimalFromCents(input.principalAmountCents);
+		const monthlyPayment =
+			input.type === "PURCHASE"
+				? principal?.dividedBy(input.termMonths ?? 1)
+				: decimalFromCents(input.monthlyPaymentCents);
+		if (!monthlyPayment) {
+			throw new BadRequestException("A financing plan needs a valid amount.");
+		}
+		const fx = await this.conversion.convertFields(monthlyPayment, currency);
 		const fields = {
 			type: input.type,
-			principalAmount: decimalFromCents(input.principalAmountCents),
-			monthlyPayment: fromCents(input.monthlyPaymentCents) ?? 0,
+			principalAmount: principal,
+			monthlyPayment,
 			currency,
 			...fx,
 			interestRate: input.interestRate ?? null,
+			fiscalDepreciationRate:
+				input.type === "LEASING"
+					? null
+					: (input.fiscalDepreciationRate ?? null),
 			termMonths: input.termMonths ?? null,
 			startDate: parseDate(input.startDate) ?? new Date(),
 		};

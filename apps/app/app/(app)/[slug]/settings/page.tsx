@@ -12,8 +12,7 @@ import {
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
-import { AgentModel } from "./agent-model";
-import { ResearchKey } from "./research-key";
+import { AgentCost } from "./agent-cost";
 import { WorkspaceForm } from "./workspace-form";
 
 export const metadata: Metadata = {
@@ -27,7 +26,7 @@ export default function GeneralSettingsPage() {
 				<PageShellHeading>
 					<PageShellTitle>Général</PageShellTitle>
 					<PageShellDescription>
-						Who you are, and the model the research agent thinks with.
+						Who you are, and what the research agent costs.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
@@ -49,17 +48,14 @@ async function Settings() {
 
 	await Promise.all([
 		queryClient.prefetchQuery(trpc.workspace.get.queryOptions()),
-		queryClient.prefetchQuery(trpc.settings.agentModel.queryOptions()),
-		queryClient.prefetchQuery(trpc.settings.modelCatalog.queryOptions()),
-		queryClient.prefetchQuery(trpc.settings.researchKey.queryOptions()),
+		queryClient.prefetchQuery(trpc.workspace.agentUsage.queryOptions()),
 	]);
 
 	return (
 		<HydrateClient>
 			<div className="flex max-w-3xl flex-col gap-6">
 				<WorkspaceForm />
-				<ResearchKey />
-				<AgentModel />
+				<AgentCost />
 			</div>
 		</HydrateClient>
 	);

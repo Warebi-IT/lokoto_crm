@@ -2,13 +2,18 @@ export { type Auth, auth, type Session, type SessionUser } from "./auth";
 export { AUTH_COOKIE_PREFIX } from "./cookies";
 export { isGoogleConfigured, isMicrosoftConfigured } from "./env";
 export {
+	activeOrganizationOf,
 	canChangeRole,
 	canManageCurrency,
 	canRenameWorkspace,
 	DEFAULT_WORKSPACE_NAME,
-	ensureWorkspaceMembership,
 	isWorkspaceAdmin,
 	isWorkspaceRole,
+	JOIN_ATTEMPTS,
+	type JoinResult,
+	joinOrganizationByCode,
+	resolveActiveOrganization,
+	resolveRequestOrganization,
 	WORKSPACE_ID,
 	WORKSPACE_ROLES,
 	type WorkspaceRole,

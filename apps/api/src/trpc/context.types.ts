@@ -6,6 +6,10 @@ export type BaseTrpcContext = {
 	session: Session | null;
 };
 
-export type AuthedTrpcContext = BaseTrpcContext & {
+export type UserTrpcContext = BaseTrpcContext & {
 	user: SessionUser;
+};
+
+export type AuthedTrpcContext = UserTrpcContext & {
+	organizationId: string;
 };

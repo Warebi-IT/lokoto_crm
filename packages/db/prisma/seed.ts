@@ -22,7 +22,9 @@ import {
 	VehicleStatus,
 	VehicleType,
 } from "../src/generated/prisma/enums";
-import { readReportingCurrency, SETTINGS_ID } from "../src/settings";
+import { readReportingCurrency, settingsId } from "../src/settings";
+import { requireTenant, runInTenant } from "../src/tenant";
+import { WORKSPACE_ID } from "../src/workspace";
 
 function makeRandom(seed: number): () => number {
 	let a = seed;
@@ -228,7 +230,9 @@ async function seedContacts(): Promise<SeededContact[]> {
 		used.add(email);
 
 		const contact = await db.contact.upsert({
-			where: { email },
+			where: {
+				organizationId_email: { organizationId: requireTenant(), email },
+			},
 			create: {
 				firstName,
 				lastName,
@@ -264,9 +268,9 @@ async function seedRates(): Promise<number> {
 	const asOf = daysFromNow(-1);
 
 	await db.appSetting.upsert({
-		where: { id: SETTINGS_ID },
+		where: { id: settingsId() },
 		create: {
-			id: SETTINGS_ID,
+			id: settingsId(),
 			reportingCurrency: DEFAULT_REPORTING_CURRENCY,
 		},
 		update: {},
@@ -482,7 +486,12 @@ async function seedVehicles(): Promise<SeededVehicle[]> {
 		);
 
 		const row = await db.vehicle.upsert({
-			where: { plateNumber: spec.plateNumber },
+			where: {
+				organizationId_plateNumber: {
+					organizationId: requireTenant(),
+					plateNumber: spec.plateNumber,
+				},
+			},
 			create: {
 				type: spec.type,
 				make: spec.make,
@@ -1195,7 +1204,26 @@ async function seedActivities(
 	return rows.length;
 }
 
-async function main() {
+async function seedOrganization(): Promise<void> {
+	const organization = await db.organization.upsert({
+		where: { id: WORKSPACE_ID },
+		create: {
+			id: WORKSPACE_ID,
+			name: "CRM",
+			slug: "crm",
+			createdAt: new Date(),
+			joinCode: "LOKOTO-DEMO",
+		},
+		update: {},
+		select: { joinCode: true },
+	});
+
+	console.log(
+		`Organization ${WORKSPACE_ID}, join code ${organization.joinCode}.`,
+	);
+}
+
+async function seed() {
 	const rates = await seedRates();
 	const ownerIds = await seedOwners();
 	const contacts = await seedContacts();
@@ -1216,6 +1244,11 @@ async function main() {
 			`${inspections} inspections, ${financing} financing plans, ${charges} ` +
 			`charges, ${activities} activities, ${rates} exchange rates.`,
 	);
+}
+
+async function main() {
+	await seedOrganization();
+	await runInTenant(WORKSPACE_ID, seed);
 }
 
 main()

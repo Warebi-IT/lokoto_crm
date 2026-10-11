@@ -15,6 +15,7 @@ import {
 } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
+import { Switch } from "@crm/ui/components/switch";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ListSearch } from "@/components/data-table/list-search";
@@ -38,6 +39,7 @@ type MemberRow = RouterOutputs["workspace"]["members"]["rows"][number];
 function columns(
 	canChangeRoles: boolean,
 	onChangeRole: (member: MemberRow, role: Role) => void,
+	onToggleAgent: (member: MemberRow, enabled: boolean) => void,
 	pending: boolean,
 ): DataTableColumn<MemberRow>[] {
 	return [
@@ -46,7 +48,7 @@ function columns(
 			header: "Name",
 			sortable: true,
 			hideable: false,
-			width: "w-[34%]",
+			width: "w-[28%]",
 			cell: (row) => (
 				<span className="flex min-w-0 items-center gap-2">
 					<PersonAvatar
@@ -66,7 +68,7 @@ function columns(
 			id: "email",
 			header: "Email",
 			sortable: true,
-			width: "w-[32%]",
+			width: "w-[28%]",
 			hideBelow: "md",
 			cell: (row) => (
 				<span className="truncate text-muted-foreground">{row.email}</span>
@@ -79,6 +81,19 @@ function columns(
 			width: "w-[14%]",
 			cell: (row) => (
 				<span className="text-muted-foreground">{ROLE_LABEL[row.role]}</span>
+			),
+		},
+		{
+			id: "agent",
+			header: "Research agent",
+			width: "w-[14%]",
+			cell: (row) => (
+				<Switch
+					checked={row.agentEnabled}
+					disabled={!canChangeRoles || pending}
+					onCheckedChange={(enabled) => onToggleAgent(row, enabled)}
+					aria-label={`Research agent for ${row.name}`}
+				/>
 			),
 		},
 		{
@@ -153,6 +168,20 @@ export function MembersTable() {
 		}),
 	);
 
+	const setAgent = useMutation(
+		trpc.workspace.setMemberAgent.mutationOptions({
+			onSuccess: async (member) => {
+				await cache.workspace();
+				toast.success(
+					member.agentEnabled
+						? "Research agent turned on."
+						: "Research agent turned off.",
+				);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
 	const facetCounts = members.data?.facetCounts;
 
 	const facets: DataTableFacet[] = [
@@ -174,7 +203,8 @@ export function MembersTable() {
 			columns={columns(
 				workspace.data?.canChangeRoles ?? false,
 				(member, role) => setRole.mutate({ memberId: member.id, role }),
-				setRole.isPending,
+				(member, enabled) => setAgent.mutate({ memberId: member.id, enabled }),
+				setRole.isPending || setAgent.isPending,
 			)}
 			rows={members.data?.rows ?? []}
 			total={members.data?.total ?? 0}

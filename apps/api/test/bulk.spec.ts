@@ -7,6 +7,7 @@ import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { RentalContractsService } from "../src/rental-contracts/rental-contracts.service";
+import { VehicleImagesService } from "../src/vehicles/vehicle-images.service";
 import { VehiclesService } from "../src/vehicles/vehicles.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "bulk-spec";
@@ -26,7 +27,13 @@ const conversion = new ConversionService(db);
 
 const fields = new FieldsService(db, agent);
 const contacts = new ContactsService(db, agent, queue, stamp, fields);
-const vehicles = new VehiclesService(db, stamp, conversion, fields);
+const vehicles = new VehiclesService(
+	db,
+	stamp,
+	conversion,
+	fields,
+	new VehicleImagesService(db),
+);
 const rentalContracts = new RentalContractsService(
 	db,
 	stamp,
@@ -67,6 +74,8 @@ afterAll(clean);
 async function makeVehicle(plateSuffix: string): Promise<string> {
 	const vehicle = await vehicles.create({
 		type: "CAR",
+		fuelType: "GASOLINE",
+		seats: 5,
 		make: "Bulk",
 		model: "Test",
 		plateNumber: `${platePrefix}-${plateSuffix}`,

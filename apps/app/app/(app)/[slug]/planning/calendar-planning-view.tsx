@@ -44,14 +44,15 @@ const KIND_LABEL: Record<BookingKind, string> = {
 };
 
 const TONE_CLASS: Record<string, string> = {
-	neutral: "border-muted-foreground/40 bg-muted-foreground/15",
-	info: "border-info bg-info/15",
-	warning: "border-warning bg-warning/15",
-	success: "border-success bg-success/15",
-	error: "border-destructive bg-destructive/15",
+	neutral: "bg-muted-foreground text-background",
+	info: "bg-info text-info-foreground",
+	warning: "bg-warning text-warning-foreground",
+	success: "bg-success text-success-foreground",
+	error: "bg-destructive text-destructive-foreground",
 };
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const GRID_HOURS = HOURS.filter((hour) => hour % 2 === 0);
 
 const WEEKDAY_LABEL = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
 const DAY_NUMBER_LABEL = new Intl.DateTimeFormat("fr-FR", {
@@ -179,8 +180,8 @@ export function CalendarPlanningView({
 				)}
 			</div>
 
-			<div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card">
-				<div className="flex">
+			<div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card shadow-xs">
+				<div className="flex min-w-full">
 					<div className="sticky left-0 z-20 w-14 shrink-0 border-r bg-card">
 						<div className="sticky top-0 z-10 h-14 border-b bg-muted" />
 						<div className="relative" style={{ height: DAY_PX }}>
@@ -202,12 +203,18 @@ export function CalendarPlanningView({
 						const laidOut = layoutDayEvents(bookings);
 
 						return (
-							<div key={day} className="w-40 shrink-0 border-r last:border-r-0">
+							<div
+								key={day}
+								className={cn(
+									"min-w-28 flex-1 border-r last:border-r-0",
+									isToday && "bg-primary/[0.03]",
+								)}
+							>
 								<div
 									className={cn(
 										"sticky top-0 z-10 flex h-14 flex-col items-center justify-center border-b bg-muted text-xs",
 										isToday
-											? "font-semibold text-foreground"
+											? "font-semibold text-primary"
 											: "text-muted-foreground",
 									)}
 								>
@@ -220,10 +227,10 @@ export function CalendarPlanningView({
 								</div>
 
 								<div className="relative" style={{ height: DAY_PX }}>
-									{HOURS.map((hour) => (
+									{GRID_HOURS.map((hour) => (
 										<div
 											key={hour}
-											className="absolute inset-x-0 border-t"
+											className="absolute inset-x-0 border-t border-border/60"
 											style={{ top: hour * HOUR_PX }}
 										/>
 									))}
@@ -255,7 +262,7 @@ export function CalendarPlanningView({
 														})
 													}
 													className={cn(
-														"absolute overflow-hidden rounded-sm border px-1.5 py-1 text-left hover:brightness-95",
+														"absolute overflow-hidden rounded-md px-1.5 py-1 text-left shadow-xs transition-[filter] hover:brightness-95",
 														TONE_CLASS[presentation.tone],
 													)}
 													style={{
@@ -274,7 +281,7 @@ export function CalendarPlanningView({
 														{KIND_LABEL[event.kind]} ·{" "}
 														{renterName || "Sans nom"}
 													</div>
-													<div className="truncate text-[10px] text-muted-foreground">
+													<div className="truncate text-[10px] opacity-80">
 														{vehicleLabel}
 													</div>
 												</button>

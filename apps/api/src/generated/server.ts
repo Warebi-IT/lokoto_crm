@@ -28,11 +28,11 @@ import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { paymentsByContractInput, paymentCreateInput, paymentUpdateArgs, paymentIdInput } from "../payments/payments.contracts";
 import { profitabilitySummaryInput, profitabilityByVehicleInput, profitabilityTopVehiclesInput, profitabilityTopClientsInput, profitabilityBySegmentInput } from "../profitability/profitability.contracts";
 import { rentalContractListInput, rentalContractIdInput, rentalContractPlanningInput, rentalContractCreateInput, rentalContractUpdateArgs, setRentalContractStatusInput, recordPickupInput, recordReturnInput, setDepositStatusInput, rentalContractDriversInput, attachDriverInput, detachDriverInput, setDriverRoleInput, rentalContractBulkOwnerInput, rentalContractBulkInput } from "../rental-contracts/rental-contracts.contracts";
-import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
+import { setResearchKeyInput } from "../settings/settings.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { vehicleChargesByVehicleInput, vehicleChargeCreateInput, vehicleChargeIdInput } from "../vehicle-charges/vehicle-charges.contracts";
-import { vehicleListInput, vehicleIdInput, vehicleAvailabilityInput, vehicleCreateInput, vehicleUpdateArgs, vehicleBulkStatusInput, vehicleBulkInput, vehicleSetFinancingInput, vehicleClearFinancingInput } from "../vehicles/vehicles.contracts";
-import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
+import { vehicleListInput, vehicleIdInput, vehicleAvailabilityInput, vehicleCatalogInput, vehicleCreateInput, vehicleUpdateArgs, vehicleBulkStatusInput, vehicleBulkInput, vehicleSetFinancingInput, vehicleClearFinancingInput } from "../vehicles/vehicles.contracts";
+import { memberListInput, setMemberAgentInput, updateWorkspaceInput, setMemberRoleInput, joinWorkspaceInput } from "../workspace/workspace.contracts";
 import type { ActivitiesRouter } from "../activities/activities.router";
 import type { AgentsRouter } from "../agent/agents.router";
 import type { ContactsRouter } from "../contacts/contacts.router";
@@ -417,13 +417,6 @@ const appRouter = t.router({
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SearchRouter["quick"]>>)
     }),
   settings: t.router({
-    agentModel: publicProcedure
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["agentModel"]>>),
-    modelCatalog: publicProcedure
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["modelCatalog"]>>),
-    setAgentModel: publicProcedure
-      .input(setAgentModelInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setAgentModel"]>>),
     researchKey: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["researchKey"]>>),
     setResearchKey: publicProcedure
@@ -472,6 +465,11 @@ const appRouter = t.router({
     availability: publicProcedure
       .input(vehicleAvailabilityInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["availability"]>>),
+    catalog: publicProcedure
+      .input(vehicleCatalogInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["catalog"]>>),
+    makes: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["makes"]>>),
     create: publicProcedure
       .input(vehicleCreateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<VehiclesRouter["create"]>>),
@@ -500,12 +498,24 @@ const appRouter = t.router({
     members: publicProcedure
       .input(memberListInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["members"]>>),
+    agentUsage: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["agentUsage"]>>),
+    setMemberAgent: publicProcedure
+      .input(setMemberAgentInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["setMemberAgent"]>>),
     update: publicProcedure
       .input(updateWorkspaceInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["update"]>>),
     setMemberRole: publicProcedure
       .input(setMemberRoleInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["setMemberRole"]>>)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["setMemberRole"]>>),
+    membership: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["membership"]>>),
+    join: publicProcedure
+      .input(joinWorkspaceInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["join"]>>),
+    regenerateJoinCode: publicProcedure
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["regenerateJoinCode"]>>)
     })
 });
 

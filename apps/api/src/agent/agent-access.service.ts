@@ -1,10 +1,10 @@
 import {
 	isWorkspaceAdmin,
 	isWorkspaceRole,
-	WORKSPACE_ID,
 	type WorkspaceRole,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
+import { requireTenant } from "@crm/db/tenant";
 import {
 	ForbiddenException,
 	Injectable,
@@ -20,7 +20,7 @@ export class AgentAccessService {
 	async assertMember(userId: string): Promise<WorkspaceRole> {
 		const member = await this.db.member.findUnique({
 			where: {
-				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+				organizationId_userId: { organizationId: requireTenant(), userId },
 			},
 			select: { role: true },
 		});
@@ -40,7 +40,7 @@ export class AgentAccessService {
 		const [member] = await tx.$queryRaw<Array<{ role: string }>>`
 			SELECT role
 			FROM "member"
-			WHERE "organizationId" = ${WORKSPACE_ID}
+			WHERE "organizationId" = ${requireTenant()}
 				AND "userId" = ${userId}
 			FOR SHARE
 		`;

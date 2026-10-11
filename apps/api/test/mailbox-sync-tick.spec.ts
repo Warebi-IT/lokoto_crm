@@ -117,13 +117,17 @@ function build(
 ): MailboxSyncService {
 	const provider = { runOne } as unknown as GoogleSyncService;
 
-	return new MailboxSyncService(
+	const service = new MailboxSyncService(
 		state as unknown as SyncStateService,
 		provider,
 		provider as unknown as MicrosoftSyncService,
 		noConnections as unknown as GoogleConnectionService,
 		noConnections as unknown as MicrosoftConnectionService,
 	);
+
+	service.organizationOf = async () => "workspace";
+
+	return service;
 }
 
 let state: FakeState;

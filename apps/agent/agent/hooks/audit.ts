@@ -1,8 +1,10 @@
 import { db, type Prisma } from "@crm/db";
+import { recordAgentUsage } from "@crm/db/agent-usage";
+import { readAgentModel } from "@crm/db/settings";
 import { defineHook } from "eve/hooks";
 import { currentFocus } from "../lib/focus";
 import { lockAgentRun } from "../lib/run-state";
-import { attribute, purposeOf } from "../lib/session-purpose";
+import { attribute, purposeOf, userOf } from "../lib/session-purpose";
 
 const CUMULATIVE_DELTAS = new Set(["reasoning.appended"]);
 
@@ -39,6 +41,10 @@ export default defineHook({
 						await persistRunEvent(tx, id, event.type, data, emittedAt, ctx);
 					}
 				});
+
+				if (event.type === "step.completed") {
+					await recordUsage(id, data, ctx);
+				}
 			} catch (error) {
 				console.warn("[audit] could not record event", {
 					type: event.type,
@@ -48,6 +54,33 @@ export default defineHook({
 		},
 	},
 });
+
+async function recordUsage(
+	eventId: string,
+	data: object,
+	ctx: Parameters<typeof userOf>[0] & { session: { id: string } },
+) {
+	const values = recordOf(recordOf(data).usage);
+	const inputTokens = numberOf(values.inputTokens) ?? 0;
+	const outputTokens = numberOf(values.outputTokens) ?? 0;
+	if (inputTokens + outputTokens <= 0) return;
+
+	let model: string | null = null;
+	try {
+		model = (await readAgentModel(db)).id;
+	} catch {
+		model = null;
+	}
+
+	await recordAgentUsage(db, {
+		eventId,
+		sessionId: ctx.session.id,
+		userId: userOf(ctx),
+		model,
+		inputTokens,
+		outputTokens,
+	});
+}
 
 async function persistBuilderLifecycle(
 	tx: Prisma.TransactionClient,

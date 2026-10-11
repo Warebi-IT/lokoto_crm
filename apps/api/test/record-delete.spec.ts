@@ -124,7 +124,7 @@ describe("deleting a contact", () => {
 	});
 
 	it("remembers the address so the sync cannot bring them back", async () => {
-		const suppressed = await db.suppressedContact.findUnique({
+		const suppressed = await db.suppressedContact.findFirst({
 			where: { email },
 		});
 		expect(suppressed).not.toBeNull();
@@ -168,7 +168,7 @@ describe("deleting a contact", () => {
 		const readded = await contacts.create({ firstName: "Gone", email });
 
 		expect(
-			await db.suppressedContact.findUnique({ where: { email } }),
+			await db.suppressedContact.findFirst({ where: { email } }),
 		).toBeNull();
 
 		await db.contact.delete({ where: { id: readded.id } });
@@ -191,7 +191,7 @@ describe("deleting a contact", () => {
 		await contacts.delete(created.id);
 
 		expect(
-			await db.suppressedContact.findUnique({ where: { email: asSynced } }),
+			await db.suppressedContact.findFirst({ where: { email: asSynced } }),
 		).not.toBeNull();
 
 		const result = await match.resolve(

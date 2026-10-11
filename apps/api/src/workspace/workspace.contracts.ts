@@ -28,3 +28,16 @@ export const setMemberRoleInput = z.object({
 
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceInput>;
 export type SetMemberRoleInput = z.infer<typeof setMemberRoleInput>;
+
+export const setMemberAgentInput = z.object({
+	memberId: z.string().min(1),
+	enabled: z.boolean(),
+});
+
+export type SetMemberAgentInput = z.infer<typeof setMemberAgentInput>;
+
+export const joinWorkspaceInput = z.object({
+	code: z.string().trim().min(1).max(64),
+});
+
+export type JoinWorkspaceInput = z.infer<typeof joinWorkspaceInput>;

@@ -291,6 +291,7 @@ function CreateRentalContractForm() {
 							</FieldLabel>
 							<DatePicker
 								id="create-contract-start"
+								size="lg"
 								value={startDate}
 								onChange={(value) => {
 									setStartDate(value);
@@ -330,6 +331,7 @@ function CreateRentalContractForm() {
 							</FieldLabel>
 							<DatePicker
 								id="create-contract-end"
+								size="lg"
 								value={endDate}
 								onChange={(value) => {
 									setEndDate(value);

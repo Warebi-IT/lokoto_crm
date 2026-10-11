@@ -20,6 +20,15 @@
   seam in the page; the shadow is what makes the surface read as sitting above
   it, which is the difference between "square" and "designed."
 - If a component needs a new variant or style, implement it in /packages/ui so the entire application stays consistent.
+- Transient overlay chrome (`Popover`, `DropdownMenu`, `Select` content, the
+  command palette) is glass: `bg-popover/75` to `/80` with a `backdrop-blur`,
+  guarded behind `supports-backdrop-filter:` so a browser without the filter
+  still gets the opaque fallback. Modal overlays (`Dialog`, `AlertDialog`,
+  `Sheet`) carry a `backdrop-blur-sm` scrim for the same reason. Persistent
+  content surfaces — `Card`, `CardPanel`, table shells, and the dialog/sheet
+  *panel* itself once it's open — stay fully opaque: glass is for the thing
+  floating momentarily above content, never for the thing holding content
+  someone has to read continuously.
 
 ## Colour
 
@@ -44,7 +53,9 @@ the dark background to register.
 The `--sidebar-*` tokens are reserved for the app icon rail (`AppIconRail`)
 and hold the **same forest-green values in both themes** — the rail is the
 app's spine, not a themed surface, so it does not flip with light/dark mode
-the way `--background` does. It is the one place besides `primary` and
-`destructive` allowed to be a dark fill; do not reuse `--sidebar-*` for
-anything else, and do not give any other component a hand-rolled dark-green
-background — that is a new colour, not a reuse of this one.
+the way `--background` does. The header (`AppHeader`) stays a plain surface
+(`bg-background`) — the green marks the rail specifically, not the whole
+chrome. It is the one place besides `primary` and `destructive` allowed to
+be a dark fill; do not reuse `--sidebar-*` for anything else, and do not
+give any other component a hand-rolled dark-green background — that is a
+new colour, not a reuse of this one.

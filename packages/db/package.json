@@ -6,6 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./agent-tasks": "./src/agent-tasks.ts",
+		"./agent-usage": "./src/agent-usage.ts",
 		"./blob": "./src/blob.ts",
 		"./client": "./src/client.ts",
 		"./currency": "./src/currency.ts",
@@ -18,6 +19,8 @@
 		"./rental-status": "./src/rental-status.ts",
 		"./safe-fetch": "./src/safe-fetch.ts",
 		"./settings": "./src/settings.ts",
+		"./tenant": "./src/tenant.ts",
+		"./vehicle-photos": "./src/vehicle-photos.ts",
 		"./workspace": "./src/workspace.ts"
 	},
 	"scripts": {
@@ -30,6 +33,7 @@
 		"db:reset": "bun scripts/require-local-db.ts db:reset && prisma migrate reset",
 		"db:seed": "bun scripts/require-local-db.ts db:seed && prisma db seed",
 		"db:studio": "prisma studio",
+		"db:vehicle-catalog:import": "bun scripts/require-local-db.ts db:vehicle-catalog:import && bun scripts/import-vehicle-catalog.ts",
 		"test": "bun test",
 		"dev:prepare": "bun scripts/prepare-dev.ts",
 		"lint": "biome check .",

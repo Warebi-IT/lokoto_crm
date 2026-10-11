@@ -1,3 +1,5 @@
+import { activeOrganizationOf } from "@crm/auth";
+import { runInTenant } from "@crm/db/tenant";
 import { syncError } from "@crm/telemetry";
 import { Injectable, Logger } from "@nestjs/common";
 import { GoogleConnectionService } from "../google/google-connection.service";
@@ -112,13 +114,25 @@ export class MailboxSyncService {
 		return summary;
 	}
 
+	organizationOf(userId: string): Promise<string | undefined> {
+		return activeOrganizationOf(userId);
+	}
+
 	private async runOne(userId: string, source: string) {
-		if (isGoogleSyncSource(source)) return this.google.runOne(userId, source);
+		const organizationId = await this.organizationOf(userId);
 
-		if (isMicrosoftSyncSource(source)) {
-			return this.microsoft.runOne(userId, source);
-		}
+		if (!organizationId) return null;
 
-		return null;
+		return runInTenant(organizationId, async () => {
+			if (isGoogleSyncSource(source)) {
+				return this.google.runOne(userId, source);
+			}
+
+			if (isMicrosoftSyncSource(source)) {
+				return this.microsoft.runOne(userId, source);
+			}
+
+			return null;
+		});
 	}
 }

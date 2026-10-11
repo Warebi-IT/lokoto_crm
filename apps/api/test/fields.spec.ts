@@ -13,6 +13,7 @@ import { ContactsService } from "../src/contacts/contacts.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { FieldsService } from "../src/fields/fields.service";
+import { VehicleImagesService } from "../src/vehicles/vehicle-images.service";
 import { VehiclesService } from "../src/vehicles/vehicles.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "fields-spec";
@@ -34,7 +35,13 @@ const conversion = new ConversionService(db);
 
 const fields = new FieldsService(db, agent);
 const contacts = new ContactsService(db, agent, queue, stamp, fields);
-const vehicles = new VehiclesService(db, stamp, conversion, fields);
+const vehicles = new VehiclesService(
+	db,
+	stamp,
+	conversion,
+	fields,
+	new VehicleImagesService(db),
+);
 
 let contactId: string;
 let bridgeSecret: string | undefined;
@@ -455,7 +462,7 @@ describe("a record update that fails", () => {
 
 		await expect(
 			contacts.update(contact.id, {
-				fields: { spec_note: "Reads the docs" },
+				fields: { spec_unknown: "Reads the docs" },
 			}),
 		).rejects.toThrow();
 

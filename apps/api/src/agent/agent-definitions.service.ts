@@ -1,5 +1,6 @@
 import type { Db, Prisma } from "@crm/db";
 import type { AgentDefinitionStatus } from "@crm/db/enums";
+import { requireTenant } from "@crm/db/tenant";
 import {
 	BadRequestException,
 	Injectable,
@@ -331,7 +332,7 @@ export class AgentDefinitionsService {
 			>`
 				SELECT id, status
 				FROM "agentDefinition"
-				WHERE id = ${id}
+				WHERE id = ${id} AND "organizationId" = ${requireTenant()}
 				FOR UPDATE
 			`;
 
@@ -463,7 +464,7 @@ export class AgentDefinitionsService {
 		>`
 			SELECT id, status, name, description
 			FROM "agentDefinition"
-			WHERE id = ${id}
+			WHERE id = ${id} AND "organizationId" = ${requireTenant()}
 			FOR UPDATE
 		`;
 

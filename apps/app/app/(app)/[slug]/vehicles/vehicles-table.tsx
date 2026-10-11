@@ -9,24 +9,26 @@ import {
 	type DataTableFacet,
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
+import { Spinner } from "@crm/ui/components/spinner";
 import {
 	IndicatorDot,
 	StatusIndicator,
 } from "@crm/ui/components/status-indicator";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
-import { formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useFieldColumns } from "@/components/crm/fields/field-columns";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalRelativeTime } from "@/components/local-date-time";
+import { formatReported } from "@/lib/reported-money";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { isAwaitingPhoto, VEHICLE_PHOTO_POLL_MS } from "@/lib/vehicle-photo";
 import { VehiclesBulkActions } from "./vehicles-bulk-actions";
 import { vehiclesSearchParams } from "./vehicles-search-params";
 
@@ -120,7 +122,7 @@ const COLUMNS: DataTableColumn<VehicleRow>[] = [
 				<EmptyCellValue />
 			) : (
 				<span className="tabular-nums">
-					{formatMoney(row.dailyRateCents, row.currency)}
+					{formatReported(row, row.dailyRateCents, row.currency)}
 				</span>
 			),
 	},
@@ -156,8 +158,6 @@ const COLUMNS: DataTableColumn<VehicleRow>[] = [
 	},
 ];
 
-const PLACEHOLDER_PHOTO = "/2008-bugatti-veyron-side-right.webp";
-
 const FUEL_ICON: Record<string, typeof GasStation> = {
 	DIESEL: GasStation,
 	GASOLINE: GasStation,
@@ -181,6 +181,8 @@ function Pill({
 
 function VehicleCard({ vehicle }: { vehicle: VehicleRow }) {
 	const FuelIcon = FUEL_ICON[vehicle.fuelType] ?? GasStation;
+	const [broken, setBroken] = useState(false);
+	const photo = vehicle.photoUrls[0];
 
 	return (
 		<div className="relative flex h-full min-h-[380px] flex-col overflow-hidden rounded-xl border bg-card shadow-xs transition-shadow hover:shadow-md">
@@ -202,14 +204,22 @@ function VehicleCard({ vehicle }: { vehicle: VehicleRow }) {
 			<div className="relative min-h-[180px] flex-1 overflow-hidden">
 				<div
 					aria-hidden
-					className="absolute inset-x-0 bottom-16 mx-auto h-3 w-2/3 rounded-full bg-black/25 blur-md"
+					className="absolute inset-x-0 bottom-16 mx-auto h-3 w-2/3 rounded-full bg-black/50 blur-md"
 				/>
-				<Image
-					src={PLACEHOLDER_PHOTO}
-					alt={`${vehicle.make} ${vehicle.model}`}
-					fill
-					className="scale-90 object-contain p-3"
-				/>
+				{photo && !broken ? (
+					<Image
+						src={photo}
+						alt={`${vehicle.make} ${vehicle.model}`}
+						fill
+						className="scale-170 object-contain p-3"
+						onError={() => setBroken(true)}
+					/>
+				) : isAwaitingPhoto(vehicle.photoUrls, vehicle.createdAt) ? (
+					<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
+						<Spinner />
+						Image bientôt disponible
+					</div>
+				) : null}
 			</div>
 
 			<div className="shrink-0 px-4 pb-4">
@@ -229,9 +239,13 @@ function VehicleCard({ vehicle }: { vehicle: VehicleRow }) {
 					) : (
 						<>
 							<span className="font-bold text-xl tabular-nums">
-								{formatMoney(vehicle.dailyRateCents, vehicle.currency)}
+								{formatReported(
+									vehicle,
+									vehicle.dailyRateCents,
+									vehicle.currency,
+								)}
 							</span>
-							<span className="ml-1 text-muted-foreground text-xs">/day</span>
+							<span className="ml-1 text-muted-foreground text-xs">/jour</span>
 						</>
 					)}
 				</div>
@@ -249,6 +263,12 @@ export function VehiclesTable() {
 	const vehicles = useQuery({
 		...trpc.vehicles.list.queryOptions(input),
 		placeholderData: (previous) => previous,
+		refetchInterval: (current) =>
+			current.state.data?.rows.some((row) =>
+				isAwaitingPhoto(row.photoUrls, row.createdAt),
+			)
+				? VEHICLE_PHOTO_POLL_MS
+				: false,
 	});
 	const rows = vehicles.data?.rows ?? [];
 	const selection = useTableSelection(
@@ -282,9 +302,7 @@ export function VehiclesTable() {
 	return (
 		<DataTable
 			query={query}
-			search={
-				<ListSearch placeholder="Search vehicles by plate, make or model…" />
-			}
+			search={<ListSearch placeholder="Chercher le véhicule par plaque ..." />}
 			columns={columns}
 			renderCard={(row) => <VehicleCard vehicle={row} />}
 			rows={rows}

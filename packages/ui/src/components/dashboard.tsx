@@ -54,16 +54,18 @@ function DashboardRow({
 	className,
 	split = "hero",
 	...props
-}: React.ComponentProps<"div"> & { split?: "hero" | "even" }) {
+}: React.ComponentProps<"div"> & {
+	split?: "hero" | "hero-reverse" | "even";
+}) {
 	return (
 		<div className="@container/dashboard">
 			<div
 				data-slot="dashboard-row"
 				className={cn(
 					"grid grid-cols-1 gap-4",
-					split === "hero"
-						? "@3xl/dashboard:grid-cols-[2fr_1fr]"
-						: "@3xl/dashboard:grid-cols-2",
+					split === "hero" && "@3xl/dashboard:grid-cols-[2fr_1fr]",
+					split === "hero-reverse" && "@3xl/dashboard:grid-cols-[1fr_2fr]",
+					split === "even" && "@3xl/dashboard:grid-cols-2",
 					className,
 				)}
 				{...props}

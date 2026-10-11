@@ -5,13 +5,26 @@ type PurposeContext = {
 		readonly auth: {
 			readonly current: {
 				readonly attributes: Readonly<Record<string, unknown>>;
+				readonly principalId?: string;
+				readonly principalType?: string;
 			} | null;
 			readonly initiator: {
 				readonly attributes: Readonly<Record<string, unknown>>;
+				readonly principalId?: string;
+				readonly principalType?: string;
 			} | null;
 		};
 	};
 };
+
+export function userOf(ctx: PurposeContext): string | null {
+	for (const auth of [ctx.session.auth.initiator, ctx.session.auth.current]) {
+		if (auth?.principalType === "user" && auth.principalId) {
+			return auth.principalId;
+		}
+	}
+	return null;
+}
 
 export function purposeOf(ctx: PurposeContext): SessionPurpose {
 	const purpose = attribute(ctx, "purpose");

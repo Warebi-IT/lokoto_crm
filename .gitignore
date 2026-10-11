@@ -43,3 +43,5 @@ yarn-error.log*
 # eve build output
 .eve
 .output
+apps/vehicle-catalog-importer/data/import-state.json
+apps/vehicle-catalog-importer/data/car-image-catalog.json

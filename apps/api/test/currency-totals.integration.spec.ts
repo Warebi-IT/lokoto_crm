@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db, RateSource } from "@crm/db";
 import { normalizeCurrency } from "@crm/db/currency";
-import { SETTINGS_ID, writeReportingCurrency } from "@crm/db/settings";
+import { settingsId, writeReportingCurrency } from "@crm/db/settings";
+import { requireTenant } from "@crm/db/tenant";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { DashboardService } from "../src/dashboard/dashboard.service";
@@ -107,7 +108,7 @@ async function makeContract(input: {
 
 beforeAll(async () => {
 	const existing = await db.appSetting.findUnique({
-		where: { id: SETTINGS_ID },
+		where: { id: settingsId() },
 		select: { reportingCurrency: true },
 	});
 	previousReportingCurrency = existing?.reportingCurrency ?? null;
@@ -127,7 +128,12 @@ beforeAll(async () => {
 	});
 
 	const renter = await db.contact.upsert({
-		where: { email: `renter@${domain}` },
+		where: {
+			organizationId_email: {
+				organizationId: requireTenant(),
+				email: `renter@${domain}`,
+			},
+		},
 		create: {
 			firstName: "Money",
 			lastName: "Renter",

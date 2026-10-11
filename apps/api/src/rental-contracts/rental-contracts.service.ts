@@ -174,6 +174,7 @@ export class RentalContractsService {
 					totalAmount: true,
 					currency: true,
 					baseAmount: true,
+					baseCurrency: true,
 					depositStatus: true,
 					vehicle: { select: VEHICLE_SELECT },
 					contact: { select: CONTACT_SELECT },
@@ -289,6 +290,7 @@ export class RentalContractsService {
 				currency: true,
 				totalAmount: true,
 				baseAmount: true,
+				baseCurrency: true,
 				fxRate: true,
 				fxRateAt: true,
 				mileageIncludedPerDay: true,
@@ -863,7 +865,12 @@ export class RentalContractsService {
 	async setDepositStatus(input: SetDepositStatusInput) {
 		const contract = await this.db.rentalContract.findUnique({
 			where: { id: input.id },
-			select: { depositStatus: true, depositAmount: true },
+			select: {
+				depositStatus: true,
+				depositAmount: true,
+				totalAmount: true,
+				currency: true,
+			},
 		});
 
 		if (!contract) {
@@ -894,12 +901,26 @@ export class RentalContractsService {
 			);
 		}
 
+		// The retained portion of the deposit (forfeited, or the unreturned
+		// remainder of a partial return) is a real charge, not held security
+		// anymore, so it joins the contract's total.
+		const retainedAmount = contract.depositAmount.minus(
+			returnedAmount ?? new PrismaNamespace.Decimal(0),
+		);
+		const totalAmount = contract.totalAmount.plus(retainedAmount);
+		const fx = await this.conversion.convertFields(
+			totalAmount,
+			contract.currency,
+		);
+
 		return this.db.rentalContract.update({
 			where: { id: input.id },
 			data: {
 				depositStatus: input.depositStatus,
 				depositReturnedAmount: returnedAmount,
 				depositReturnedAt: new Date(),
+				totalAmount,
+				...fx,
 			},
 			select: { id: true, depositStatus: true },
 		});

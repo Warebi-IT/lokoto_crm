@@ -28,11 +28,11 @@ type Contract = Planning["contracts"][number];
 type Scale = "week" | "month";
 
 const TONE_CLASS: Record<string, string> = {
-	neutral: "border-muted-foreground/40 bg-muted-foreground/15",
-	info: "border-info bg-info/15",
-	warning: "border-warning bg-warning/15",
-	success: "border-success bg-success/15",
-	error: "border-destructive bg-destructive/15",
+	neutral: "bg-muted-foreground text-background",
+	info: "bg-info text-info-foreground",
+	warning: "bg-warning text-warning-foreground",
+	success: "bg-success text-success-foreground",
+	error: "bg-destructive text-destructive-foreground",
 };
 
 const DAY_LABEL = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
@@ -166,7 +166,7 @@ export function VehiclePlanningView({
 				</div>
 			</div>
 
-			<div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card">
+			<div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card shadow-xs">
 				<div className="grid min-w-max" style={{ gridTemplateColumns }}>
 					<div
 						className="sticky top-0 left-0 z-20 border-b bg-muted px-3 py-2 text-muted-foreground text-xs"
@@ -255,7 +255,7 @@ export function VehiclePlanningView({
 										openRecord({ kind: "rentalContract", id: contract.id })
 									}
 									className={cn(
-										"m-1 flex items-center truncate rounded-sm border px-2 py-1 text-left text-xs hover:brightness-95",
+										"m-1 flex items-center truncate rounded-md px-2 py-1 text-left text-xs shadow-xs transition-[filter] hover:brightness-95",
 										TONE_CLASS[presentation.tone],
 									)}
 									style={{
@@ -309,10 +309,7 @@ function VehicleRow({
 			{days.map((day, index) => (
 				<div
 					key={day}
-					className={cn(
-						"h-12 border-b border-l",
-						day === today && "bg-muted/40",
-					)}
+					className={cn("h-12 border-b", day === today && "bg-primary/[0.04]")}
 					style={{ gridColumn: index + 2, gridRow: row }}
 				/>
 			))}
