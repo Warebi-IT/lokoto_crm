@@ -38,7 +38,7 @@ mkdirSync(funcDir, { recursive: true });
 console.log("• bundling function with bun build...");
 execSync(
 	[
-		`${bun} build api/index.ts`,
+		`${bun} build src/vercel-handler.ts`,
 		"--target=node",
 		"--format=esm",
 		`--outfile=${JSON.stringify(join(funcDir, "index.mjs"))}`,
@@ -158,7 +158,7 @@ writeFileSync(
 	JSON.stringify({
 		version: 3,
 		routes: [{ src: "/(.*)", dest: "/api/index" }],
-		crons: [{ path: "/internal/sync/google", schedule: "*/5 * * * *" }],
+		crons: JSON.parse(readFileSync(join(apiDir, "vercel.json"), "utf8")).crons,
 	}),
 );
 
