@@ -1,5 +1,101 @@
 # Changelog
 
+## [1.6.0](https://github.com/Warebi-IT/lokoto_crm/compare/v1.5.0...v1.6.0) (2026-10-11)
+
+
+### Features
+
+* add cash purchase financing option and fiscal depreciation rate ([ecab1f9](https://github.com/Warebi-IT/lokoto_crm/commit/ecab1f9801391c62c1ed0d4c8797ced37fc60066))
+* add vehicle damage annotation editor component ([5adb7d7](https://github.com/Warebi-IT/lokoto_crm/commit/5adb7d7658dfa7e5ae062cb9df3a84d6b1146677))
+* **agent:** apply sourced facts to empty fields automatically ([#112](https://github.com/Warebi-IT/lokoto_crm/issues/112)) ([0342c8e](https://github.com/Warebi-IT/lokoto_crm/commit/0342c8ee62561c8df1db16644c2b049617c908a0))
+* **agent:** read people from Context.dev instead of RapidAPI (CMP-86) ([#158](https://github.com/Warebi-IT/lokoto_crm/issues/158)) ([7b9288b](https://github.com/Warebi-IT/lokoto_crm/commit/7b9288b024f870fe5cb48b642255ebca645c261b))
+* **agent:** scope field backfill tasks to records missing values ([#163](https://github.com/Warebi-IT/lokoto_crm/issues/163)) ([3be7bbd](https://github.com/Warebi-IT/lokoto_crm/commit/3be7bbd69fe8b814ee2599a29b33e73f02a66245))
+* **agent:** stop suggesting a URL that already matches the field ([#120](https://github.com/Warebi-IT/lokoto_crm/issues/120)) ([ed43055](https://github.com/Warebi-IT/lokoto_crm/commit/ed43055be2885a2de29f16374b07b3e077cace22))
+* **app:** add a cost breakdown to the rental contract overview ([dc13428](https://github.com/Warebi-IT/lokoto_crm/commit/dc134282daa8cb071d7b8a5da976ed7c0b65c833))
+* **app:** add a fleet-by-status donut to the overview dashboard ([5d482c0](https://github.com/Warebi-IT/lokoto_crm/commit/5d482c0d4be143568ddc781e4a515ce6b5e71064))
+* **app:** add a net margin trend chart to Finance ([b3c2544](https://github.com/Warebi-IT/lokoto_crm/commit/b3c254492a3e3bb693141d71e5146c35497fb5fd))
+* **app:** add a revenue/expenses bar chart to the fleet dashboard ([5f2095d](https://github.com/Warebi-IT/lokoto_crm/commit/5f2095d7a478147329212c52471d386843d4c973))
+* **app:** add revenue breakdown donuts to the bottom of Finance ([f076b1e](https://github.com/Warebi-IT/lokoto_crm/commit/f076b1eed774a1ae282a043d6349290c127b3d14))
+* **app:** copy the tracking snippet for the selected install method ([#128](https://github.com/Warebi-IT/lokoto_crm/issues/128)) ([30e0137](https://github.com/Warebi-IT/lokoto_crm/commit/30e01377781559375c3a58ada50b63016dea7d57))
+* **app:** lay out vehicle damage area picker as a car diagram ([9dfd184](https://github.com/Warebi-IT/lokoto_crm/commit/9dfd184156a502df85083894144d41c57c293197))
+* **app:** let reps manage mileage pricing tiers on rental contracts ([a56faf7](https://github.com/Warebi-IT/lokoto_crm/commit/a56faf70593d8bb10fc5b12d97c61a26283cbd9c))
+* **app:** put Détails and Récapitulatif side by side ([f8d703b](https://github.com/Warebi-IT/lokoto_crm/commit/f8d703b304e29fc383b01b0e7db0b0045548c040))
+* **app:** redesign the planning calendar, make columns responsive ([a1ecaf1](https://github.com/Warebi-IT/lokoto_crm/commit/a1ecaf1a1a732902d1c56734396a89a6e9175c53))
+* **app:** search company dropdowns instead of scrolling them ([#125](https://github.com/Warebi-IT/lokoto_crm/issues/125)) ([3b558a8](https://github.com/Warebi-IT/lokoto_crm/commit/3b558a82155d556aa4ff2860121ddf314e2ae88c))
+* **app:** show the vehicle's catalog photo on its record sheet ([41f3d77](https://github.com/Warebi-IT/lokoto_crm/commit/41f3d77c04c9990af223e5f109126e2a899af849))
+* **app:** show the vehicle's real photo on its fleet card ([03ef0d4](https://github.com/Warebi-IT/lokoto_crm/commit/03ef0d45e624af3aef7b8254fbdba209e5149604))
+* **app:** surface a key-indicators row on the fleet dashboard ([7471737](https://github.com/Warebi-IT/lokoto_crm/commit/7471737cdc90f043300ed50a620816642178f7e1))
+* **db:** add peek script for inspecting database contents ([#110](https://github.com/Warebi-IT/lokoto_crm/issues/110)) ([acae8ec](https://github.com/Warebi-IT/lokoto_crm/commit/acae8ec1ab29851ec66a8a1e8e89672bef6e7eca))
+* **db:** add vehicle catalog table and update financing type with fiscal depreciation rate ([c2d828d](https://github.com/Warebi-IT/lokoto_crm/commit/c2d828dc2890222bf4919a994cfdb5c539b5eed5))
+* edit a deployed agent, and show what Slack actually granted (CMP-77) ([#109](https://github.com/Warebi-IT/lokoto_crm/issues/109)) ([76b443a](https://github.com/Warebi-IT/lokoto_crm/commit/76b443ae4fe2567c5c5e51465a82db5faa1f3e62))
+* enrichment queue widget (CMP-92) ([#159](https://github.com/Warebi-IT/lokoto_crm/issues/159)) ([5e11482](https://github.com/Warebi-IT/lokoto_crm/commit/5e11482bee237d94a6eca8dfecbe6e7850df9c7a))
+* implement agent cost tracking and enable/disable functionality ([4448764](https://github.com/Warebi-IT/lokoto_crm/commit/4448764d822bc7adc731a8aeb20633f1d449e5bd))
+* implement multi-tenancy support with organization-based data scoping ([b47ee59](https://github.com/Warebi-IT/lokoto_crm/commit/b47ee59a80c8bb6d3731538ec8d0f69cc98ba59e))
+* integrate VehicleImagesService into FieldsService and update vehicle creation form ([09d7473](https://github.com/Warebi-IT/lokoto_crm/commit/09d7473f13a6546450107452faa2a63d2db6ffbd))
+* multi-tenancy, daily mailbox sync cron for Vercel Hobby ([c4d352f](https://github.com/Warebi-IT/lokoto_crm/commit/c4d352fe51828e6ec304b75aadda22f33f6315d6))
+* page the enrichment queue (CMP-92) ([#160](https://github.com/Warebi-IT/lokoto_crm/issues/160)) ([8c1abb1](https://github.com/Warebi-IT/lokoto_crm/commit/8c1abb14f4a60e0f9232914958869acccd610f71))
+* promote dev to main ([f693cd8](https://github.com/Warebi-IT/lokoto_crm/commit/f693cd80d678df0a92628be94ae8b0e80c2cb46d))
+* **rental-contracts:** wire up return recording and count retained deposit in the total ([e3b0d60](https://github.com/Warebi-IT/lokoto_crm/commit/e3b0d6013a3b4da2aa9862420bc7862ae5215d28))
+* **tracking:** add website tracking with form capture and attribution ([e050ff9](https://github.com/Warebi-IT/lokoto_crm/commit/e050ff9cd62897880da6cceebe765d51aef8f723))
+* **tracking:** support installing the tracking tag via Google Tag Manager ([#124](https://github.com/Warebi-IT/lokoto_crm/issues/124)) ([2d8129c](https://github.com/Warebi-IT/lokoto_crm/commit/2d8129ccdd75ca2630289f4bf0cacd04505150b3))
+* **ui:** add a lg date-picker/select size for wide contract date rows ([0a25bb0](https://github.com/Warebi-IT/lokoto_crm/commit/0a25bb007a923633b3c886b3a24fe557701bfb37))
+* **ui:** add stat icons to the rental contract sheet ([c19680c](https://github.com/Warebi-IT/lokoto_crm/commit/c19680ca04dbd47f8d561cae8a9d925e2100f6f5))
+* **ui:** brand the record sheet's tab menu and person avatars ([b79cabe](https://github.com/Warebi-IT/lokoto_crm/commit/b79cabeb898b56adc2b6d205cd4bf9d3c6120e0b))
+* **ui:** elevate dashboard surfaces and add stat icons ([887c7dd](https://github.com/Warebi-IT/lokoto_crm/commit/887c7dd49c7f5d37dd6e3619bff29429db2d5240))
+* **ui:** extend the forest-green chrome to the top header ([fd556cf](https://github.com/Warebi-IT/lokoto_crm/commit/fd556cfdb5ab1c956efff2b3649f6a6758830605))
+* **ui:** fill the record sheet stats bar with brand green ([0274b12](https://github.com/Warebi-IT/lokoto_crm/commit/0274b126e8a310ab4287c094d19639f04e97a5ae))
+* **ui:** fix vehicle card radius and add stat icons ([892138b](https://github.com/Warebi-IT/lokoto_crm/commit/892138b68a24b30765437d64c9a4976a39eaa645))
+* **ui:** give transient overlay chrome a glass finish ([74d21a1](https://github.com/Warebi-IT/lokoto_crm/commit/74d21a11d9007113e89266a5b231aaad83f07f40))
+* **ui:** mark the Incidents tab as destructive, not brand green ([3b68b0c](https://github.com/Warebi-IT/lokoto_crm/commit/3b68b0ce46b17329b71cd34fe7a0079afb23f1ab))
+* **ui:** tighten and translate the rental contract overview ([a593ea6](https://github.com/Warebi-IT/lokoto_crm/commit/a593ea611bfcf7c15f845f03224253e83157c7ce))
+* **vehicle-catalog-importer:** implement vehicle catalog importer with S3 integration and API for vehicle models ([6327981](https://github.com/Warebi-IT/lokoto_crm/commit/63279813b456575139c0a344e41d3dca292712d4))
+* wire the vehicle catalog into new-vehicle creation ([29b4ce4](https://github.com/Warebi-IT/lokoto_crm/commit/29b4ce4eb74a375c1db64717f4deda73ec500f2d))
+
+
+### Fixes
+
+* **agent:** drop dead contact.ownerId lookup in writeTimelineNote ([029a36c](https://github.com/Warebi-IT/lokoto_crm/commit/029a36c020f223b42d0881ff073f555997dae722))
+* **agent:** fill blank fields on the dispatch tick instead of sign-in ([#117](https://github.com/Warebi-IT/lokoto_crm/issues/117)) ([9660952](https://github.com/Warebi-IT/lokoto_crm/commit/96609529f9f7be27441a88267a05e9a6c8f9c23c))
+* **agent:** let the assistant chat read the deal list it is told to use (CMP-77) ([#139](https://github.com/Warebi-IT/lokoto_crm/issues/139)) ([e86a0fb](https://github.com/Warebi-IT/lokoto_crm/commit/e86a0fbe4076ec3ead43f9ab24c3ac805070819a))
+* **agent:** stop passing a nonexistent Vehicle.ownerId in tests ([faeb1fd](https://github.com/Warebi-IT/lokoto_crm/commit/faeb1fd4b8af3e0691a682d92c3e7795f9c4ef28))
+* **api:** serve openapi.json and bundle swagger deps in function build ([#166](https://github.com/Warebi-IT/lokoto_crm/issues/166)) ([7ea4f37](https://github.com/Warebi-IT/lokoto_crm/commit/7ea4f37cd65e93d62d3977e08a0df476b3aa4479))
+* **api:** warn when the deployed schema does not match schema.prisma ([#88](https://github.com/Warebi-IT/lokoto_crm/issues/88)) ([f445c68](https://github.com/Warebi-IT/lokoto_crm/commit/f445c68a815ad1635498591daa494d18d9508ccf))
+* **api:** warn when the deployed schema does not match schema.prisma ([#88](https://github.com/Warebi-IT/lokoto_crm/issues/88)) ([efc78ce](https://github.com/Warebi-IT/lokoto_crm/commit/efc78ce011a497ed78e732deee323ca1e58da35f))
+* **app:** drop the duplicate "Locations en cours" stat from Aujourd'hui ([8035842](https://github.com/Warebi-IT/lokoto_crm/commit/8035842ac8b65ebd81cbc74c4729585fece6591a))
+* **app:** prevent url param collision between fields sheet and table filter ([#175](https://github.com/Warebi-IT/lokoto_crm/issues/175)) ([1cebe1e](https://github.com/Warebi-IT/lokoto_crm/commit/1cebe1e5b3087007c4eac8b18add38ff9e8dd69b))
+* **app:** show select field values in record tables ([#133](https://github.com/Warebi-IT/lokoto_crm/issues/133)) ([1d89b43](https://github.com/Warebi-IT/lokoto_crm/commit/1d89b43e2d0ad376970be09f9446f1903203ec09))
+* **app:** translate the dashboard greeting subtitle to French ([296778d](https://github.com/Warebi-IT/lokoto_crm/commit/296778d93f2126bf549e8b7b056fd91ef094b728))
+* **app:** translate the vehicles search placeholder to French ([e0518d3](https://github.com/Warebi-IT/lokoto_crm/commit/e0518d3fa207d8cca36ec9e69d275c3f2b88b112))
+* **ci:** fall back to the pushed commit when release-please reports no sha ([d1efd97](https://github.com/Warebi-IT/lokoto_crm/commit/d1efd9730570730fc569d124f2c74559d47fe790))
+* **ci:** make a release one pull request instead of two ([206c746](https://github.com/Warebi-IT/lokoto_crm/commit/206c7461e75ee4827960ec07a02843d107514f20))
+* **ci:** make the release guard reject only genuinely untagged pull requests ([#105](https://github.com/Warebi-IT/lokoto_crm/issues/105)) ([815a832](https://github.com/Warebi-IT/lokoto_crm/commit/815a832fbefe4c96ad15cee1679be116e590e132))
+* **ci:** ship releases by opening a pull request into release ([#114](https://github.com/Warebi-IT/lokoto_crm/issues/114)) ([924060b](https://github.com/Warebi-IT/lokoto_crm/commit/924060bac114d7fba6681c6b1b2f38de19f36440))
+* **ci:** stop the auto-titler downgrading a release ([8a1e390](https://github.com/Warebi-IT/lokoto_crm/commit/8a1e3901ec5e6eeca13b0b0af4c3edbc0e57736d))
+* stop a finished enrichment reading as failed ([#173](https://github.com/Warebi-IT/lokoto_crm/issues/173)) ([2946580](https://github.com/Warebi-IT/lokoto_crm/commit/2946580afdd43419ce08165a0d55ba9d084c554e))
+* **ui:** forward the ref on Input, fix the catalog combobox closing on every keystroke ([9efe35e](https://github.com/Warebi-IT/lokoto_crm/commit/9efe35e3d9919aa46088c1452f1f2053aea93f07))
+* unblock the test suite and actually install the git hooks (CMP-83) ([#152](https://github.com/Warebi-IT/lokoto_crm/issues/152)) ([652135b](https://github.com/Warebi-IT/lokoto_crm/commit/652135be27e9c3e22c06e4d6cfb47746f5c6c9c1))
+
+
+### Refactors
+
+* clean up onboarding gate tests and remove unused research key logic ([ae0d4b4](https://github.com/Warebi-IT/lokoto_crm/commit/ae0d4b48aa3750a16c72b11878b1daafe58d261e))
+* clear anti-slop type assertions and conditional object spreads (CMP-81) ([#146](https://github.com/Warebi-IT/lokoto_crm/issues/146)) ([bfd4dad](https://github.com/Warebi-IT/lokoto_crm/commit/bfd4dadfd1df44566676902a2477bfa112ca1413))
+* parse every remaining I/O boundary into a domain type (CMP-82) ([#151](https://github.com/Warebi-IT/lokoto_crm/issues/151)) ([3fb9922](https://github.com/Warebi-IT/lokoto_crm/commit/3fb9922b63aae5e97518d6712037e70b21899a76))
+* remove research key onboarding components and update routing ([f0dcaa2](https://github.com/Warebi-IT/lokoto_crm/commit/f0dcaa2b648263bb4becb6ab81537d0dc56c787f))
+* transition from deal-centric to rental-centric data model ([094c449](https://github.com/Warebi-IT/lokoto_crm/commit/094c449a0079166b0682f664a1f2cff79685cedb))
+
+
+### Documentation
+
+* **api:** explain runtime openapi document and vendoring rules ([#170](https://github.com/Warebi-IT/lokoto_crm/issues/170)) ([630f2c9](https://github.com/Warebi-IT/lokoto_crm/commit/630f2c9f375b5ae084ed708d21bcdb563c774a4f))
+* propose an i18n layer ([#143](https://github.com/Warebi-IT/lokoto_crm/issues/143)) ([64440c6](https://github.com/Warebi-IT/lokoto_crm/commit/64440c6827394af69659a1d0205574a6726868a8))
+
+
+### Reverts
+
+* drop the fleet-by-status donut from the overview dashboard ([5073fb6](https://github.com/Warebi-IT/lokoto_crm/commit/5073fb6f7e97c356653e1462cf1591f0ea03df47))
+* **ui:** keep the top header plain, green stays on the rail ([2046136](https://github.com/Warebi-IT/lokoto_crm/commit/204613653968d71d53ecf5063608829bd5cceae1))
+
 ## [1.5.0](https://github.com/trycompai/crm/compare/v1.4.0...v1.5.0) (2026-08-08)
 
 
