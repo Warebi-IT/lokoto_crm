@@ -45,8 +45,25 @@ async function handler(request: Request): Promise<Response> {
 			error,
 		);
 
+		const cause =
+			error instanceof Error && error.cause instanceof Error
+				? error.cause
+				: error;
+
 		return Response.json(
-			{ error: `The API at ${API_URL} is not reachable.` },
+			{
+				error: `The API at ${API_URL} is not reachable.`,
+				target,
+				reason: cause instanceof Error ? cause.message : String(cause),
+				code:
+					cause && typeof cause === "object" && "code" in cause
+						? String(cause.code)
+						: undefined,
+				env: {
+					API_URL: process.env.API_URL ?? null,
+					NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? null,
+				},
+			},
 			{ status: 502 },
 		);
 	}
