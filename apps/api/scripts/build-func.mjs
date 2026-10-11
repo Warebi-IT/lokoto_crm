@@ -164,6 +164,14 @@ writeFileSync(
 
 console.log(`✓ built ${outDir}`);
 
+const rootOutDir = join(apiDir, ".vercel/output");
+
+if (rootOutDir !== outDir) {
+	rmSync(rootOutDir, { recursive: true, force: true });
+	cpSync(outDir, rootOutDir, { recursive: true });
+	console.log(`✓ copied to ${rootOutDir}`);
+}
+
 const isProductionDeployment = process.env.VERCEL_ENV === "production";
 
 const directDatabaseUrl = !isProductionDeployment
