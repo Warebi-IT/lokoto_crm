@@ -1,3 +1,5 @@
+import type { Db } from "@crm/db";
+import { runInTenant } from "@crm/db/tenant";
 import {
 	Controller,
 	ForbiddenException,
@@ -10,6 +12,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import type { EnvironmentVariables } from "../config/env.validation";
+import { InjectDatabase } from "../database/database.constants";
 import { ConversionService } from "./conversion.service";
 import { RatesService } from "./rates.service";
 
@@ -21,6 +24,7 @@ export class RatesController {
 	constructor(
 		private readonly rates: RatesService,
 		private readonly conversion: ConversionService,
+		@InjectDatabase() private readonly db: Db,
 		config: ConfigService<EnvironmentVariables, true>,
 	) {
 		this.secret = config.get("CRON_SECRET", { infer: true });
@@ -54,9 +58,23 @@ export class RatesController {
 
 		if (!refresh.ok) return refresh;
 
-		const filled = await this.conversion.fillMissingEverywhere();
+		const organizations = await this.db.organization.findMany({
+			select: { id: true },
+		});
 
-		return { ...refresh, converted: filled.converted, missing: filled.missing };
+		let converted = 0;
+		const missing = new Set<string>();
+
+		for (const { id } of organizations) {
+			const filled = await runInTenant(id, () =>
+				this.conversion.fillMissingEverywhere(),
+			);
+
+			converted += filled.converted;
+			for (const code of filled.missing) missing.add(code);
+		}
+
+		return { ...refresh, converted, missing: [...missing].sort() };
 	}
 }
 

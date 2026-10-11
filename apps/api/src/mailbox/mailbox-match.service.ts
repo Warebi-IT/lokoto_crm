@@ -1,5 +1,6 @@
 import { workspaceDomains } from "@crm/auth/workspace";
 import { type Db, RecordSource } from "@crm/db";
+import { requireTenant } from "@crm/db/tenant";
 import { Injectable } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { EnrichmentLogService } from "../crm/enrichment-log.service";
@@ -133,13 +134,18 @@ export class MailboxMatchService {
 
 		const { firstName, lastName } = splitName(person.name, person.email);
 
-		const existing = await this.db.contact.findUnique({
+		const existing = await this.db.contact.findFirst({
 			where: { email: person.email },
 			select: { id: true },
 		});
 
 		const contact = await this.db.contact.upsert({
-			where: { email: person.email },
+			where: {
+				organizationId_email: {
+					organizationId: requireTenant(),
+					email: person.email,
+				},
+			},
 			create: {
 				firstName,
 				lastName,

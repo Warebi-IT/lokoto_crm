@@ -1,7 +1,6 @@
 import {
 	canManageCurrency,
 	isWorkspaceRole,
-	WORKSPACE_ID,
 	type WorkspaceRole,
 } from "@crm/auth";
 import type { Db } from "@crm/db";
@@ -13,6 +12,7 @@ import {
 	normalizeCurrency,
 } from "@crm/db/currency";
 import { writeReportingCurrency } from "@crm/db/settings";
+import { requireTenant } from "@crm/db/tenant";
 import {
 	BadRequestException,
 	ForbiddenException,
@@ -133,7 +133,7 @@ export class CurrencyService {
 	private async roleOf(userId: string): Promise<WorkspaceRole | null> {
 		const member = await this.db.member.findUnique({
 			where: {
-				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+				organizationId_userId: { organizationId: requireTenant(), userId },
 			},
 			select: { role: true },
 		});

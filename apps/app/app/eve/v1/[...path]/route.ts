@@ -1,5 +1,7 @@
+import { resolveRequestOrganization, type Session } from "@crm/auth";
 import { db } from "@crm/db";
 import { isAgentEnabled } from "@crm/db/agent-usage";
+import { runInTenant } from "@crm/db/tenant";
 import { connection } from "next/server";
 import {
 	AGENT_URL,
@@ -23,6 +25,21 @@ async function handler(request: Request): Promise<Response> {
 		return Response.json({ error: "Not signed in." }, { status: 401 });
 	}
 
+	const organizationId = await resolveRequestOrganization(
+		session.user.id,
+		session.session.activeOrganizationId,
+	);
+	if (!organizationId) {
+		return Response.json(
+			{ error: "Enter your company code to continue." },
+			{ status: 403 },
+		);
+	}
+
+	return runInTenant(organizationId, () => forward(request, session));
+}
+
+async function forward(request: Request, session: Session): Promise<Response> {
 	if (!(await isAgentEnabled(db, session.user.id))) {
 		return Response.json(
 			{ error: "The research agent is not enabled for your account." },
@@ -94,6 +111,29 @@ async function handler(request: Request): Promise<Response> {
 				{ status: 404 },
 			);
 		}
+	}
+
+	const [contact, vehicle, rentalContract] = [
+		cuid(contactId),
+		cuid(vehicleId),
+		cuid(rentalContractId),
+	];
+	const [contactRow, vehicleRow, contractRow] = await Promise.all([
+		contact
+			? db.contact.findFirst({ where: { id: contact }, select: { id: true } })
+			: true,
+		vehicle
+			? db.vehicle.findFirst({ where: { id: vehicle }, select: { id: true } })
+			: true,
+		rentalContract
+			? db.rentalContract.findFirst({
+					where: { id: rentalContract },
+					select: { id: true },
+				})
+			: true,
+	]);
+	if (!contactRow || !vehicleRow || !contractRow) {
+		return Response.json({ error: "Record not found." }, { status: 404 });
 	}
 
 	headers.set(

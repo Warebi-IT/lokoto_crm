@@ -5,6 +5,7 @@ import {
 	type MailboxSyncModel as MailboxSync,
 	RecordSource,
 } from "@crm/db";
+import { requireTenant } from "@crm/db/tenant";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { ActivityStampService } from "../crm/activity-stamp.service";
@@ -202,7 +203,8 @@ export class CalendarSyncService {
 		if (!originalStart) return "ignored";
 
 		const key = {
-			iCalUid_originalStartTime: {
+			organizationId_iCalUid_originalStartTime: {
+				organizationId: requireTenant(),
 				iCalUid,
 				originalStartTime: originalStart.at,
 			},

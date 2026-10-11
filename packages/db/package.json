@@ -19,6 +19,7 @@
 		"./rental-status": "./src/rental-status.ts",
 		"./safe-fetch": "./src/safe-fetch.ts",
 		"./settings": "./src/settings.ts",
+		"./tenant": "./src/tenant.ts",
 		"./vehicle-photos": "./src/vehicle-photos.ts",
 		"./workspace": "./src/workspace.ts"
 	},

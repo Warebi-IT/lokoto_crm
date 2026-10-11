@@ -226,9 +226,9 @@ export async function saveBuilderDraft(
 
 	return db.$transaction(async (tx) => {
 		const [lockedConversation] = await tx.$queryRaw<
-			Array<{ id: string; agentId: string | null }>
+			Array<{ id: string; agentId: string | null; organizationId: string }>
 		>`
-			SELECT id, "agentId"
+			SELECT id, "agentId", "organizationId"
 			FROM "agentConversation"
 			WHERE id = ${conversationId}
 				AND "userId" = ${userId}
@@ -245,6 +245,7 @@ export async function saveBuilderDraft(
 		if (!agentId) {
 			const agent = await tx.agentDefinition.create({
 				data: {
+					organizationId: lockedConversation.organizationId,
 					name: input.name,
 					description: input.description,
 					createdById: userId,

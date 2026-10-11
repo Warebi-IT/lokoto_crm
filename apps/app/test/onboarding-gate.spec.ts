@@ -224,6 +224,34 @@ describe("proxy", () => {
 		).toBe(`/${SLUG}`);
 	});
 
+	it("sends a rep who has no company yet to the join page", async () => {
+		answerWith({ result: { data: { joined: false } } });
+
+		expect(await gateOf("/")).toBe("join");
+		expect(
+			redirectedTo(await proxy(request(`/${SLUG}/vehicles`, [SESSION_COOKIE]))),
+		).toBe("/join");
+		expect(
+			redirectedTo(await proxy(request("/onboarding", [SESSION_COOKIE]))),
+		).toBe("/join");
+	});
+
+	it("lets the join page render for a rep with no company", async () => {
+		answerWith({ result: { data: { joined: false } } });
+
+		expect(
+			redirectedTo(await proxy(request("/join", [SESSION_COOKIE]))),
+		).toBeNull();
+	});
+
+	it("takes a rep who already has a company off the join page", async () => {
+		setup();
+
+		expect(redirectedTo(await proxy(request("/join", [SESSION_COOKIE])))).toBe(
+			`/${SLUG}`,
+		);
+	});
+
 	it("never fights /grant-access, which would ping-pong forever", async () => {
 		setup({ onboarded: false });
 

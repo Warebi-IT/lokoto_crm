@@ -8,6 +8,7 @@ import {
 	resolveRate,
 } from "@crm/db/fx";
 import { readReportingCurrency } from "@crm/db/settings";
+import { currentTenant } from "@crm/db/tenant";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 
@@ -331,6 +332,8 @@ export class ConversionService {
 		const table = Prisma.raw(`"${TABLE[entity]}"`);
 		const amountColumn = Prisma.raw(`"${AMOUNT_COLUMN[entity]}"`);
 
+		const scope = this.scope();
+
 		const filter = onlyMissing
 			? Prisma.sql`AND ("baseAmount" IS NULL OR "baseCurrency" IS DISTINCT FROM ${base})`
 			: Prisma.empty;
@@ -343,8 +346,17 @@ export class ConversionService {
 			    "fxRateAt" = ${rate.asOf}
 			WHERE ${amountColumn} IS NOT NULL
 			  AND upper(btrim("currency")) = ${code}
+			  ${scope}
 			  ${filter}
 		`;
+	}
+
+	private scope() {
+		const organizationId = currentTenant();
+
+		return organizationId
+			? Prisma.sql`AND "organizationId" = ${organizationId}`
+			: Prisma.empty;
 	}
 
 	private async clear(
@@ -360,6 +372,7 @@ export class ConversionService {
 			    "fxRate" = NULL,
 			    "fxRateAt" = NULL
 			WHERE upper(btrim("currency")) = ${code}
+			  ${this.scope()}
 			  AND "baseAmount" IS NOT NULL
 		`;
 	}

@@ -3,9 +3,11 @@ import { API_URL } from "@/lib/env";
 
 export const ONBOARDING_PATH = "/onboarding";
 
+export const JOIN_PATH = "/join";
+
 const GATE_TIMEOUT_MS = 2_000;
 
-export type Gate = "settled" | "required" | "unknown";
+export type Gate = "settled" | "required" | "join" | "unknown";
 
 async function read<T>(
 	request: NextRequest,
@@ -38,10 +40,13 @@ export async function readWorkspaceGate(
 	request: NextRequest,
 ): Promise<WorkspaceGate> {
 	const workspace = await read<{
+		joined?: boolean;
 		onboarded?: boolean;
 		canRename?: boolean;
 		slug?: string;
-	}>(request, "workspace.get");
+	}>(request, "workspace.membership");
+
+	if (workspace?.joined === false) return { gate: "join", slug: null };
 
 	const slug = workspace?.slug ? workspace.slug : null;
 

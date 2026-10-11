@@ -1,163 +1,115 @@
-import {
-	afterAll,
-	beforeAll,
-	beforeEach,
-	describe,
-	expect,
-	it,
-} from "bun:test";
+import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
-import { ensureWorkspaceMembership, WORKSPACE_ID } from "../src/organization";
+import {
+	activeOrganizationOf,
+	JOIN_ATTEMPTS,
+	joinOrganizationByCode,
+} from "../src/organization";
 
 const suffix = process.env.TEST_RUN_ID ?? "organization-spec";
 
-const emailOf = (label: string) => `${label}.${suffix}@example.test`;
-
-type Snapshot = {
-	organization: {
-		name: string;
-		slug: string;
-		website: string | null;
-		metadata: string | null;
-	} | null;
-	members: { id: string; userId: string; role: string; createdAt: Date }[];
-};
-
-let snapshot: Snapshot;
-let firstId: string;
-let secondId: string;
-
-const seedUser = async (label: string, createdAt: Date): Promise<string> => {
-	const user = await db.user.create({
-		data: {
-			id: `${suffix}-${label}`,
-			name: label,
-			email: emailOf(label),
-			createdAt,
-			updatedAt: createdAt,
-		},
-		select: { id: true },
-	});
-
-	return user.id;
-};
-
-const roleOf = async (userId: string): Promise<string | null> => {
-	const member = await db.member.findUnique({
-		where: { organizationId_userId: { organizationId: WORKSPACE_ID, userId } },
-		select: { role: true },
-	});
-
-	return member?.role ?? null;
-};
+const organizationId = `${suffix}-org`;
+const userId = `${suffix}-user`;
+const joinCode = `TEST${suffix.replace(/[^a-z0-9]/gi, "").toUpperCase()}`.slice(
+	0,
+	16,
+);
 
 const clear = async () => {
-	await db.member.deleteMany({ where: { organizationId: WORKSPACE_ID } });
-	await db.organization.deleteMany({ where: { id: WORKSPACE_ID } });
-	await db.user.deleteMany({
-		where: { email: { endsWith: `.${suffix}@example.test` } },
-	});
+	await db.rateLimit.deleteMany({ where: { key: `join:${userId}` } });
+	await db.session.deleteMany({ where: { userId } });
+	await db.member.deleteMany({ where: { organizationId } });
+	await db.organization.deleteMany({ where: { id: organizationId } });
+	await db.user.deleteMany({ where: { id: userId } });
 };
-
-beforeAll(async () => {
-	const organization = await db.organization.findUnique({
-		where: { id: WORKSPACE_ID },
-		select: { name: true, slug: true, website: true, metadata: true },
-	});
-
-	snapshot = {
-		organization,
-		members: await db.member.findMany({
-			where: { organizationId: WORKSPACE_ID },
-			select: { id: true, userId: true, role: true, createdAt: true },
-		}),
-	};
-});
 
 beforeEach(async () => {
 	await clear();
 
-	firstId = await seedUser("first", new Date("2020-01-01T00:00:00Z"));
-	secondId = await seedUser("second", new Date("2021-01-01T00:00:00Z"));
+	await db.organization.create({
+		data: {
+			id: organizationId,
+			name: "Spec agency",
+			slug: organizationId,
+			joinCode,
+			createdAt: new Date(),
+		},
+	});
+
+	await db.user.create({
+		data: {
+			id: userId,
+			name: "Newcomer",
+			email: `newcomer.${suffix}@example.test`,
+		},
+	});
+
+	await db.session.create({
+		data: {
+			id: `${suffix}-session`,
+			token: `${suffix}-token`,
+			userId,
+			expiresAt: new Date(Date.now() + 60_000),
+		},
+	});
 });
 
-afterAll(async () => {
-	await clear();
+afterAll(clear);
 
-	if (snapshot.organization) {
-		await db.organization.create({
-			data: {
-				id: WORKSPACE_ID,
-				createdAt: new Date(),
-				...snapshot.organization,
-			},
-		});
-
-		await db.member.createMany({
-			data: snapshot.members.map((member) => ({
-				...member,
-				organizationId: WORKSPACE_ID,
-			})),
-		});
-	}
-});
-
-describe("ensureWorkspaceMembership", () => {
-	it("creates the one workspace and enrols everyone who already had an account", async () => {
-		const workspaceId = await ensureWorkspaceMembership(secondId);
-
-		expect(workspaceId).toBe(WORKSPACE_ID);
-		expect(await roleOf(firstId)).toBe("owner");
-		expect(await roleOf(secondId)).toBe("member");
+describe("joinOrganizationByCode", () => {
+	it("starts with no organization", async () => {
+		expect(await activeOrganizationOf(userId)).toBeUndefined();
 	});
 
-	it("is idempotent, so signing in again neither duplicates nor re-roles", async () => {
-		await ensureWorkspaceMembership(secondId);
+	it("enrols the user and activates the organization on their sessions", async () => {
+		const result = await joinOrganizationByCode(userId, joinCode);
 
-		await db.member.update({
-			where: {
-				organizationId_userId: {
-					organizationId: WORKSPACE_ID,
-					userId: secondId,
-				},
-			},
-			data: { role: "admin" },
+		expect(result).toEqual({ ok: true, organizationId });
+		expect(await activeOrganizationOf(userId)).toBe(organizationId);
+
+		const session = await db.session.findFirstOrThrow({ where: { userId } });
+		expect(session.activeOrganizationId).toBe(organizationId);
+
+		const member = await db.member.findFirstOrThrow({
+			where: { organizationId, userId },
 		});
-
-		await ensureWorkspaceMembership(secondId);
-		await ensureWorkspaceMembership(secondId);
-
-		const rows = await db.member.findMany({
-			where: { organizationId: WORKSPACE_ID, userId: secondId },
-		});
-
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.role).toBe("admin");
+		expect(member.role).toBe("member");
 	});
 
-	it("joins someone who signs up later as a member", async () => {
-		await ensureWorkspaceMembership(secondId);
+	it("ignores case and spaces in the code", async () => {
+		const result = await joinOrganizationByCode(
+			userId,
+			` ${joinCode.toLowerCase()} `,
+		);
 
-		const laterId = await seedUser("later", new Date("2026-01-01T00:00:00Z"));
-
-		await ensureWorkspaceMembership(laterId);
-
-		expect(await roleOf(laterId)).toBe("member");
+		expect(result.ok).toBe(true);
 	});
 
-	it("leaves the owner alone when a later arrival signs in", async () => {
-		await ensureWorkspaceMembership(secondId);
+	it("refuses an unknown code without enrolling anyone", async () => {
+		const result = await joinOrganizationByCode(userId, "NOT-A-CODE");
 
-		const laterId = await seedUser("later", new Date("2026-01-01T00:00:00Z"));
+		expect(result).toEqual({ ok: false, reason: "invalid" });
+		expect(await activeOrganizationOf(userId)).toBeUndefined();
+	});
 
-		await ensureWorkspaceMembership(laterId);
+	it("is idempotent for a user who is already a member", async () => {
+		await joinOrganizationByCode(userId, joinCode);
+		await joinOrganizationByCode(userId, joinCode);
 
-		expect(await roleOf(firstId)).toBe("owner");
+		expect(await db.member.count({ where: { organizationId, userId } })).toBe(
+			1,
+		);
+	});
 
-		const owners = await db.member.count({
-			where: { organizationId: WORKSPACE_ID, role: "owner" },
+	it("throttles repeated wrong codes", async () => {
+		for (let attempt = 0; attempt < JOIN_ATTEMPTS; attempt++) {
+			await joinOrganizationByCode(userId, "WRONG");
+		}
+
+		expect(await joinOrganizationByCode(userId, joinCode)).toEqual({
+			ok: false,
+			reason: "throttled",
 		});
-
-		expect(owners).toBe(1);
+		expect(await activeOrganizationOf(userId)).toBeUndefined();
 	});
 });

@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { ActivityType, db, EmailDirection, GoogleSyncStatus } from "@crm/db";
+import { requireTenant } from "@crm/db/tenant";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { GoogleConnectionService } from "../src/google/google-connection.service";
 import {
@@ -71,6 +72,7 @@ async function thread(
 			messageCount: messages.length,
 			messages: {
 				create: messages.map((message) => ({
+					organizationId: requireTenant(),
 					rfcMessageId: `${message.id}@${domain}`,
 					syncedByUserId: message.syncedByUserId,
 					gmailMessageId: message.provider === "gmail" ? message.id : null,
@@ -85,6 +87,7 @@ async function thread(
 			},
 			activity: {
 				create: {
+					organizationId: requireTenant(),
 					type: ActivityType.EMAIL,
 					subject: first.subject,
 					body: last.snippet,
@@ -188,7 +191,7 @@ async function messagesOn(rootMessageId: string): Promise<string[]> {
 }
 
 async function threadState(rootMessageId: string) {
-	return db.emailThread.findUnique({
+	return db.emailThread.findFirst({
 		where: { rootMessageId },
 		select: {
 			subject: true,

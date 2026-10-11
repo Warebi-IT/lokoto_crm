@@ -1,5 +1,6 @@
 import { isGoogleConfigured, signsInWithGoogle } from "@crm/auth";
 import { type Db, GoogleSyncStatus, type Prisma } from "@crm/db";
+import { requireTenant } from "@crm/db/tenant";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { normalizeDomain } from "../crm/domain";
@@ -202,7 +203,12 @@ export class GoogleConnectionService {
 		}
 
 		await this.db.suppressedDomain.upsert({
-			where: { domain: normalised },
+			where: {
+				organizationId_domain: {
+					organizationId: requireTenant(),
+					domain: normalised,
+				},
+			},
 			create: { domain: normalised, reason: options.reason ?? null },
 			update: { reason: options.reason ?? null },
 		});

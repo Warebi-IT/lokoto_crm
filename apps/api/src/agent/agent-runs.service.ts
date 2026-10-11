@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Db } from "@crm/db";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
+import { requireTenant } from "@crm/db/tenant";
 import {
 	BadRequestException,
 	Injectable,
@@ -155,7 +156,7 @@ export class AgentRunsService {
 			>`
 					SELECT id, status, "currentVersionId"
 					FROM "agentDefinition"
-					WHERE id = ${input.id}
+					WHERE id = ${input.id} AND "organizationId" = ${requireTenant()}
 					FOR UPDATE
 				`;
 

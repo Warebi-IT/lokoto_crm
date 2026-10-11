@@ -40,6 +40,7 @@ export function WorkspaceForm() {
 
 	const nameId = useId();
 	const websiteId = useId();
+	const codeId = useId();
 
 	const workspace = useQuery(trpc.workspace.get.queryOptions());
 
@@ -62,9 +63,19 @@ export function WorkspaceForm() {
 		}),
 	);
 
+	const regenerate = useMutation(
+		trpc.workspace.regenerateJoinCode.mutationOptions({
+			onSuccess: async () => {
+				await cache.workspace();
+				toast.success("Nouveau code généré. L'ancien ne fonctionne plus.");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
 	if (!workspace.data) return null;
 
-	const { name, website, canRename } = workspace.data;
+	const { name, website, canRename, joinCode } = workspace.data;
 
 	const values = draft ?? { name, website: website ?? "" };
 	const dirty = values.name !== name || values.website !== (website ?? "");
@@ -147,6 +158,32 @@ export function WorkspaceForm() {
 							</InputGroup>
 							<FieldDescription>Le site web de votre agence.</FieldDescription>
 						</Field>
+
+						{joinCode ? (
+							<Field>
+								<FieldLabel htmlFor={codeId}>Code de l'entreprise</FieldLabel>
+								<InputGroup>
+									<InputGroupInput id={codeId} value={joinCode} readOnly />
+									<InputGroupAddon align="inline-end">
+										<Button
+											type="button"
+											variant="ghost"
+											disabled={regenerate.isPending}
+											onClick={() => regenerate.mutate()}
+										>
+											{regenerate.isPending ? (
+												<Spinner data-icon="inline-start" />
+											) : null}
+											Régénérer
+										</Button>
+									</InputGroupAddon>
+								</InputGroup>
+								<FieldDescription>
+									À donner à vos collaborateurs : ils le saisissent après leur
+									première connexion pour rejoindre l'agence.
+								</FieldDescription>
+							</Field>
+						) : null}
 					</FieldGroup>
 				</form>
 

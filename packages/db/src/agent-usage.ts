@@ -1,6 +1,6 @@
 import type { Db } from "./client";
-import { SETTINGS_ID } from "./settings";
-import { WORKSPACE_ID } from "./workspace";
+import { settingsId } from "./settings";
+import { currentTenant } from "./tenant";
 
 export interface AgentPricing {
 	inputPerMillion: number;
@@ -17,10 +17,10 @@ export interface AgentUsageStep {
 }
 
 export async function isAgentEnabled(db: Db, userId: string): Promise<boolean> {
-	const member = await db.member.findUnique({
-		where: {
-			organizationId_userId: { organizationId: WORKSPACE_ID, userId },
-		},
+	const organizationId = currentTenant();
+
+	const member = await db.member.findFirst({
+		where: { userId, ...(organizationId ? { organizationId } : {}) },
 		select: { agentEnabled: true },
 	});
 
@@ -29,7 +29,7 @@ export async function isAgentEnabled(db: Db, userId: string): Promise<boolean> {
 
 export async function readAgentPricing(db: Db): Promise<AgentPricing> {
 	const row = await db.appSetting.findUnique({
-		where: { id: SETTINGS_ID },
+		where: { id: settingsId() },
 		select: {
 			agentInputPricePerMillion: true,
 			agentOutputPricePerMillion: true,

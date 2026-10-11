@@ -4,8 +4,13 @@ import {
 	isCurrencyCode,
 	normalizeCurrency,
 } from "./currency";
+import { currentTenant } from "./tenant";
 
 export const SETTINGS_ID = "app";
+
+export function settingsId(): string {
+	return currentTenant() ?? SETTINGS_ID;
+}
 
 export const DEFAULT_AGENT_MODEL = {
 	id: "zai/glm-5.2-fast",
@@ -20,7 +25,7 @@ export interface AgentModelSetting {
 
 export async function readAgentModel(db: Db): Promise<AgentModelSetting> {
 	const row = await db.appSetting.findUnique({
-		where: { id: SETTINGS_ID },
+		where: { id: settingsId() },
 		select: { agentModelId: true, agentModelContextWindow: true },
 	});
 
@@ -46,8 +51,8 @@ export async function writeAgentModel(
 	};
 
 	await db.appSetting.upsert({
-		where: { id: SETTINGS_ID },
-		create: { id: SETTINGS_ID, ...fields },
+		where: { id: settingsId() },
+		create: { id: settingsId(), ...fields },
 		update: fields,
 	});
 }
@@ -58,7 +63,7 @@ export const CONTEXT_DEV_DISCOUNT_CODE = "CRM";
 
 export async function readContextDevKey(db: Db): Promise<string | null> {
 	const row = await db.appSetting.findUnique({
-		where: { id: SETTINGS_ID },
+		where: { id: settingsId() },
 		select: { contextDevApiKey: true },
 	});
 
@@ -69,15 +74,15 @@ export async function writeContextDevKey(db: Db, key: string): Promise<void> {
 	const contextDevApiKey = key.trim();
 
 	await db.appSetting.upsert({
-		where: { id: SETTINGS_ID },
-		create: { id: SETTINGS_ID, contextDevApiKey },
+		where: { id: settingsId() },
+		create: { id: settingsId(), contextDevApiKey },
 		update: { contextDevApiKey },
 	});
 }
 
 export async function readReportingCurrency(db: Db): Promise<string> {
 	const row = await db.appSetting.findUnique({
-		where: { id: SETTINGS_ID },
+		where: { id: settingsId() },
 		select: { reportingCurrency: true },
 	});
 
@@ -93,8 +98,8 @@ export async function writeReportingCurrency(
 	const reportingCurrency = normalizeCurrency(code);
 
 	await db.appSetting.upsert({
-		where: { id: SETTINGS_ID },
-		create: { id: SETTINGS_ID, reportingCurrency },
+		where: { id: settingsId() },
+		create: { id: settingsId(), reportingCurrency },
 		update: { reportingCurrency },
 	});
 

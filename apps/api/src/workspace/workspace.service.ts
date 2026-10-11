@@ -1,17 +1,25 @@
 import {
+	activeOrganizationOf,
 	canChangeRole,
 	canRenameWorkspace,
-	ensureWorkspaceMembership,
 	isWorkspaceRole,
-	WORKSPACE_ID,
+	joinOrganizationByCode,
 	type WorkspaceRole,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
 import { readAgentPricing } from "@crm/db/agent-usage";
-import { isOnboarded, markOnboarded, workspaceSlug } from "@crm/db/workspace";
+import { requireTenant } from "@crm/db/tenant";
+import {
+	isOnboarded,
+	markOnboarded,
+	newJoinCode,
+	workspaceSlug,
+} from "@crm/db/workspace";
 import {
 	BadRequestException,
 	ForbiddenException,
+	HttpException,
+	HttpStatus,
 	Injectable,
 	Logger,
 	NotFoundException,
@@ -41,10 +49,15 @@ export interface Workspace {
 	website: string | null;
 	onboarded: boolean;
 	viewerRole: WorkspaceRole | null;
+	joinCode: string | null;
 	canRename: boolean;
 	canChangeRoles: boolean;
 	agentEnabled: boolean;
 }
+
+export type Membership =
+	| { joined: false }
+	| { joined: true; slug: string; onboarded: boolean; canRename: boolean };
 
 export interface WorkspaceMember {
 	id: string;
@@ -100,12 +113,7 @@ export class WorkspaceService {
 	) {}
 
 	async get(userId: string): Promise<Workspace> {
-		let row = await this.readWorkspace();
-
-		if (!row) {
-			await ensureWorkspaceMembership(userId);
-			row = await this.readWorkspace();
-		}
+		const row = await this.readWorkspace();
 
 		if (!row) {
 			throw new ServiceUnavailableException(
@@ -123,10 +131,82 @@ export class WorkspaceService {
 			website: row.website,
 			onboarded: isOnboarded(row.metadata),
 			viewerRole: role,
+			joinCode: canRenameWorkspace(role) ? row.joinCode : null,
 			canRename: canRenameWorkspace(role),
 			canChangeRoles: canChangeRole(role),
 			agentEnabled: viewer?.agentEnabled ?? false,
 		};
+	}
+
+	async membership(userId: string): Promise<Membership> {
+		const organizationId = await activeOrganizationOf(userId);
+
+		if (!organizationId) return { joined: false };
+
+		const [row, member] = await Promise.all([
+			this.db.organization.findUnique({
+				where: { id: organizationId },
+				select: { slug: true, metadata: true },
+			}),
+			this.db.member.findUnique({
+				where: { organizationId_userId: { organizationId, userId } },
+				select: { role: true },
+			}),
+		]);
+
+		if (!row) return { joined: false };
+
+		return {
+			joined: true,
+			slug: row.slug,
+			onboarded: isOnboarded(row.metadata),
+			canRename: canRenameWorkspace(member ? toRole(member.role) : null),
+		};
+	}
+
+	async join(userId: string, code: string): Promise<{ slug: string }> {
+		const result = await joinOrganizationByCode(userId, code);
+
+		if (!result.ok) {
+			if (result.reason === "throttled") {
+				throw new HttpException(
+					"Too many attempts. Wait a few minutes and try again.",
+					HttpStatus.TOO_MANY_REQUESTS,
+				);
+			}
+
+			throw new BadRequestException("That company code is not valid.");
+		}
+
+		this.logger.log({ message: "User joined a workspace", userId });
+
+		const organization = await this.db.organization.findUniqueOrThrow({
+			where: { id: result.organizationId },
+			select: { slug: true },
+		});
+
+		return { slug: organization.slug };
+	}
+
+	async regenerateJoinCode(userId: string): Promise<{ joinCode: string }> {
+		const role = await this.roleOf(userId);
+
+		if (!canRenameWorkspace(role)) {
+			throw new ForbiddenException(
+				"Only an owner or an admin can change the company code.",
+			);
+		}
+
+		const joinCode = newJoinCode();
+
+		await this.db.organization.update({
+			where: { id: requireTenant() },
+			data: { joinCode },
+		});
+
+		this.logger.log({ message: "Company code regenerated", userId });
+
+		return { joinCode };
 	}
 
 	async update(
@@ -142,7 +222,7 @@ export class WorkspaceService {
 		}
 
 		const before = await this.db.organization.findUnique({
-			where: { id: WORKSPACE_ID },
+			where: { id: requireTenant() },
 			select: { website: true, metadata: true },
 		});
 
@@ -155,7 +235,7 @@ export class WorkspaceService {
 		}
 
 		await this.db.organization.update({
-			where: { id: WORKSPACE_ID },
+			where: { id: requireTenant() },
 			data: {
 				name: input.name,
 				slug: workspaceSlug(input.slug ?? input.name),
@@ -222,7 +302,7 @@ export class WorkspaceService {
 
 		const updated = await this.db.$transaction(async (tx) => {
 			const target = await tx.member.findFirst({
-				where: { id: input.memberId, organizationId: WORKSPACE_ID },
+				where: { id: input.memberId, organizationId: requireTenant() },
 				select: { id: true, role: true },
 			});
 
@@ -233,7 +313,7 @@ export class WorkspaceService {
 			if (target.role === "owner" && input.role !== "owner") {
 				const owners = await tx.$queryRaw<{ id: string }[]>`
 					SELECT id FROM "member"
-					WHERE "organizationId" = ${WORKSPACE_ID} AND role = 'owner'
+					WHERE "organizationId" = ${requireTenant()} AND role = 'owner'
 					FOR UPDATE
 				`;
 
@@ -274,7 +354,7 @@ export class WorkspaceService {
 		}
 
 		const target = await this.db.member.findFirst({
-			where: { id: input.memberId, organizationId: WORKSPACE_ID },
+			where: { id: input.memberId, organizationId: requireTenant() },
 			select: { id: true },
 		});
 
@@ -322,6 +402,10 @@ export class WorkspaceService {
 					SUM("totalTokens") AS tokens
 				FROM "agentUsage"
 				WHERE "createdAt" >= ${start} AND "createdAt" < ${end}
+					AND "userId" IN (
+						SELECT "userId" FROM "member"
+						WHERE "organizationId" = ${requireTenant()}
+					)
 				GROUP BY 1
 			`,
 		]);
@@ -367,7 +451,7 @@ export class WorkspaceService {
 
 	private searchWhere(q: string): Prisma.MemberWhereInput {
 		const term = q.trim();
-		const where: Prisma.MemberWhereInput = { organizationId: WORKSPACE_ID };
+		const where: Prisma.MemberWhereInput = { organizationId: requireTenant() };
 
 		if (term) {
 			where.user = {
@@ -393,13 +477,14 @@ export class WorkspaceService {
 
 	private async readWorkspace() {
 		return this.db.organization.findUnique({
-			where: { id: WORKSPACE_ID },
+			where: { id: requireTenant() },
 			select: {
 				id: true,
 				slug: true,
 				name: true,
 				website: true,
 				metadata: true,
+				joinCode: true,
 			},
 		});
 	}
@@ -407,7 +492,7 @@ export class WorkspaceService {
 	private async viewerOf(userId: string) {
 		const member = await this.db.member.findUnique({
 			where: {
-				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+				organizationId_userId: { organizationId: requireTenant(), userId },
 			},
 			select: { role: true, agentEnabled: true },
 		});
@@ -420,7 +505,7 @@ export class WorkspaceService {
 	private async roleOf(userId: string): Promise<WorkspaceRole | null> {
 		const member = await this.db.member.findUnique({
 			where: {
-				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+				organizationId_userId: { organizationId: requireTenant(), userId },
 			},
 			select: { role: true },
 		});

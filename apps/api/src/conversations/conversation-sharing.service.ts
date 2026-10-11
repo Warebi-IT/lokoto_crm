@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { WORKSPACE_ID } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
+import { requireTenant } from "@crm/db/tenant";
 import {
 	ForbiddenException,
 	Injectable,
@@ -199,7 +199,7 @@ export class ConversationSharingService {
 		const rows = await tx.$queryRaw<Array<{ id: string }>>`
 			SELECT id
 			FROM "agentConversation"
-			WHERE id = ${conversationId}
+			WHERE id = ${conversationId} AND "organizationId" = ${requireTenant()}
 			FOR UPDATE
 		`;
 		if (rows.length === 0) return false;
@@ -220,7 +220,7 @@ export class ConversationSharingService {
 	private async assertWorkspaceMember(userId: string): Promise<void> {
 		const member = await this.db.member.findUnique({
 			where: {
-				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+				organizationId_userId: { organizationId: requireTenant(), userId },
 			},
 			select: { id: true },
 		});

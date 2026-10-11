@@ -10,6 +10,7 @@ import { AllExceptionsFilter } from "./all-exceptions.filter";
 import { ContextLogger } from "./context-logger";
 import { PrismaLogBridge } from "./prisma-log.bridge";
 import { RequestLoggerMiddleware } from "./request-logger.middleware";
+import { TenantInterceptor } from "./tenant.interceptor";
 import { UserContextInterceptor } from "./user-context.interceptor";
 
 @Global()
@@ -19,6 +20,7 @@ import { UserContextInterceptor } from "./user-context.interceptor";
 		PrismaLogBridge,
 		{ provide: APP_FILTER, useClass: AllExceptionsFilter },
 		{ provide: APP_INTERCEPTOR, useClass: UserContextInterceptor },
+		{ provide: APP_INTERCEPTOR, useClass: TenantInterceptor },
 	],
 	exports: [ContextLogger],
 })

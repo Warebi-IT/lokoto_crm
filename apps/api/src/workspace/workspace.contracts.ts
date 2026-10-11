@@ -35,3 +35,9 @@ export const setMemberAgentInput = z.object({
 });
 
 export type SetMemberAgentInput = z.infer<typeof setMemberAgentInput>;
+
+export const joinWorkspaceInput = z.object({
+	code: z.string().trim().min(1).max(64),
+});
+
+export type JoinWorkspaceInput = z.infer<typeof joinWorkspaceInput>;

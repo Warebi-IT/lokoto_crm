@@ -32,7 +32,7 @@ import { setResearchKeyInput } from "../settings/settings.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { vehicleChargesByVehicleInput, vehicleChargeCreateInput, vehicleChargeIdInput } from "../vehicle-charges/vehicle-charges.contracts";
 import { vehicleListInput, vehicleIdInput, vehicleAvailabilityInput, vehicleCatalogInput, vehicleCreateInput, vehicleUpdateArgs, vehicleBulkStatusInput, vehicleBulkInput, vehicleSetFinancingInput, vehicleClearFinancingInput } from "../vehicles/vehicles.contracts";
-import { memberListInput, setMemberAgentInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
+import { memberListInput, setMemberAgentInput, updateWorkspaceInput, setMemberRoleInput, joinWorkspaceInput } from "../workspace/workspace.contracts";
 import type { ActivitiesRouter } from "../activities/activities.router";
 import type { AgentsRouter } from "../agent/agents.router";
 import type { ContactsRouter } from "../contacts/contacts.router";
@@ -508,7 +508,14 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["update"]>>),
     setMemberRole: publicProcedure
       .input(setMemberRoleInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["setMemberRole"]>>)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["setMemberRole"]>>),
+    membership: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["membership"]>>),
+    join: publicProcedure
+      .input(joinWorkspaceInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["join"]>>),
+    regenerateJoinCode: publicProcedure
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["regenerateJoinCode"]>>)
     })
 });
 

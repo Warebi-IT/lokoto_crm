@@ -347,16 +347,23 @@ export async function writeTimelineNote(
 ): Promise<string | null> {
 	const contact = await db.contact.findUnique({
 		where: { id: contactId },
-		select: { id: true },
+		select: { id: true, organizationId: true },
 	});
 	if (!contact) return null;
 
 	const author =
-		(await db.user.findFirst({ select: { id: true } }))?.id ?? null;
+		(
+			await db.member.findFirst({
+				where: { organizationId: contact.organizationId },
+				orderBy: { createdAt: "asc" },
+				select: { userId: true },
+			})
+		)?.userId ?? null;
 	if (!author) return null;
 
 	const activity = await db.activity.create({
 		data: {
+			organizationId: contact.organizationId,
 			type: "NOTE",
 			subject,
 			body,

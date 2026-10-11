@@ -2,7 +2,11 @@ import { AUTH_COOKIE_PREFIX } from "@crm/auth/cookies";
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 import { isMarketing } from "@/lib/env";
-import { ONBOARDING_PATH, readWorkspaceGate } from "@/lib/onboarding";
+import {
+	JOIN_PATH,
+	ONBOARDING_PATH,
+	readWorkspaceGate,
+} from "@/lib/onboarding";
 import { workspaceUrl } from "@/lib/workspace-url";
 
 const LANDING_PATH = "/";
@@ -29,6 +33,8 @@ export async function proxy(request: NextRequest) {
 	if (isUngated(pathname)) return NextResponse.next();
 
 	const workspace = await readWorkspaceGate(request);
+
+	if (workspace.gate === "join") return sendTo(JOIN_PATH, request);
 
 	if (workspace.gate === "required") return sendTo(ONBOARDING_PATH, request);
 
@@ -67,7 +73,7 @@ function isUngated(pathname: string): boolean {
 }
 
 function isSetup(pathname: string): boolean {
-	return pathname === ONBOARDING_PATH;
+	return pathname === ONBOARDING_PATH || pathname === JOIN_PATH;
 }
 
 function sendTo(path: string, request: NextRequest): NextResponse {
