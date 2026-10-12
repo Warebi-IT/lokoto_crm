@@ -6,7 +6,7 @@
 	"scripts": {
 		"prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
 		"build": "turbo run build",
-		"dev": "turbo run dev",
+		"dev": "turbo run dev --filter=!vehicle-catalog-importer",
 		"lint": "turbo run lint",
 		"format": "biome format --write .",
 		"check-types": "turbo run check-types",
