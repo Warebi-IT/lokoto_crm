@@ -11,7 +11,7 @@
 	 * That is not hypothetical here. `API_URL` was stripped from the Next.js
 	 * build, so the browser bundle was compiled with the localhost fallback and
 	 * every request from a deployed page went to the reader's own machine; and
-	 * `DATABASE_URL` was stripped from the agent build, where `eve build`
+	 * `BDD_URL` was stripped from the agent build, where `eve build`
 	 * evaluates the authored modules and `@crm/db` throws without it. The
 	 * `MICROSOFT_*` trio was the same omission again: undeclared, so
 	 * `microsoftCredentials()` read nothing, `isMicrosoftConfigured()` was
@@ -25,7 +25,7 @@
 	 * a secret in the cache metadata.
 	 */
 	"globalPassThroughEnv": [
-		"DATABASE_URL",
+		"BDD_URL",
 		"DATABASE_URL_UNPOOLED",
 		"BETTER_AUTH_SECRET",
 		"BETTER_AUTH_URL",

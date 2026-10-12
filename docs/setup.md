@@ -7,7 +7,7 @@ reads once.
 ## First run
 
 ```sh
-cp .env.example .env        # fill DATABASE_URL, BETTER_AUTH_SECRET, ALLOWED_SIGN_IN
+cp .env.example .env        # fill BDD_URL, BETTER_AUTH_SECRET, ALLOWED_SIGN_IN
 docker compose up -d        # Postgres, matching .env.example
 bun run db:migrate && bun run db:seed
 bun run dev                 # app :3000, api :3001, agent :2000
@@ -105,7 +105,7 @@ build, gated on `VERCEL_ENV === "production"`. The schema therefore moves when t
 promotion pull request merges and `release` deploys — with the code that needs it,
 and once rather than once per branch.
 
-Preview deploys share the production database: `DATABASE_URL` is a single value
+Preview deploys share the production database: `BDD_URL` is a single value
 across production, preview and development. Until that changes, **a preview of a
 branch that adds a migration runs against a database without those tables** — it
 builds, and the pages that touch them fail. Test schema changes locally, where
@@ -131,7 +131,7 @@ migration file, only in a `db push` of an older schema.
 Reconciling is one command, and it is worth reading before running:
 
 ```sh
-DATABASE_URL="…" bunx prisma migrate diff \
+BDD_URL="…" bunx prisma migrate diff \
   --from-config-datasource --to-schema prisma/schema.prisma --script
 ```
 
@@ -146,5 +146,5 @@ never reuse one from an example, a tutorial, or another environment.
 
 ```sh
 bun run --filter=api test
-bun run --filter=agent test    # integration specs need DATABASE_URL + real Postgres
+bun run --filter=agent test    # integration specs need BDD_URL + real Postgres
 ```

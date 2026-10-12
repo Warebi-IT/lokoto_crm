@@ -225,7 +225,7 @@ key to rotate. Note that `eve dev` never fires schedules on their cadence —
 there is a dispatch route for triggering one while iterating.
 
 **Monorepo wiring.** `apps/agent` joins the bun workspace and gets a
-`turbo.json` declaring `passThroughEnv` for `DATABASE_URL` and the RapidAPI key,
+`turbo.json` declaring `passThroughEnv` for `BDD_URL` and the RapidAPI key,
 matching how `apps/api` does it. `check-types` and `lint` join the root
 pipeline; `build` is `eve build`.
 

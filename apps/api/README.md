@@ -14,7 +14,7 @@ bun run build && bun run start:prod
 ```
 
 Three values are required and the process refuses to boot without them, naming
-the one it is missing: `DATABASE_URL`, `BETTER_AUTH_SECRET` and
+the one it is missing: `BDD_URL`, `BETTER_AUTH_SECRET` and
 `ALLOWED_SIGN_IN`. `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are the fourth
 value almost every install wants — they are both the sign-in button and the
 Gmail and Calendar sync — but they are optional and set as a pair, because an

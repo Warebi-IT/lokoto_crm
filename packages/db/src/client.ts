@@ -4,11 +4,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { type Prisma, PrismaClient } from "./generated/prisma/client";
 import { tenantScope } from "./tenant";
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.BDD_URL;
 
 if (!connectionString) {
 	throw new Error(
-		"DATABASE_URL is not set. Copy .env.example to .env at the root of the repo and fill it in, or set DATABASE_URL in the environment.",
+		"BDD_URL is not set. Copy .env.example to .env at the root of the repo and fill it in, or set BDD_URL in the environment.",
 	);
 }
 

@@ -4,10 +4,10 @@
 	"tasks": {
 		"auth:generate": {
 			"cache": false,
-			"passThroughEnv": ["DATABASE_URL"]
+			"passThroughEnv": ["BDD_URL"]
 		},
 		"check-types": {
-			"passThroughEnv": ["DATABASE_URL"]
+			"passThroughEnv": ["BDD_URL"]
 		}
 	}
 }

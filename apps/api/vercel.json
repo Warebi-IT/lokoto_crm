@@ -1,5 +1,7 @@
 {
 	"$schema": "https://openapi.vercel.sh/vercel.json",
+	"framework": null,
+	"buildCommand": "node scripts/build-func.mjs",
 	"crons": [
 		{
 			"path": "/internal/sync/mailboxes",

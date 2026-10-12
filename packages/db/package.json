@@ -21,7 +21,8 @@
 		"./settings": "./src/settings.ts",
 		"./tenant": "./src/tenant.ts",
 		"./vehicle-photos": "./src/vehicle-photos.ts",
-		"./workspace": "./src/workspace.ts"
+		"./workspace": "./src/workspace.ts",
+		"./workspace-slug": "./src/workspace-slug.ts"
 	},
 	"scripts": {
 		"build": "prisma generate",

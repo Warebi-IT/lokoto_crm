@@ -45,6 +45,8 @@ const microsoftCredentials = ():
 const apiUrl =
 	optional("API_URL") ?? optional("BETTER_AUTH_URL") ?? DEFAULT_API_URL;
 
+const authUrl = optional("BETTER_AUTH_URL") ?? apiUrl;
+
 const appUrls = (optional("APP_URL") ?? DEFAULT_APP_URL)
 	.split(",")
 	.map((origin) => origin.trim())
@@ -54,11 +56,12 @@ const appUrl = appUrls[0] ?? DEFAULT_APP_URL;
 
 export const env = {
 	apiUrl,
+	authUrl,
 	appUrl,
 	google: googleCredentials(),
 	microsoft: microsoftCredentials(),
 	cookieDomain: optional("AUTH_COOKIE_DOMAIN"),
-	trustedOrigins: [...new Set([...appUrls, apiUrl])],
+	trustedOrigins: [...new Set([...appUrls, apiUrl, authUrl])],
 	isProduction: process.env.NODE_ENV === "production",
 } as const;
 

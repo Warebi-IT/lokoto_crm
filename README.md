@@ -124,7 +124,7 @@ diff this month's profile against last month's, and grep a thread for a signatur
 block. `deny-all` egress costs nothing, because `web_fetch` runs in the app runtime
 and `web_search` at the model provider. What it removes is the only path by which a
 customer's email body could leave through a shell command. The other half of that rule
-is an absence: **the sandbox is never given `DATABASE_URL`.** A shell with credentials
+is an absence: **the sandbox is never given `BDD_URL`.** A shell with credentials
 and egress is exfiltration-shaped even in an internal tool; a shell with neither is a
 text processor.
 
@@ -224,7 +224,7 @@ Open `.env` and set these. Everything else in the file is optional and commented
 **Settings → SSO** once you are in. Setting both is fine and common: the sign-in page
 offers both buttons, and each rep's mail is read from whichever they signed in with.
 
-`DATABASE_URL` already matches the `docker compose` Postgres, so leave it alone unless
+`BDD_URL` already matches the `docker compose` Postgres, so leave it alone unless
 you brought your own.
 
 <details>
@@ -339,7 +339,7 @@ would have set. It refuses to run with `NODE_ENV=production`.
 ## Deploying
 
 Three deployments and a Postgres: the Next.js app, the NestJS API, and the agent.
-They are independent, and the only thing they must agree on is `DATABASE_URL` and
+They are independent, and the only thing they must agree on is `BDD_URL` and
 `BETTER_AUTH_SECRET` — the API mints the session cookie and the app verifies it, so a
 mismatch is a redirect loop rather than an error.
 
